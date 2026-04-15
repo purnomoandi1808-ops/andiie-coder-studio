@@ -7,7 +7,6 @@ from openai import OpenAI
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# PASTIKAN KODENYA SEPERTI INI, JANGAN MASUKKAN API KEY ASLI DI SINI
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 KUNCI_RAHASIA = os.environ.get("KUNCI_RAHASIA", "KODE_RAHASIA_ANDIIE_2026")
@@ -55,7 +54,10 @@ async def stream_cloud(instruksi, model_name):
     except Exception as e:
         yield f"⚠️ Error Cloud: {str(e)}"
 
-@app.post("/api/chat")
+# === UBAHAN KUNCI DI SINI ===
+# Kita buka dua pintu sekaligus agar Vercel tidak bingung!
+@app.post("/api")
+@app.post("/")
 async def chat_stream(request: Request):
     data = await request.json()
     if data.get("kunci_rahasia") != KUNCI_RAHASIA: return {"error": "Akses Ditolak!"}
