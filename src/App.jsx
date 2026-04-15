@@ -247,15 +247,14 @@ export default function App() {
     <option value="auto">✨ Auto Smart Manager</option>
   </optgroup>
   
-  <optgroup label="Model Terbaru 2026 (OpenRouter)">
-  <option value="anthropic/claude-4.6-sonnet">🧠 Claude 4.6 Sonnet (Terbaru)</option>
-  <option value="qwen/qwen-3-coder-72b">☁️ Qwen 3 Coder 72B (API)</option>
-  <option value="openai/gpt-5-preview">⚡ ChatGPT / GPT-5 Preview</option>
-  <option value="openai/gpt-4o">🚀 ChatGPT / GPT-4o (High Speed)</option>
+  <optgroup label="Model Elite 2026 (OpenRouter)">
+  <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
+  <option value="openai/gpt-5.3-codex">⚡ GPT-5.3 Codex</option>
+  <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
 </optgroup>
 
   <optgroup label="Lokal (Laptop Aero 15)">
-    <option value="lokal">💻 Qwen 2.5 30B (Lokal Ollama)</option>
+    <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
   </optgroup>
 </select>
           </div>
