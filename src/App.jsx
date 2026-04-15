@@ -238,11 +238,26 @@ export default function App() {
             <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
           </div>
           <div className="flex items-center gap-3">
-            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-4 py-2 focus:outline-none cursor-pointer transition-all shadow-lg">
-              <optgroup label="Auto Routing"><option value="auto">✨ Auto Smart Manager</option></optgroup>
-              <optgroup label="Lokal (Laptop Mode)"><option value="lokal">💻 Qwen 30B (Lokal)</option></optgroup>
-              <optgroup label="Cloud (Backup Mode)"><option value="openai/gpt-4o">⚡ GPT-4o</option><option value="anthropic/claude-3.5-sonnet">🧠 Claude 3.5</option></optgroup>
-            </select>
+            <select 
+  value={selectedModel} 
+  onChange={(e) => setSelectedModel(e.target.value)} 
+  className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-4 py-2 focus:outline-none cursor-pointer transition-all shadow-lg"
+>
+  <optgroup label="Auto Routing">
+    <option value="auto">✨ Auto Smart Manager</option>
+  </optgroup>
+  
+  <optgroup label="Model Terbaru 2026 (OpenRouter)">
+  <option value="anthropic/claude-4.6-sonnet">🧠 Claude 4.6 Sonnet (Terbaru)</option>
+  <option value="qwen/qwen-3-coder-72b">☁️ Qwen 3 Coder 72B (API)</option>
+  <option value="openai/gpt-5-preview">⚡ ChatGPT / GPT-5 Preview</option>
+  <option value="openai/gpt-4o">🚀 ChatGPT / GPT-4o (High Speed)</option>
+</optgroup>
+
+  <optgroup label="Lokal (Laptop Aero 15)">
+    <option value="lokal">💻 Qwen 2.5 30B (Lokal Ollama)</option>
+  </optgroup>
+</select>
           </div>
         </header>
 
