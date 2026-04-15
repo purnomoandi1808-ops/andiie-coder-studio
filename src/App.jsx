@@ -106,7 +106,7 @@ export default function App() {
       const URL_LOKAL = "https://kurt-routine-citizenship-site.trycloudflare.com/api/chat/stream";
       
       // 2. URL Vercel Serverless (Untuk Claude/GPT)
-      const URL_CLOUD = "/api/chat/stream";
+      const URL_CLOUD = "/api/chat";
       
       // 3. Logika Hybrid: Pilih URL berdasarkan model yang diklik
       const targetAPI = selectedModel === "lokal" ? URL_LOKAL : URL_CLOUD;

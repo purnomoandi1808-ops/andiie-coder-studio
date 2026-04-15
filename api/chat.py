@@ -55,7 +55,7 @@ async def stream_cloud(instruksi, model_name):
     except Exception as e:
         yield f"⚠️ Error Cloud: {str(e)}"
 
-@app.post("/api/chat/stream")
+@app.post("/api/chat")
 async def chat_stream(request: Request):
     data = await request.json()
     if data.get("kunci_rahasia") != KUNCI_RAHASIA: return {"error": "Akses Ditolak!"}
