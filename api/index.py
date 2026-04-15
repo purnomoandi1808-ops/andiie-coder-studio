@@ -7,6 +7,7 @@ from openai import OpenAI
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+# Mengambil konfigurasi dari Environment Variables Vercel
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 KUNCI_RAHASIA = os.environ.get("KUNCI_RAHASIA", "KODE_RAHASIA_ANDIIE_2026")
@@ -26,7 +27,8 @@ def manajer_rute(instruksi: str) -> str:
     prompt = f"Analisis: '{instruksi}'. Jika butuh internet balas SEARCH. Jika koding berat balas CLOUD."
     try:
         res = client_openai.chat.completions.create(model="gpt-4o-mini", messages=[{"role":"system","content":prompt}], max_tokens=10)
-        return "SEARCH_MODE" if "SEARCH" in res.choices[0].message.content.upper() else "anthropic/claude-sonnet-4.6"
+        keputusan = res.choices[0].message.content.upper()
+        return "SEARCH_MODE" if "SEARCH" in keputusan else "anthropic/claude-sonnet-4.6"
     except:
         return "anthropic/claude-sonnet-4.6"
 
@@ -54,16 +56,24 @@ async def stream_cloud(instruksi, model_name):
     except Exception as e:
         yield f"⚠️ Error Cloud: {str(e)}"
 
-# === UBAHAN KUNCI DI SINI ===
-# Kita buka dua pintu sekaligus agar Vercel tidak bingung!
-@app.post("/api")
-@app.post("/")
+# === PENYESUAIAN RUTE AGAR SAMA DENGAN App.jsx ===
+@app.post("/api/chat") # <--- Ini pintu utama yang dicari App.jsx Anda
+@app.post("/api")      # <--- Pintu cadangan
+@app.post("/")         # <--- Pintu root
 async def chat_stream(request: Request):
     data = await request.json()
-    if data.get("kunci_rahasia") != KUNCI_RAHASIA: return {"error": "Akses Ditolak!"}
+    
+    # Validasi Kunci Keamanan
+    if data.get("kunci_rahasia") != KUNCI_RAHASIA:
+        return {"error": "Akses Ditolak!"}
     
     instruksi = data.get("instruksi", "")
     paksa_model = data.get("paksa_model", "auto")
     
+    # Pilih model (Smart Routing atau Pilihan User)
     model_akhir = paksa_model if paksa_model != "auto" else manajer_rute(instruksi)
-    return StreamingResponse(stream_cloud(instruksi, model_akhir), media_type="text/event-stream")
+    
+    return StreamingResponse(
+        stream_cloud(instruksi, model_akhir), 
+        media_type="text/event-stream"
+    )

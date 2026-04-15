@@ -90,6 +90,7 @@ export default function App() {
     if (currentSessionId === id) buatChatBaru();
   };
 
+  // --- BAGIAN YANG DIPERBAIKI (ANTIK 404) ---
   const kirimPesan = async () => {
     if (!input.trim() || isStreaming) return;
     
@@ -98,18 +99,24 @@ export default function App() {
     setIsStreaming(true);
     setActiveRoute(null);
 
-    // ... (Logika simpan sesi chat tetap sama seperti sebelumnya) ...
+    // Pastikan Session ID ada agar history tersimpan
+    let sessionId = currentSessionId;
+    if (!sessionId) {
+      sessionId = Date.now().toString();
+      setCurrentSessionId(sessionId);
+      const judulBaru = instruksiUser.length > 25 ? instruksiUser.substring(0, 25) + "..." : instruksiUser;
+      setSessions(prev => [{ id: sessionId, title: judulBaru, messages: [] }, ...prev]);
+    }
+
+    setMessages(prev => [...prev, { role: "user", text: instruksiUser }, { role: "ai", text: "" }]);
 
     try {
-      // 1. Tentukan URL Cloudflare Laptop Anda (Untuk Qwen Lokal)
-      // Ganti URL trycloudflare ini dengan link asli Anda yang aktif!
-      const URL_LOKAL = "https://kurt-routine-citizenship-site.trycloudflare.com/api/chat/stream";
-      
-      // 2. URL Vercel Serverless (Untuk Claude/GPT)
-      const URL_CLOUD = "/api/chat";
-      
-      // 3. Logika Hybrid: Pilih URL berdasarkan model yang diklik
-      const targetAPI = selectedModel === "lokal" ? URL_LOKAL : URL_CLOUD;
+      // PENENTUAN ALAMAT API (SINKRON DENGAN VERCEL)
+      const targetAPI = selectedModel === "lokal" 
+        ? "https://kurt-routine-citizenship-site.trycloudflare.com/api/chat" // Laptop
+        : (window.location.hostname === "localhost" 
+            ? "https://andiie-coder-studio.vercel.app/api/chat" // Cloud tembak via Vercel asli
+            : "/api/chat"); // Cloud tembak relatif
 
       const respon = await fetch(targetAPI, {
         method: "POST",
@@ -121,9 +128,7 @@ export default function App() {
         })
       });
 
-      if (!respon.ok) throw new Error(selectedModel === "lokal" ? "Laptop Offline/Mati" : "Koneksi Cloud Gagal");
-
-      if (!respon.ok) throw new Error("Koneksi API Gagal");
+      if (!respon.ok) throw new Error("404: Pintu API tidak ditemukan");
 
       const reader = respon.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -151,7 +156,7 @@ export default function App() {
     } catch (error) {
       setMessages(prev => {
         const newMessages = [...prev];
-        newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: `⚠️ Error: ${error.message}. Pastikan Backend Python menyala.` };
+        newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: `⚠️ Error: ${error.message}` };
         return newMessages;
       });
     } finally {
@@ -159,7 +164,7 @@ export default function App() {
     }
   };
 
-  // --- RENDER HALAMAN LOGIN ---
+  // --- RENDER HALAMAN LOGIN (Original) ---
   if (!isLoggedIn) {
     return (
       <div className="h-screen bg-[#131314] flex items-center justify-center p-4">
@@ -191,7 +196,7 @@ export default function App() {
     );
   }
 
-  // --- RENDER DASHBOARD UTAMA ---
+  // --- RENDER DASHBOARD UTAMA (Original + Canvas) ---
   return (
     <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans overflow-hidden selection:bg-blue-500/30">
       
@@ -309,7 +314,17 @@ export default function App() {
 
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent pt-12 pb-8 px-4 md:px-8 z-20">
             <div className="max-w-3xl mx-auto bg-[#1e1f20] rounded-[32px] pl-6 pr-3 py-3 flex items-center gap-3 shadow-2xl border border-white/5 focus-within:border-blue-500/50 transition-all duration-500">
-              <input type="text" className="flex-1 bg-transparent border-none focus:ring-0 text-[16px] text-[#e3e3e3] placeholder-gray-500 outline-none" placeholder="Ketik instruksi untuk AI..." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && kirimPesan()} disabled={isStreaming} />
+              <input 
+                id="chat-input"
+                name="chat-input"
+                type="text" 
+                className="flex-1 bg-transparent border-none focus:ring-0 text-[16px] text-[#e3e3e3] placeholder-gray-500 outline-none" 
+                placeholder="Ketik instruksi untuk AI..." 
+                value={input} 
+                onChange={(e) => setInput(e.target.value)} 
+                onKeyDown={(e) => e.key === 'Enter' && kirimPesan()} 
+                disabled={isStreaming} 
+              />
               <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className="p-3.5 bg-white hover:bg-gray-200 disabled:bg-gray-800 text-black rounded-full transition-all flex items-center justify-center shrink-0 shadow-lg active:scale-90"><Send size={20} /></button>
             </div>
             <div className="text-center text-[10px] text-gray-600 mt-4 font-bold tracking-widest uppercase">
