@@ -3,20 +3,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Cpu, CloudLightning, Loader2, Code2, Menu, Plus, MessageSquare, Trash2, Lock } from 'lucide-react';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate } from 'lucide-react';
 
 export default function App() {
   // --- STATE AUTH ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginData, setLoginData] = useState({ username: "", password: "" });
 
-  // --- STATE CHAT ---
+  // --- STATE CHAT & UI ---
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeRoute, setActiveRoute] = useState(null); 
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedModel, setSelectedModel] = useState("auto");
+  
+  // --- STATE CANVAS PREVIEW (BARU) ---
+  const [previewCode, setPreviewCode] = useState("");
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // --- LOGIKA MEMORY ---
   const [sessions, setSessions] = useState(() => {
     const saved = localStorage.getItem("andiie_chat_history");
     return saved ? JSON.parse(saved) : [];
@@ -24,11 +30,26 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const chatEndRef = useRef(null);
 
-  // --- LOGIKA AUTH ---
+  // --- EFEK AUTH & MEMORY ---
   useEffect(() => {
     if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true);
   }, []);
 
+  useEffect(() => {
+    if (currentSessionId && messages.length > 0) {
+      setSessions(prev => {
+        const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
+        localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
+        return updated;
+      });
+    }
+  }, [messages, currentSessionId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isStreaming]);
+
+  // --- FUNGSI LOGIN & CHAT ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (loginData.username === "andiie" && loginData.password === "Arsyad160216") {
@@ -44,26 +65,11 @@ export default function App() {
     setIsLoggedIn(false);
   };
 
-  // --- LOGIKA MEMORY ---
-  useEffect(() => {
-    if (currentSessionId && messages.length > 0) {
-      setSessions(prev => {
-        const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
-        localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
-        return updated;
-      });
-    }
-  }, [messages, currentSessionId]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isStreaming]);
-
-  // --- LOGIKA ACTIONS ---
   const buatChatBaru = () => {
     setCurrentSessionId(null);
     setMessages([]);
     setActiveRoute(null);
+    setIsPreviewOpen(false); // Tutup canvas saat chat baru
   };
 
   const muatChatLama = (id) => {
@@ -84,7 +90,6 @@ export default function App() {
     if (currentSessionId === id) buatChatBaru();
   };
 
-  // --- LOGIKA PENGIRIMAN PESAN (HYBRID FALLBACK) ---
   const kirimPesan = async () => {
     if (!input.trim() || isStreaming) return;
     
@@ -106,14 +111,9 @@ export default function App() {
     try {
       const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       
-      // Timer untuk mendeteksi laptop mati (5 detik timeout)
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-
       const respon = await fetch(`${API_URL}/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        signal: controller.signal,
         body: JSON.stringify({ 
           instruksi: instruksiUser, 
           paksa_model: selectedModel,
@@ -121,8 +121,7 @@ export default function App() {
         })
       });
 
-      clearTimeout(timeoutId);
-      if (!respon.ok) throw new Error("Laptop Offline");
+      if (!respon.ok) throw new Error("Koneksi API Gagal");
 
       const reader = respon.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -148,19 +147,9 @@ export default function App() {
         });
       }
     } catch (error) {
-      // --- LOGIKA FALLBACK: JIKA LAPTOP MATI, PAKAI CLOUD LANGSUNG ---
-      setActiveRoute("Cloud Direct (Laptop Offline)");
       setMessages(prev => {
         const newMessages = [...prev];
-        newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: "🔄 Laptop offline. Menghubungkan ke Cloud..." };
-        return newMessages;
-      });
-
-      // Panggil API OpenRouter Langsung dari sini jika backend mati
-      // (Memerlukan OpenRouter Key Anda di Environment Vercel agar aman)
-      setMessages(prev => {
-        const newMessages = [...prev];
-        newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: "⚠️ Maaf Mas Andi, laptop sedang mati/offline. Silakan nyalakan laptop untuk akses Qwen lokal, atau hubungi sistem Cloud." };
+        newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: `⚠️ Error: ${error.message}. Pastikan Backend Python menyala.` };
         return newMessages;
       });
     } finally {
@@ -182,18 +171,16 @@ export default function App() {
           <p className="text-gray-400 text-center text-sm mb-8">Hanya untuk Andiie & Project ABAPE</p>
           <form onSubmit={handleLogin} className="space-y-4">
             <input 
-              type="text" 
-              placeholder="Username" 
+              type="text" placeholder="Username" 
               className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 transition-all text-white"
               onChange={(e) => setLoginData({...loginData, username: e.target.value})}
             />
             <input 
-              type="password" 
-              placeholder="Sandi" 
+              type="password" placeholder="Sandi" 
               className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 transition-all text-white"
               onChange={(e) => setLoginData({...loginData, password: e.target.value})}
             />
-            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-95">
+            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">
               Masuk
             </button>
           </form>
@@ -207,7 +194,7 @@ export default function App() {
     <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans overflow-hidden selection:bg-blue-500/30">
       
       {/* SIDEBAR */}
-      <div className={`${isSidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 ease-in-out bg-[#1e1f20] shrink-0 flex flex-col border-r border-white/5 overflow-hidden`}>
+      <div className={`${isSidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 ease-in-out bg-[#1e1f20] shrink-0 flex flex-col border-r border-white/5 overflow-hidden z-20`}>
         <div className="p-4">
           <button onClick={buatChatBaru} className="flex items-center gap-3 bg-[#131314] hover:bg-[#282a2c] px-4 py-3 rounded-full text-sm font-medium transition-colors border border-gray-700/50 w-full shadow-sm">
             <Plus size={18} className="text-[#a8c7fa]" /> Chat baru
@@ -230,91 +217,137 @@ export default function App() {
         </div>
       </div>
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 flex flex-col relative min-w-0">
-        <header className="flex items-center justify-between p-4 bg-[#131314]/80 backdrop-blur-md z-10 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-[#282a2c] rounded-full transition-colors text-gray-400"><Menu size={20} /></button>
-            <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
-          </div>
-          <div className="flex items-center gap-3">
-            <select 
-  value={selectedModel} 
-  onChange={(e) => setSelectedModel(e.target.value)} 
-  className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-4 py-2 focus:outline-none cursor-pointer transition-all shadow-lg"
->
-  <optgroup label="Auto Routing">
-    <option value="auto">✨ Auto Smart Manager</option>
-  </optgroup>
-  
-  <optgroup label="Model Elite 2026 (OpenRouter)">
-  <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6 (Akurasi Maksimal)</option>
-  <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6 (Cepat & Pintar)</option>
-  <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
-  <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
-</optgroup>
+      {/* WORKSPACE (CHAT + CANVAS) */}
+      <div className="flex-1 flex min-w-0 bg-[#131314]">
+        
+        {/* KOLOM CHAT */}
+        <div className={`flex flex-col relative transition-all duration-500 ${isPreviewOpen ? 'w-1/2 border-r border-white/10' : 'w-full'}`}>
+          <header className="flex items-center justify-between p-4 bg-[#131314]/80 backdrop-blur-md z-10 border-b border-white/5">
+            <div className="flex items-center gap-3">
+              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-[#282a2c] rounded-full transition-colors text-gray-400"><Menu size={20} /></button>
+              <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
+            </div>
+            <div className="flex items-center gap-3">
+              <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-4 py-2 focus:outline-none cursor-pointer transition-all shadow-lg">
+                <optgroup label="Auto Routing">
+                  <option value="auto">✨ Auto Smart Manager</option>
+                </optgroup>
+                <optgroup label="Model Elite 2026 (OpenRouter)">
+                  <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6 (Akurasi)</option>
+                  <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6 (Cepat)</option>
+                  <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
+                  <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
+                </optgroup>
+                <optgroup label="Lokal (Laptop Aero 15)">
+                  <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
+                </optgroup>
+              </select>
+            </div>
+          </header>
 
-  <optgroup label="Lokal (Laptop Aero 15)">
-    <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
-  </optgroup>
-</select>
-          </div>
-        </header>
-
-        <main className="flex-1 overflow-y-auto scroll-smooth pb-32">
-          <div className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
-            {messages.length === 0 && (
-              <div className="mt-16 md:mt-24 px-2">
-                <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Halo, Andi.</h1>
-                <h2 className="text-3xl md:text-4xl font-medium text-gray-600 tracking-tight">Apa yang kita bangun hari ini?</h2>
-              </div>
-            )}
-            <div className="space-y-10 mt-6">
-              {messages.map((chat, idx) => (
-                <div key={idx} className={`flex gap-4 ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  {chat.role === 'ai' && (
-                    <div className="w-8 h-8 shrink-0 flex items-start justify-center pt-1">
-                      {isStreaming && idx === messages.length - 1 ? <Loader2 className="animate-spin text-blue-400" size={22} /> : <Sparkles className="text-blue-400" size={22} />}
-                    </div>
-                  )}
-                  <div className={`max-w-[85%] md:max-w-[80%] ${chat.role === 'user' ? 'bg-[#282a2c] px-6 py-4 rounded-3xl rounded-tr-md text-[15px] shadow-sm' : 'text-[15px] leading-relaxed w-full'}`}>
-                    {chat.role === 'ai' ? (
-                      <div className="prose prose-invert max-w-none">
-                        <ReactMarkdown components={{
-                            code(props) {
-                              const {children, className, ...rest} = props;
-                              const match = /language-(\w+)/.exec(className || '');
-                              return match ? (
-                                <div className="rounded-xl border border-gray-700/50 my-6 bg-[#1e1f20] overflow-hidden shadow-2xl">
-                                  <div className="px-4 py-2 bg-[#282a2c] text-[10px] font-bold text-gray-400 uppercase tracking-widest">{match[1]}</div>
-                                  <SyntaxHighlighter {...rest} children={String(children).replace(/\n$/, '')} language={match[1]} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1.5rem' }} />
-                                </div>
-                              ) : <code className="bg-gray-800 px-1.5 py-0.5 rounded text-blue-300 font-mono">{children}</code>;
-                            }
-                          }}>
-                          {chat.text}
-                        </ReactMarkdown>
-                      </div>
-                    ) : <div className="whitespace-pre-wrap">{chat.text}</div>}
-                  </div>
+          <main className="flex-1 overflow-y-auto scroll-smooth pb-32">
+            <div className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
+              {messages.length === 0 && (
+                <div className="mt-16 md:mt-24 px-2">
+                  <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Halo, Andi.</h1>
+                  <h2 className="text-3xl md:text-4xl font-medium text-gray-600 tracking-tight">Apa yang kita bangun hari ini?</h2>
                 </div>
-              ))}
-              <div ref={chatEndRef} />
+              )}
+              <div className="space-y-10 mt-6">
+                {messages.map((chat, idx) => (
+                  <div key={idx} className={`flex gap-4 ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {chat.role === 'ai' && (
+                      <div className="w-8 h-8 shrink-0 flex items-start justify-center pt-1">
+                        {isStreaming && idx === messages.length - 1 ? <Loader2 className="animate-spin text-blue-400" size={22} /> : <Sparkles className="text-blue-400" size={22} />}
+                      </div>
+                    )}
+                    <div className={`max-w-[85%] md:max-w-[85%] ${chat.role === 'user' ? 'bg-[#282a2c] px-6 py-4 rounded-3xl rounded-tr-md text-[15px] shadow-sm' : 'text-[15px] leading-relaxed w-full'}`}>
+                      {chat.role === 'ai' ? (
+                        <div className="prose prose-invert max-w-none">
+                          <ReactMarkdown components={{
+                              code(props) {
+                                const {children, className, ...rest} = props;
+                                const match = /language-(\w+)/.exec(className || '');
+                                const codeString = String(children).replace(/\n$/, '');
+                                
+                                // Deteksi apakah kode ini bisa dirender di Canvas (HTML)
+                                const isRenderable = match && (match[1] === 'html' || match[1] === 'xml');
+
+                                return match ? (
+                                  <div className="rounded-xl border border-gray-700/50 my-6 bg-[#1e1f20] overflow-hidden shadow-2xl">
+                                    <div className="flex items-center justify-between px-4 py-2 bg-[#282a2c] border-b border-gray-800">
+                                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{match[1]}</span>
+                                      
+                                      {/* TOMBOL CANVAS BARU */}
+                                      {isRenderable && (
+                                        <button 
+                                          onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); }}
+                                          className="flex items-center gap-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-3 py-1 rounded-md transition-colors font-medium"
+                                        >
+                                          <Play size={12} fill="currentColor" /> Preview Canvas
+                                        </button>
+                                      )}
+                                    </div>
+                                    <SyntaxHighlighter {...rest} children={codeString} language={match[1]} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1.5rem', fontSize: '0.9em' }} />
+                                  </div>
+                                ) : <code className="bg-gray-800 px-1.5 py-0.5 rounded text-blue-300 font-mono">{children}</code>;
+                              }
+                            }}>
+                            {chat.text}
+                          </ReactMarkdown>
+                        </div>
+                      ) : <div className="whitespace-pre-wrap">{chat.text}</div>}
+                    </div>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+            </div>
+          </main>
+
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent pt-12 pb-8 px-4 md:px-8 z-20">
+            <div className="max-w-3xl mx-auto bg-[#1e1f20] rounded-[32px] pl-6 pr-3 py-3 flex items-center gap-3 shadow-2xl border border-white/5 focus-within:border-blue-500/50 transition-all duration-500">
+              <input type="text" className="flex-1 bg-transparent border-none focus:ring-0 text-[16px] text-[#e3e3e3] placeholder-gray-500 outline-none" placeholder="Ketik instruksi untuk AI..." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && kirimPesan()} disabled={isStreaming} />
+              <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className="p-3.5 bg-white hover:bg-gray-200 disabled:bg-gray-800 text-black rounded-full transition-all flex items-center justify-center shrink-0 shadow-lg active:scale-90"><Send size={20} /></button>
+            </div>
+            <div className="text-center text-[10px] text-gray-600 mt-4 font-bold tracking-widest uppercase">
+              {activeRoute ? `Jalur: ${activeRoute}` : "Sistem Siap"}
             </div>
           </div>
-        </main>
-
-        {/* INPUT PILL */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent pt-12 pb-8 px-4 md:px-8 z-20">
-          <div className="max-w-3xl mx-auto bg-[#1e1f20] rounded-[32px] pl-6 pr-3 py-3 flex items-center gap-3 shadow-2xl border border-white/5 focus-within:border-blue-500/50 transition-all duration-500">
-            <input type="text" className="flex-1 bg-transparent border-none focus:ring-0 text-[16px] text-[#e3e3e3] placeholder-gray-500 outline-none" placeholder="Tanya sesuatu..." value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && kirimPesan()} disabled={isStreaming} />
-            <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className="p-3.5 bg-white hover:bg-gray-200 disabled:bg-gray-800 text-black rounded-full transition-all flex items-center justify-center shrink-0 shadow-lg active:scale-90"><Send size={20} /></button>
-          </div>
-          <div className="text-center text-[10px] text-gray-600 mt-4 font-bold tracking-widest uppercase">
-            {activeRoute ? `Jalur: ${activeRoute}` : "Sistem Siap (Matsudo Node)"}
-          </div>
         </div>
+
+        {/* KOLOM CANVAS PREVIEW */}
+        {isPreviewOpen && (
+          <motion.div 
+            initial={{ width: 0, opacity: 0 }} 
+            animate={{ width: "50%", opacity: 1 }} 
+            exit={{ width: 0, opacity: 0 }} 
+            className="flex flex-col bg-white overflow-hidden shadow-2xl"
+          >
+            {/* Header Canvas */}
+            <div className="bg-[#f1f3f4] border-b border-gray-200 p-3 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2 text-gray-700 font-semibold text-sm">
+                <LayoutTemplate size={18} className="text-blue-500"/>
+                <span>Live Canvas Preview</span>
+              </div>
+              <button onClick={() => setIsPreviewOpen(false)} className="p-1 hover:bg-gray-300 rounded-md transition-colors text-gray-600">
+                <X size={18} />
+              </button>
+            </div>
+            
+            {/* Area Iframe (Render HTML/CSS/JS) */}
+            <div className="flex-1 bg-white relative">
+              <iframe 
+                title="CanvasPreview"
+                srcDoc={previewCode} 
+                className="absolute inset-0 w-full h-full border-none bg-white"
+                sandbox="allow-scripts allow-modals allow-same-origin"
+              />
+            </div>
+          </motion.div>
+        )}
       </div>
+
     </div>
   );
 }
