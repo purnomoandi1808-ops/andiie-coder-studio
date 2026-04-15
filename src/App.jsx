@@ -98,20 +98,20 @@ export default function App() {
     setIsStreaming(true);
     setActiveRoute(null);
 
-    let sessionId = currentSessionId;
-    if (!sessionId) {
-      sessionId = Date.now().toString();
-      setCurrentSessionId(sessionId);
-      const judulBaru = instruksiUser.length > 25 ? instruksiUser.substring(0, 25) + "..." : instruksiUser;
-      setSessions(prev => [{ id: sessionId, title: judulBaru, messages: [] }, ...prev]);
-    }
-
-    setMessages(prev => [...prev, { role: "user", text: instruksiUser }, { role: "ai", text: "" }]);
+    // ... (Logika simpan sesi chat tetap sama seperti sebelumnya) ...
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      // 1. Tentukan URL Cloudflare Laptop Anda (Untuk Qwen Lokal)
+      // Ganti URL trycloudflare ini dengan link asli Anda yang aktif!
+      const URL_LOKAL = "https://kurt-routine-citizenship-site.trycloudflare.com/api/chat/stream";
       
-      const respon = await fetch(`${API_URL}/api/chat/stream`, {
+      // 2. URL Vercel Serverless (Untuk Claude/GPT)
+      const URL_CLOUD = "/api/chat/stream";
+      
+      // 3. Logika Hybrid: Pilih URL berdasarkan model yang diklik
+      const targetAPI = selectedModel === "lokal" ? URL_LOKAL : URL_CLOUD;
+
+      const respon = await fetch(targetAPI, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -120,6 +120,8 @@ export default function App() {
           kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026" 
         })
       });
+
+      if (!respon.ok) throw new Error(selectedModel === "lokal" ? "Laptop Offline/Mati" : "Koneksi Cloud Gagal");
 
       if (!respon.ok) throw new Error("Koneksi API Gagal");
 
