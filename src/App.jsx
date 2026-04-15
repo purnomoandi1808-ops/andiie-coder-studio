@@ -248,8 +248,9 @@ export default function App() {
   </optgroup>
   
   <optgroup label="Model Elite 2026 (OpenRouter)">
-  <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
-  <option value="openai/gpt-5.3-codex">⚡ GPT-5.3 Codex</option>
+  <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6 (Akurasi Maksimal)</option>
+  <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6 (Cepat & Pintar)</option>
+  <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
   <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
 </optgroup>
 
