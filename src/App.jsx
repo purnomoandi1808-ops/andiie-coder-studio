@@ -115,14 +115,36 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // --- FUNGSI KIRIM PESAN ---
+  // --- FUNGSI PEMBACA FILE (BARU) ---
+  const bacaFile = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      // Jika gambar, ubah jadi format Base64 agar AI bisa "melihat"
+      if (file.type.startsWith('image/')) {
+        reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result });
+        reader.readAsDataURL(file);
+      } 
+      // Jika bukan gambar (txt, js, py, json), baca sebagai teks mentah
+      else {
+        reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result });
+        reader.readAsText(file);
+      }
+    });
+  };
+
+  // --- FUNGSI KIRIM PESAN (DIPERBARUI) ---
   const kirimPesan = async () => {
-    if (!input.trim() || isStreaming) return;
+    if (!input.trim() && attachments.length === 0) return; // Bisa kirim gambar saja tanpa teks
+    if (isStreaming) return;
     
-    const instruksiUser = input;
+    const instruksiUser = input || "Tolong analisis file lampiran ini."; // Default text jika kosong
     setInput("");
     setIsStreaming(true);
     setActiveRoute(null);
+
+    // Proses semua file (membaca isinya) sebelum dikirim ke awan
+    const fileYangDiproses = await Promise.all(attachments.map(a => bacaFile(a.rawFile)));
 
     let sessionId = currentSessionId;
     if (!sessionId) {
@@ -132,7 +154,9 @@ export default function App() {
       setSessions(prev => [{ id: sessionId, title: judulBaru, messages: [] }, ...prev]);
     }
 
-    setMessages(prev => [...prev, { role: "user", text: instruksiUser }, { role: "ai", text: "" }]);
+    // Tampilkan pesan di layar (tandai jika ada lampiran)
+    const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
+    setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
     try {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -145,14 +169,12 @@ export default function App() {
           instruksi: instruksiUser, 
           paksa_model: selectedModel,
           kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026",
-          persona: selectedPersona, // MENGIRIM DATA PERSONA KE BACKEND
-          attachments: [] // Dikosongkan sementara sampai logika baca file di Tahap 2 selesai
+          persona: selectedPersona, 
+          attachments: fileYangDiproses // ⚡ SEKARANG FILE DIKIRIM!
         })
       });
 
-      if (!respon.ok) {
-        throw new Error("Gagal menghubungi server. Pastikan terminal Python dan Cloudflare di laptop menyala.");
-      }
+      if (!respon.ok) throw new Error("Gagal menghubungi server Python.");
 
       const reader = respon.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -185,7 +207,7 @@ export default function App() {
       });
     } finally {
       setIsStreaming(false);
-      // setAttachments([]); // Opsional: Kosongkan file setelah terkirim (aktifkan nanti di Tahap 2)
+      setAttachments([]); // ⚡ KOSONGKAN LAMPIRAN SETELAH TERKIRIM
     }
   };
 
