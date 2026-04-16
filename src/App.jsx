@@ -63,7 +63,7 @@ export default function App() {
     fetchChats();
   }, []);
 
-  // ⚡ 2. EFEK SIMPAN DATA KE AWAN & LOKAL OTOMATIS
+  // ⚡ 2. EFEK SIMPAN DATA KE AWAN (DILENGKAPI ALARM ERROR)
   useEffect(() => {
     if (currentSessionId && messages.length > 0) {
       setSessions(prev => {
@@ -79,7 +79,24 @@ export default function App() {
               title: sesiSaatIni.title, 
               messages: messages,
               updated_at: new Date()
-            }).then(() => console.log("☁️ Tersimpan otomatis di Supabase"));
+            }).then(({ error }) => {
+              // 🚨 ALARM PENGECEKAN ERROR DI SINI
+              if (error) {
+                console.error("❌ Gagal upload ke Supabase:", error.message);
+                if (!window.hasAlertedSupabase) {
+                  alert("Gagal menyimpan ke Awan:\n" + error.message);
+                  window.hasAlertedSupabase = true; // Mencegah popup spam
+                }
+              } else {
+                console.log("☁️ Tersimpan otomatis di Supabase");
+              }
+            });
+          }
+        } else {
+          // 🚨 ALARM JIKA KUNCI VITE TIDAK TERBACA
+          if (!window.hasAlertedSupabaseKey) {
+            console.error("Kunci Supabase belum terdeteksi. Cek VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.");
+            window.hasAlertedSupabaseKey = true;
           }
         }
         return updated;
