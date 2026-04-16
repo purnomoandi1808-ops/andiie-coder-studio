@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip, Code } from 'lucide-react';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip, Code, Download } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -79,7 +79,6 @@ export default function App() {
           if (supabase) {
             const sesiSaatIni = updated.find(s => s.id === currentSessionId);
             if (sesiSaatIni) {
-              // ⚡ PERBAIKAN: Gunakan .then(({ error })) alih-alih .catch() untuk Supabase
               supabase.from('andiie_chats').upsert({ 
                 id: currentSessionId, title: sesiSaatIni.title, messages: messages, updated_at: new Date()
               }).then(({ error }) => {
@@ -171,6 +170,22 @@ export default function App() {
     });
   };
 
+  // ⚡ TAMBAHAN: FUNGSI UNDUH GAMBAR
+  const unduhGambar = async (url) => {
+    try {
+      const respon = await fetch(url);
+      const blob = await respon.blob();
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "dalle-image.png";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      alert("Gagal mengunduh gambar. Pastikan gambar masih valid.");
+    }
+  };
+
   // ==========================================
   // ⚡ FUNGSI KIRIM PESAN (DENGAN INGATAN & ANTI-MATI)
   // ==========================================
@@ -203,7 +218,11 @@ export default function App() {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); 
+      
+      // ⚡ PERBAIKAN: Perpanjang timeout menjadi 180 detik (3 menit) untuk model multimedia
+      const isMultimediaModel = ["openai/dall-e-3", "suno-api-custom", "sora", "veo", "wan", "seedance"].some(m => selectedModel.includes(m));
+      const timeoutDuration = isMultimediaModel ? 180000 : 8000;
+      const timeoutId = setTimeout(() => controller.abort(), timeoutDuration); 
 
       const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, {
         method: "POST",
@@ -390,7 +409,6 @@ export default function App() {
               <option value="seiso">🏨 IT Hotel</option>
             </select>
 
-            {/* ⚡ DAFTAR PASUKAN ELIT MULTIMEDIA 2026 ⚡ */}
             <select 
               value={selectedModel} 
               onChange={(e) => setSelectedModel(e.target.value)} 
@@ -453,6 +471,21 @@ export default function App() {
                       {chat.role === 'ai' ? (
                         <div className="prose prose-invert prose-sm md:prose-base max-w-none">
                           <ReactMarkdown components={{
+                              // ⚡ TAMBAHAN: TANGKAP GAMBAR MARKDOWN UNTUK TOMBOL DOWNLOAD
+                              img(props) {
+                                return (
+                                  <div className="relative group inline-block my-4">
+                                    <img {...props} className="rounded-xl border border-white/10 shadow-lg max-w-full h-auto" />
+                                    <button 
+                                      onClick={() => unduhGambar(props.src)}
+                                      className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-blue-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all backdrop-blur-md"
+                                      title="Unduh Gambar"
+                                    >
+                                      <Download size={18} />
+                                    </button>
+                                  </div>
+                                );
+                              },
                               code(props) {
                                 const {children, className, ...rest} = props;
                                 const match = /language-(\w+)/.exec(className || '');
