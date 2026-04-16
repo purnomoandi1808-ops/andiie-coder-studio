@@ -67,41 +67,42 @@ export default function App() {
     fetchChats();
   }, []);
 
-  // ⚡ 2. EFEK SIMPAN DATA KE AWAN 
+  // ⚡ 2. EFEK SIMPAN DATA KE AWAN (VERSI ANTI-BENTROK / DEBOUNCE)
   useEffect(() => {
+    // Jika AI masih mengetik (isStreaming), jangan kirim dulu ke awan
+    if (isStreaming) return;
+
     if (currentSessionId && messages.length > 0) {
-      setSessions(prev => {
-        const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
-        localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
-        
-        if (supabase) {
-          const sesiSaatIni = updated.find(s => s.id === currentSessionId);
-          if (sesiSaatIni) {
-            supabase.from('andiie_chats').upsert({ 
-              id: currentSessionId, 
-              title: sesiSaatIni.title, 
-              messages: messages,
-              updated_at: new Date()
-            }).then(({ error }) => {
-              if (error) {
-                console.error("❌ Gagal upload ke Supabase:", error.message);
-                if (!window.hasAlertedSupabase) {
-                  alert("Gagal menyimpan ke Awan:\n" + error.message);
-                  window.hasAlertedSupabase = true; 
+      // Tunggu 2 detik setelah AI selesai bicara baru kirim ke Supabase
+      const pengirimOtomatis = setTimeout(() => {
+        setSessions(prev => {
+          const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
+          localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
+          
+          if (supabase) {
+            const sesiSaatIni = updated.find(s => s.id === currentSessionId);
+            if (sesiSaatIni) {
+              supabase.from('andiie_chats').upsert({ 
+                id: currentSessionId, 
+                title: sesiSaatIni.title, 
+                messages: messages,
+                updated_at: new Date()
+              }).then(({ error }) => {
+                if (error) {
+                  console.error("❌ Supabase Error:", error.message);
+                } else {
+                  console.log("☁️ Berhasil Sinkronisasi ke Awan");
                 }
-              }
-            });
+              });
+            }
           }
-        } else {
-          if (!window.hasAlertedSupabaseKey) {
-            console.error("Kunci Supabase belum terdeteksi. Cek VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.");
-            window.hasAlertedSupabaseKey = true;
-          }
-        }
-        return updated;
-      });
+          return updated;
+        });
+      }, 2000); // ⚡ Angka 2000 ini yang bikin tenang
+
+      return () => clearTimeout(pengirimOtomatis);
     }
-  }, [messages, currentSessionId]);
+  }, [messages, currentSessionId, isStreaming]); // ⚡ Tambahkan isStreaming di sini
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
