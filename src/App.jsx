@@ -4,7 +4,8 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js'; // ⚡ IMPORT SUPABASE BARU
+import { createClient } from '@supabase/supabase-js'; 
+import JSZip from 'jszip'; // ⚡ IMPORT JSZIP (PEMBONGKAR ZIP DI BROWSER)
 
 // ==========================================
 // KONFIGURASI SUPABASE (DATABASE AWAN)
@@ -80,12 +81,11 @@ export default function App() {
               messages: messages,
               updated_at: new Date()
             }).then(({ error }) => {
-              // 🚨 ALARM PENGECEKAN ERROR DI SINI
               if (error) {
                 console.error("❌ Gagal upload ke Supabase:", error.message);
                 if (!window.hasAlertedSupabase) {
                   alert("Gagal menyimpan ke Awan:\n" + error.message);
-                  window.hasAlertedSupabase = true; // Mencegah popup spam
+                  window.hasAlertedSupabase = true; 
                 }
               } else {
                 console.log("☁️ Tersimpan otomatis di Supabase");
@@ -93,7 +93,6 @@ export default function App() {
             });
           }
         } else {
-          // 🚨 ALARM JIKA KUNCI VITE TIDAK TERBACA
           if (!window.hasAlertedSupabaseKey) {
             console.error("Kunci Supabase belum terdeteksi. Cek VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY di Vercel.");
             window.hasAlertedSupabaseKey = true;
@@ -151,7 +150,6 @@ export default function App() {
     localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
     if (currentSessionId === id) buatChatBaru();
 
-    // Hapus juga dari Supabase jika ada
     if (supabase) {
       await supabase.from('andiie_chats').delete().eq('id', id);
     }
@@ -174,25 +172,58 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // ⚡ --- FUNGSI PEMBACA FILE (DIPERBARUI UNTUK PDF & ZIP) ---
-  const bacaFile = (file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
+  // ⚡ --- FUNGSI PEMBACA FILE PRO (DILENGKAPI JSZIP) ---
+  const bacaFile = async (file) => {
+    return new Promise(async (resolve, reject) => {
       
-      if (file.type.startsWith('image/')) {
+      // ⚡ JIKA FILE ADALAH ZIP -> Ekstrak Langsung di Browser!
+      if (file.name.endsWith('.zip') || file.type.includes('zip')) {
+        try {
+          const zip = new JSZip();
+          const loadedZip = await zip.loadAsync(file);
+          let extractedText = "";
+
+          // Baca setiap file di dalam zip satu per satu
+          for (const relativePath of Object.keys(loadedZip.files)) {
+            const zipEntry = loadedZip.files[relativePath];
+            
+            // Abaikan folder dan filter sampah berat
+            if (zipEntry.dir) continue;
+            if (relativePath.includes('node_modules/') || relativePath.includes('.git/') || relativePath.includes('venv/')) continue;
+            
+            // Abaikan file gambar/video
+            const isImageOrBinary = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock)$/i.test(relativePath);
+            if (isImageOrBinary) continue;
+
+            // Ekstrak teks kodenya
+            const fileContent = await zipEntry.async('string');
+            extractedText += `\n\n--- [FILE DARI ZIP: ${relativePath}] ---\n${fileContent}\n`;
+          }
+
+          resolve({ 
+            type: 'text', // Ubah wujudnya jadi teks murni
+            name: file.name + " (Extracted)", 
+            content: extractedText 
+          });
+        } catch (error) {
+          resolve({ type: 'text', name: file.name, content: `[Gagal memproses ZIP di browser: ${error.message}]` });
+        }
+      } 
+      // JIKA GAMBAR -> Base64
+      else if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
         reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result });
         reader.readAsDataURL(file);
       } 
+      // JIKA PDF -> Base64
       else if (file.type === 'application/pdf') {
+        const reader = new FileReader();
         reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result });
         reader.readAsDataURL(file); 
       }
-      // ⚡ TAMBAHAN BARU: DETEKSI FILE ZIP
-      else if (file.name.endsWith('.zip') || file.type.includes('zip')) {
-        reader.onload = (e) => resolve({ type: 'application/zip', name: file.name, content: e.target.result });
-        reader.readAsDataURL(file); 
-      }
+      // JIKA TEKS BIASA
       else {
+        const reader = new FileReader();
         reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result });
         reader.readAsText(file);
       }
