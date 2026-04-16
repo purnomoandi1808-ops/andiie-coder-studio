@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate } from 'lucide-react';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip } from 'lucide-react';
 
 export default function App() {
   // --- STATE AUTH ---
@@ -18,7 +18,12 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedModel, setSelectedModel] = useState("auto");
   
-  // --- STATE CANVAS PREVIEW (BARU) ---
+  // --- STATE PERSONA & ATTACHMENTS (BARU) ---
+  const [selectedPersona, setSelectedPersona] = useState("default");
+  const [attachments, setAttachments] = useState([]); 
+  const fileInputRef = useRef(null);
+  
+  // --- STATE CANVAS PREVIEW ---
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
@@ -69,7 +74,8 @@ export default function App() {
     setCurrentSessionId(null);
     setMessages([]);
     setActiveRoute(null);
-    setIsPreviewOpen(false); // Tutup canvas saat chat baru
+    setIsPreviewOpen(false);
+    setAttachments([]); // Reset file saat chat baru
   };
 
   const muatChatLama = (id) => {
@@ -79,6 +85,7 @@ export default function App() {
       setCurrentSessionId(id);
       setMessages(sesi.messages);
       setActiveRoute(null);
+      setAttachments([]); 
     }
   };
 
@@ -90,7 +97,25 @@ export default function App() {
     if (currentSessionId === id) buatChatBaru();
   };
 
-  // --- BAGIAN YANG DIPERBAIKI (ANTIK 404) ---
+  // --- LOGIKA UPLOAD UI SEDERHANA (BARU) ---
+  const handleFileChange = (e) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files).map(file => ({
+        name: file.name,
+        type: file.type,
+        rawFile: file // Disimpan untuk Tahap 2 nanti
+      }));
+      setAttachments(prev => [...prev, ...filesArray]);
+    }
+    // Reset nilai input agar file yang sama bisa dipilih lagi jika dihapus
+    e.target.value = null; 
+  };
+
+  const hapusAttachment = (idx) => {
+    setAttachments(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // --- FUNGSI KIRIM PESAN ---
   const kirimPesan = async () => {
     if (!input.trim() || isStreaming) return;
     
@@ -99,7 +124,6 @@ export default function App() {
     setIsStreaming(true);
     setActiveRoute(null);
 
-    // Pastikan Session ID ada agar history tersimpan
     let sessionId = currentSessionId;
     if (!sessionId) {
       sessionId = Date.now().toString();
@@ -111,10 +135,8 @@ export default function App() {
     setMessages(prev => [...prev, { role: "user", text: instruksiUser }, { role: "ai", text: "" }]);
 
     try {
-      // PENENTUAN ALAMAT API YANG BENAR (Selalu tembak ke Laptop/Python)
-      // Jika di Vercel, dia akan pakai URL Cloudflare. Jika ngetes di laptop, pakai localhost.
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-      const targetAPI = `${BACKEND_URL}/api/chat/stream`; // <-- Pintu /stream sudah benar
+      const targetAPI = `${BACKEND_URL}/api/chat/stream`; 
 
       const respon = await fetch(targetAPI, {
         method: "POST",
@@ -122,12 +144,13 @@ export default function App() {
         body: JSON.stringify({ 
           instruksi: instruksiUser, 
           paksa_model: selectedModel,
-          kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026" 
+          kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026",
+          persona: selectedPersona, // MENGIRIM DATA PERSONA KE BACKEND
+          attachments: [] // Dikosongkan sementara sampai logika baca file di Tahap 2 selesai
         })
       });
 
       if (!respon.ok) {
-        // Jika laptop mati, respon tidak OK.
         throw new Error("Gagal menghubungi server. Pastikan terminal Python dan Cloudflare di laptop menyala.");
       }
 
@@ -155,7 +178,6 @@ export default function App() {
         });
       }
     } catch (error) {
-// ... (lanjutan kode catch biarkan sama) ...
       setMessages(prev => {
         const newMessages = [...prev];
         newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: `⚠️ Error: ${error.message}` };
@@ -163,10 +185,11 @@ export default function App() {
       });
     } finally {
       setIsStreaming(false);
+      // setAttachments([]); // Opsional: Kosongkan file setelah terkirim (aktifkan nanti di Tahap 2)
     }
   };
 
-  // --- RENDER HALAMAN LOGIN (Original) ---
+  // --- RENDER HALAMAN LOGIN ---
   if (!isLoggedIn) {
     return (
       <div className="h-screen bg-[#131314] flex items-center justify-center p-4">
@@ -198,7 +221,7 @@ export default function App() {
     );
   }
 
-  // --- RENDER DASHBOARD UTAMA (Original + Canvas) ---
+  // --- RENDER DASHBOARD UTAMA ---
   return (
     <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans overflow-hidden selection:bg-blue-500/30">
       
@@ -226,7 +249,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* WORKSPACE (CHAT + CANVAS) */}
+      {/* WORKSPACE */}
       <div className="flex-1 flex min-w-0 bg-[#131314]">
         
         {/* KOLOM CHAT */}
@@ -236,7 +259,16 @@ export default function App() {
               <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-[#282a2c] rounded-full transition-colors text-gray-400"><Menu size={20} /></button>
               <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
             </div>
-            <div className="flex items-center gap-3">
+            
+            <div className="flex items-center gap-2">
+              {/* DROPDOWN PERSONA BARU */}
+              <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-purple-400 text-xs font-semibold rounded-full px-3 py-2 focus:outline-none cursor-pointer transition-all shadow-lg hidden md:block">
+                <option value="default">👤 Asisten Umum</option>
+                <option value="kartos">🤖 Ahli Robotika</option>
+                <option value="seiso">🏨 IT Hotel</option>
+                <option value="jlpt">🇯🇵 Sensei JLPT N2</option>
+              </select>
+
               <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-4 py-2 focus:outline-none cursor-pointer transition-all shadow-lg">
                 <optgroup label="Auto Routing">
                   <option value="auto">✨ Auto Smart Manager</option>
@@ -254,7 +286,7 @@ export default function App() {
             </div>
           </header>
 
-          <main className="flex-1 overflow-y-auto scroll-smooth pb-32">
+          <main className="flex-1 overflow-y-auto scroll-smooth pb-40">
             <div className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
               {messages.length === 0 && (
                 <div className="mt-16 md:mt-24 px-2">
@@ -279,7 +311,6 @@ export default function App() {
                                 const match = /language-(\w+)/.exec(className || '');
                                 const codeString = String(children).replace(/\n$/, '');
                                 
-                                // Deteksi apakah kode ini bisa dirender di Canvas (HTML)
                                 const isRenderable = match && (match[1] === 'html' || match[1] === 'xml');
 
                                 return match ? (
@@ -287,7 +318,6 @@ export default function App() {
                                     <div className="flex items-center justify-between px-4 py-2 bg-[#282a2c] border-b border-gray-800">
                                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{match[1]}</span>
                                       
-                                      {/* TOMBOL CANVAS BARU */}
                                       {isRenderable && (
                                         <button 
                                           onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); }}
@@ -314,8 +344,29 @@ export default function App() {
             </div>
           </main>
 
+          {/* AREA INPUT (DIPERBARUI DENGAN FITUR UPLOAD) */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent pt-12 pb-8 px-4 md:px-8 z-20">
-            <div className="max-w-3xl mx-auto bg-[#1e1f20] rounded-[32px] pl-6 pr-3 py-3 flex items-center gap-3 shadow-2xl border border-white/5 focus-within:border-blue-500/50 transition-all duration-500">
+            
+            {/* Indikator File yang Dipilih */}
+            {attachments.length > 0 && (
+              <div className="max-w-3xl mx-auto mb-3 flex flex-wrap gap-2 px-4">
+                {attachments.map((file, idx) => (
+                  <div key={idx} className="bg-[#282a2c] border border-gray-700 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs text-gray-300 shadow-lg">
+                    <span className="truncate max-w-[150px] md:max-w-[200px] font-medium">{file.name}</span>
+                    <button onClick={() => hapusAttachment(idx)} className="hover:text-red-400 transition-colors bg-white/5 rounded-full p-0.5"><X size={12}/></button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="max-w-3xl mx-auto bg-[#1e1f20] rounded-[32px] pl-2 pr-3 py-3 flex items-center gap-2 shadow-2xl border border-white/5 focus-within:border-blue-500/50 transition-all duration-500">
+              
+              {/* TOMBOL UPLOAD KLIP KERTAS */}
+              <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
+              <button onClick={() => fileInputRef.current?.click()} className="p-3 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10 shrink-0">
+                <Paperclip size={20} />
+              </button>
+
               <input 
                 id="chat-input"
                 name="chat-input"
@@ -343,7 +394,6 @@ export default function App() {
             exit={{ width: 0, opacity: 0 }} 
             className="flex flex-col bg-white overflow-hidden shadow-2xl"
           >
-            {/* Header Canvas */}
             <div className="bg-[#f1f3f4] border-b border-gray-200 p-3 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2 text-gray-700 font-semibold text-sm">
                 <LayoutTemplate size={18} className="text-blue-500"/>
@@ -354,7 +404,6 @@ export default function App() {
               </button>
             </div>
             
-            {/* Area Iframe (Render HTML/CSS/JS) */}
             <div className="flex-1 bg-white relative">
               <iframe 
                 title="CanvasPreview"
