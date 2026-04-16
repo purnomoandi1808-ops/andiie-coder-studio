@@ -390,23 +390,41 @@ export default function App() {
               <option value="seiso">🏨 IT Hotel</option>
             </select>
 
+            {/* ⚡ DAFTAR PASUKAN ELIT MULTIMEDIA 2026 ⚡ */}
             <select 
               value={selectedModel} 
               onChange={(e) => setSelectedModel(e.target.value)} 
               className="bg-[#1e1f20] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-3 py-2 outline-none max-w-[150px] md:max-w-xs truncate"
             >
-              <optgroup label="Auto Routing">
-                <option value="auto">✨ Auto Smart Manager</option>
-              </optgroup>
-              <optgroup label="Model Elite 2026 (OpenRouter)">
-                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6 (Akurasi)</option>
-                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6 (Cepat)</option>
-                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
-                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
+              <optgroup label="📝 Text & General">
+                <option value="auto">✨ Auto Smart Manager</option>               
                 <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
               </optgroup>
-              <optgroup label="Lokal (Laptop Aero 15)">
+
+              <optgroup label="💻 Coding & Logic">
+                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
+                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option>
+                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
+                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
                 <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
+              </optgroup>
+
+              <optgroup label="🎨 Gambar (Images)">
+                <option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option>
+                <option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option>
+                <option value="openai/dall-e-3">🎨 DALL-E 3 (OpenAI API)</option>
+              </optgroup>
+
+              <optgroup label="🎬 Video Generation">
+                <option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option>
+                <option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option>
+                <option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option>
+                <option value="google/veo-3.1">📽️ Google: Veo 3.1</option>
+              </optgroup>
+
+              <optgroup label="🎵 Lagu & Audio">
+                <option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option>
+                <option value="suno-api-custom">🎸 Suno API (sunoapi.org)</option>
               </optgroup>
             </select>
           </div>
