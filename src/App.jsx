@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion'; 
+import { motion, AnimatePresence } from 'framer-motion'; // ⚡ TAMBAH AnimatePresence
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-// ⚡ TAMBAH IKON 'Code' UNTUK TOMBOL TAB
 import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip, Code } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
@@ -25,7 +24,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeRoute, setActiveRoute] = useState(null); 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768); // ⚡ Responsive default
   const [selectedModel, setSelectedModel] = useState("auto");
   
   // --- STATE PERSONA & ATTACHMENTS ---
@@ -36,7 +35,6 @@ export default function App() {
   // --- STATE CANVAS PREVIEW ---
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  // ⚡ STATE BARU UNTUK SISTEM TAB
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview"); 
 
   // --- LOGIKA MEMORY (LOKAL + CLOUD) ---
@@ -47,198 +45,146 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const chatEndRef = useRef(null);
 
-  // --- EFEK AUTH ---
+  // --- EFEK RESPONSIVE SIDEBAR ---
   useEffect(() => {
-    if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true);
+    const handleResize = () => { if(window.innerWidth > 768) setIsSidebarOpen(true); else setIsSidebarOpen(false); };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // ⚡ 1. EFEK AMBIL DATA DARI AWAN SAAT WEB DIBUKA
+  // --- EFEK AUTH & AMBIL DATA AWAN ---
   useEffect(() => {
+    if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true);
     const fetchChats = async () => {
       if (supabase) {
         const { data, error } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false });
         if (data && data.length > 0) {
           setSessions(data);
           localStorage.setItem("andiie_chat_history", JSON.stringify(data));
-          return;
         }
       }
     };
     fetchChats();
   }, []);
 
-  // ⚡ 2. EFEK SIMPAN DATA KE AWAN (VERSI ANTI-BENTROK / DEBOUNCE)
+  // --- EFEK SIMPAN DATA KE AWAN (DEBOUNCE) ---
   useEffect(() => {
-    // Jika AI masih mengetik (isStreaming), jangan kirim dulu ke awan
     if (isStreaming) return;
-
     if (currentSessionId && messages.length > 0) {
-      // Tunggu 2 detik setelah AI selesai bicara baru kirim ke Supabase
       const pengirimOtomatis = setTimeout(() => {
         setSessions(prev => {
           const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
           localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
-          
           if (supabase) {
             const sesiSaatIni = updated.find(s => s.id === currentSessionId);
             if (sesiSaatIni) {
               supabase.from('andiie_chats').upsert({ 
-                id: currentSessionId, 
-                title: sesiSaatIni.title, 
-                messages: messages,
-                updated_at: new Date()
-              }).then(({ error }) => {
-                if (error) {
-                  console.error("❌ Supabase Error:", error.message);
-                } else {
-                  console.log("☁️ Berhasil Sinkronisasi ke Awan");
-                }
-              });
+                id: currentSessionId, title: sesiSaatIni.title, messages: messages, updated_at: new Date()
+              }).catch(err => console.error("Supabase Error", err));
             }
           }
           return updated;
         });
-      }, 2000); // ⚡ Angka 2000 ini yang bikin tenang
-
+      }, 2000); 
       return () => clearTimeout(pengirimOtomatis);
     }
-  }, [messages, currentSessionId, isStreaming]); // ⚡ Tambahkan isStreaming di sini
+  }, [messages, currentSessionId, isStreaming]); 
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isStreaming]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isStreaming]);
 
   // --- FUNGSI LOGIN ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (loginData.username === "andiie" && loginData.password === "Arsyad160216") {
-      setIsLoggedIn(true);
-      localStorage.setItem("andiie_auth", "true");
-    } else {
-      alert("Akses Ditolak: Hanya untuk Andi.");
-    }
+      setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true");
+    } else { alert("Akses Ditolak: Hanya untuk Andi."); }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("andiie_auth");
-    setIsLoggedIn(false);
-  };
+  const handleLogout = () => { localStorage.removeItem("andiie_auth"); setIsLoggedIn(false); };
 
   // --- FUNGSI MANAJEMEN CHAT ---
   const buatChatBaru = () => {
-    setCurrentSessionId(null);
-    setMessages([]);
-    setActiveRoute(null);
-    setIsPreviewOpen(false);
-    setAttachments([]);
+    setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]);
+    if(window.innerWidth < 768) setIsSidebarOpen(false); // Tutup sidebar di HP
   };
 
   const muatChatLama = (id) => {
     if (isStreaming) return;
     const sesi = sessions.find(s => s.id === id);
     if (sesi) {
-      setCurrentSessionId(id);
-      setMessages(sesi.messages);
-      setActiveRoute(null);
-      setAttachments([]); 
+      setCurrentSessionId(id); setMessages(sesi.messages); setActiveRoute(null); setAttachments([]); 
+      if(window.innerWidth < 768) setIsSidebarOpen(false); // Tutup sidebar di HP
     }
   };
 
   const hapusChat = async (e, id) => {
     e.stopPropagation();
     const updated = sessions.filter(s => s.id !== id);
-    setSessions(updated);
-    localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
+    setSessions(updated); localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
     if (currentSessionId === id) buatChatBaru();
-
-    if (supabase) {
-      await supabase.from('andiie_chats').delete().eq('id', id);
-    }
+    if (supabase) await supabase.from('andiie_chats').delete().eq('id', id);
   };
 
-  // --- LOGIKA UPLOAD UI ---
+  // --- LOGIKA UPLOAD ---
   const handleFileChange = (e) => {
     if (e.target.files) {
-      const filesArray = Array.from(e.target.files).map(file => ({
-        name: file.name,
-        type: file.type,
-        rawFile: file 
-      }));
+      const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file }));
       setAttachments(prev => [...prev, ...filesArray]);
     }
     e.target.value = null; 
   };
+  const hapusAttachment = (idx) => setAttachments(prev => prev.filter((_, i) => i !== idx));
 
-  const hapusAttachment = (idx) => {
-    setAttachments(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  // --- FUNGSI PEMBACA FILE PRO ---
+  // --- FUNGSI PEMBACA FILE ---
   const bacaFile = async (file) => {
     if (file.name.endsWith('.zip') || file.type.includes('zip')) {
       try {
-        const zip = new JSZip();
-        const loadedZip = await zip.loadAsync(file);
-        let extractedText = "";
-        const MAX_CHARS = 150000; 
-        let isLimitReached = false;
-
+        const zip = new JSZip(); const loadedZip = await zip.loadAsync(file);
+        let extractedText = ""; const MAX_CHARS = 150000; let isLimitReached = false;
         for (const relativePath of Object.keys(loadedZip.files)) {
           if (isLimitReached) break;
           const zipEntry = loadedZip.files[relativePath];
           if (zipEntry.dir) continue;
-          
           const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/'];
           if (badFolders.some(folder => relativePath.includes(folder))) continue;
-          
           const isImageOrBinary = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i.test(relativePath);
           if (isImageOrBinary) continue;
-
           const fileContent = await zipEntry.async('string');
           extractedText += `\n\n--- [FILE DARI ZIP: ${relativePath}] ---\n${fileContent}\n`;
-
           if (extractedText.length > MAX_CHARS) {
             extractedText += `\n\n[PERINGATAN SISTEM: Proyek ZIP terlalu besar. Pemotongan otomatis dilakukan.]`;
             isLimitReached = true;
           }
         }
         return { type: 'text', name: file.name + " (Extracted)", content: extractedText };
-      } catch (error) {
-        return { type: 'text', name: file.name, content: `[Gagal memproses ZIP di browser: ${error.message}]` };
-      }
+      } catch (error) { return { type: 'text', name: file.name, content: `[Gagal memproses ZIP: ${error.message}]` }; }
     } 
-    
     return new Promise((resolve) => {
       const reader = new FileReader();
-      if (file.type.startsWith('image/')) {
-        reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result });
-        reader.readAsDataURL(file);
-      } else if (file.type === 'application/pdf') {
-        reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result });
-        reader.readAsDataURL(file); 
-      } else {
-        reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result });
-        reader.readAsText(file);
-      }
+      if (file.type.startsWith('image/')) { reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result }); reader.readAsDataURL(file);
+      } else if (file.type === 'application/pdf') { reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result }); reader.readAsDataURL(file); 
+      } else { reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result }); reader.readAsText(file); }
     });
   };
 
-  // --- FUNGSI KIRIM PESAN ---
+  // ==========================================
+  // ⚡ FUNGSI KIRIM PESAN (DENGAN INGATAN & ANTI-MATI)
+  // ==========================================
   const kirimPesan = async () => {
     if (!input.trim() && attachments.length === 0) return;
     if (isStreaming) return;
     
     const instruksiUser = input || "Tolong analisis file lampiran ini."; 
-    setInput("");
-    setIsStreaming(true);
-    setActiveRoute(null);
+    setInput(""); setIsStreaming(true); setActiveRoute(null);
 
     const fileYangDiproses = await Promise.all(attachments.map(a => bacaFile(a.rawFile)));
+    
+    // ⚡ MENGAMBIL INGATAN (HISTORY) SEBELUM DITAMBAH PESAN BARU
+    const historyKirim = [...messages]; 
 
     let sessionId = currentSessionId;
     if (!sessionId) {
-      sessionId = Date.now().toString();
-      setCurrentSessionId(sessionId);
+      sessionId = Date.now().toString(); setCurrentSessionId(sessionId);
       const judulBaru = instruksiUser.length > 25 ? instruksiUser.substring(0, 25) + "..." : instruksiUser;
       setSessions(prev => [{ id: sessionId, title: judulBaru, messages: [] }, ...prev]);
     }
@@ -246,23 +192,32 @@ export default function App() {
     const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    try {
-      const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-      const targetAPI = `${BACKEND_URL}/api/chat/stream`; 
+    const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || ""; // KUNCI DARURAT DARI .ENV
 
-      const respon = await fetch(targetAPI, {
+    try {
+      // ⚡ RENCANA A: TEMBAK KE LAPTOP RUMAH (LOCAL BACKEND)
+      const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      
+      // Timer 8 detik. Kalau laptop mati, Vercel akan otomatis pindah Rencana B
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); 
+
+      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           instruksi: instruksiUser, 
+          history: historyKirim, // ⚡ KIRIM INGATAN KE SERVER
           paksa_model: selectedModel,
           kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026",
           persona: selectedPersona, 
           attachments: fileYangDiproses 
-        })
+        }),
+        signal: controller.signal
       });
 
-      if (!respon.ok) throw new Error("Gagal menghubungi server Python.");
+      clearTimeout(timeoutId);
+      if (!respon.ok) throw new Error("Server Lokal Menolak");
 
       const reader = respon.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -277,9 +232,7 @@ export default function App() {
           const ruteMatch = chunk.match(/RUTE_AKTIF:(.*?)\n\n/);
           if (ruteMatch) setActiveRoute(ruteMatch[1]);
           bufferText += chunk.replace(/RUTE_AKTIF:.*\n\n/, ""); 
-        } else {
-          bufferText += chunk;
-        }
+        } else { bufferText += chunk; }
 
         setMessages(prev => {
           const newMessages = [...prev];
@@ -287,15 +240,68 @@ export default function App() {
           return newMessages;
         });
       }
+
     } catch (error) {
-      setMessages(prev => {
-        const newMessages = [...prev];
-        newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: `⚠️ Error: ${error.message}` };
-        return newMessages;
-      });
+      // ⚡ RENCANA B: LAPTOP MATI! VERCEL LANGSUNG HUBUNGI OPENROUTER
+      console.warn("⚠️ Laptop rumah terdeteksi mati. Beralih ke OpenRouter API (Cloud)...");
+      setActiveRoute("OPENROUTER DARURAT (LAPTOP MATI)");
+
+      try {
+        if(!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diisi di Vercel!");
+
+        // Konversi History Vercel ke format OpenRouter
+        const openRouterMessages = historyKirim.map(msg => ({
+          role: msg.role === 'ai' ? 'assistant' : 'user',
+          content: msg.text
+        }));
+        openRouterMessages.push({ role: "user", content: teksTampilan });
+
+        const responOpenRouter = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "qwen/qwen-2.5-coder-32b", // Prioritas Utama Cadangan
+            messages: openRouterMessages,
+            stream: true 
+          })
+        });
+
+        const reader = responOpenRouter.body.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let bufferText = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n').filter(line => line.trim() !== '');
+          
+          for (const line of lines) {
+            if (line.includes('[DONE]')) break;
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.replace('data: ', ''));
+                if (data.choices[0].delta.content) {
+                  bufferText += data.choices[0].delta.content;
+                  setMessages(prev => {
+                    const newMsg = [...prev];
+                    newMsg[newMsg.length - 1].text = bufferText;
+                    return newMsg;
+                  });
+                }
+              } catch (e) {}
+            }
+          }
+        }
+      } catch (fatalError) {
+        setMessages(prev => {
+          const newMessages = [...prev];
+          newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: `❌ Sistem Gagal: Laptop Mati & OpenRouter API tidak merespons. Error: ${fatalError.message}` };
+          return newMessages;
+        });
+      }
     } finally {
-      setIsStreaming(false);
-      setAttachments([]); 
+      setIsStreaming(false); setAttachments([]); 
     }
   };
 
@@ -312,138 +318,126 @@ export default function App() {
           <h2 className="text-2xl font-semibold text-center text-white mb-2">AI Coder Studio</h2>
           <p className="text-gray-400 text-center text-sm mb-8">Hanya untuk Andiie & Project ABAPE</p>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              type="text" placeholder="Username" 
-              className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 transition-all text-white"
-              onChange={(e) => setLoginData({...loginData, username: e.target.value})}
-            />
-            <input 
-              type="password" placeholder="Sandi" 
-              className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 transition-all text-white"
-              onChange={(e) => setLoginData({...loginData, password: e.target.value})}
-            />
-            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">
-              Masuk
-            </button>
+            <input type="text" placeholder="Username" className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 text-white" onChange={(e) => setLoginData({...loginData, username: e.target.value})} />
+            <input type="password" placeholder="Sandi" className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 text-white" onChange={(e) => setLoginData({...loginData, password: e.target.value})} />
+            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button>
           </form>
         </motion.div>
       </div>
     );
   }
 
-  // --- RENDER DASHBOARD UTAMA ---
+  // --- RENDER DASHBOARD UTAMA (DESAIN GEMINI/MOBILE PRO) ---
   return (
-    <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans overflow-hidden selection:bg-blue-500/30">
+    <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans overflow-hidden selection:bg-blue-500/30 relative">
       
-      {/* SIDEBAR */}
-      <div className={`${isSidebarOpen ? 'w-72' : 'w-0'} transition-all duration-300 ease-in-out bg-[#1e1f20] shrink-0 flex flex-col border-r border-white/5 overflow-hidden z-20`}>
-        <div className="p-4">
-          <button onClick={buatChatBaru} className="flex items-center gap-3 bg-[#131314] hover:bg-[#282a2c] px-4 py-3 rounded-full text-sm font-medium transition-colors border border-gray-700/50 w-full shadow-sm">
-            <Plus size={18} className="text-[#a8c7fa]" /> Chat baru
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
-          <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat</div>
-          {sessions.map(sesi => (
-            <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${currentSessionId === sesi.id ? 'bg-[#282a2c] text-blue-300 shadow-inner' : 'hover:bg-[#282a2c]/50 text-gray-400'}`}>
-              <div className="flex items-center gap-3 overflow-hidden">
-                <MessageSquare size={16} className="shrink-0" />
-                <span className="truncate text-sm font-medium">{sesi.title}</span>
+      {/* ⚡ SIDEBAR (AUTO-HIDE MOBILE) */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <>
+            {/* Backdrop Gelap untuk Mobile */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-40" />
+            <motion.div 
+              initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+              className="fixed md:relative inset-y-0 left-0 w-72 bg-[#1e1f20] flex flex-col border-r border-white/5 shadow-2xl z-50 shrink-0"
+            >
+              <div className="p-4 flex justify-between items-center">
+                <button onClick={buatChatBaru} className="flex-1 flex items-center gap-3 bg-[#131314] hover:bg-[#282a2c] px-4 py-3 rounded-2xl text-sm font-medium transition-colors border border-gray-700/50 shadow-sm">
+                  <Plus size={18} className="text-[#a8c7fa]" /> Chat baru
+                </button>
+                <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-2 p-2 text-gray-400 hover:text-white"><X size={20}/></button>
               </div>
-              <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"><Trash2 size={14} /></button>
-            </div>
-          ))}
-        </div>
-        <div className="p-4 border-t border-white/5">
-           <button onClick={handleLogout} className="w-full text-xs text-gray-500 hover:text-red-400 transition-colors text-left px-2">Log out (Andiie)</button>
-        </div>
-      </div>
+              <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
+                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat</div>
+                {sessions.map(sesi => (
+                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${currentSessionId === sesi.id ? 'bg-[#282a2c] text-blue-300 shadow-inner' : 'hover:bg-white/5 text-gray-400'}`}>
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <MessageSquare size={16} className="shrink-0" />
+                      <span className="truncate text-sm font-medium">{sesi.title}</span>
+                    </div>
+                    <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"><Trash2 size={14} /></button>
+                  </div>
+                ))}
+              </div>
+              <div className="p-4 border-t border-white/5">
+                <button onClick={handleLogout} className="w-full text-xs text-gray-500 hover:text-red-400 transition-colors text-left px-2">Log out (Andiie)</button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* WORKSPACE */}
-      <div className="flex-1 flex min-w-0 bg-[#131314]">
+      <div className="flex-1 flex flex-col min-w-0 bg-[#131314] relative">
         
-        {/* KOLOM CHAT */}
-        <div className={`flex flex-col relative transition-all duration-500 ${isPreviewOpen ? 'w-1/2 border-r border-white/10' : 'w-full'}`}>
-          <header className="flex items-center justify-between p-4 bg-[#131314]/80 backdrop-blur-md z-10 border-b border-white/5">
-            <div className="flex items-center gap-3">
-              <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 hover:bg-[#282a2c] rounded-full transition-colors text-gray-400"><Menu size={20} /></button>
-              <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-purple-400 text-xs font-semibold rounded-full px-3 py-2 focus:outline-none cursor-pointer transition-all shadow-lg hidden md:block">
-                <option value="default">👤 Asisten Umum</option>
-                <option value="kartos">🤖 Ahli Robotika</option>
-                <option value="seiso">🏨 IT Hotel</option>
-                <option value="jlpt">🇯🇵 Sensei JLPT N2</option>
-              </select>
+        {/* HEADER */}
+        <header className="flex items-center justify-between p-4 bg-[#131314]/80 backdrop-blur-md z-10 border-b border-white/5 shrink-0">
+          <div className="flex items-center gap-3">
+            {!isSidebarOpen && (
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-[#282a2c] rounded-full transition-colors text-gray-400"><Menu size={20} /></button>
+            )}
+            <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-purple-400 text-xs font-semibold rounded-full px-3 py-2 outline-none hidden md:block">
+              <option value="default">👤 Asisten Umum</option>
+              <option value="kartos">🤖 Ahli Robotika</option>
+              <option value="seiso">🏨 IT Hotel</option>
+            </select>
+            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-3 py-2 outline-none">
+              <option value="auto">✨ QWEN 3 AUTO</option>
+              <option value="anthropic/claude-sonnet-4.6">⚡ CLAUDE 4.6</option>
+              <option value="lokal">💻 LOKAL ONLY</option>
+            </select>
+          </div>
+        </header>
 
-              <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-4 py-2 focus:outline-none cursor-pointer transition-all shadow-lg">
-                <optgroup label="Auto Routing">
-                  <option value="auto">✨ Auto Smart Manager</option>
-                </optgroup>
-                <optgroup label="Model Elite 2026 (OpenRouter)">
-                  <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6 (Akurasi)</option>
-                  <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6 (Cepat)</option>
-                  <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
-                  <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
-                </optgroup>
-                <optgroup label="Lokal (Laptop Aero 15)">
-                  <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
-                </optgroup>
-              </select>
-            </div>
-          </header>
-
-          <main className="flex-1 overflow-y-auto scroll-smooth pb-40">
+        {/* KOLOM CHAT & CANVAS SPLIT (DESKTOP) */}
+        <div className="flex-1 flex flex-row overflow-hidden relative">
+          
+          {/* AREA CHAT */}
+          <main className={`flex-1 overflow-y-auto scroll-smooth pb-40 transition-all ${isPreviewOpen && window.innerWidth > 768 ? 'w-1/2 border-r border-white/10' : 'w-full'}`}>
             <div className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
               {messages.length === 0 && (
-                <div className="mt-16 md:mt-24 px-2">
-                  <h1 className="text-5xl md:text-6xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Halo, Andi.</h1>
-                  <h2 className="text-3xl md:text-4xl font-medium text-gray-600 tracking-tight">Apa yang kita bangun hari ini?</h2>
+                <div className="mt-16 md:mt-24 px-2 text-center md:text-left">
+                  <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Halo, Andi.</h1>
+                  <h2 className="text-2xl md:text-4xl font-medium text-gray-600 tracking-tight">Apa yang kita bangun hari ini?</h2>
                 </div>
               )}
               <div className="space-y-10 mt-6">
                 {messages.map((chat, idx) => (
                   <div key={idx} className={`flex gap-4 ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {chat.role === 'ai' && (
-                      <div className="w-8 h-8 shrink-0 flex items-start justify-center pt-1">
+                      <div className="w-8 h-8 shrink-0 flex items-start justify-center pt-1 hidden md:flex">
                         {isStreaming && idx === messages.length - 1 ? <Loader2 className="animate-spin text-blue-400" size={22} /> : <Sparkles className="text-blue-400" size={22} />}
                       </div>
                     )}
-                    <div className={`max-w-[85%] md:max-w-[85%] ${chat.role === 'user' ? 'bg-[#282a2c] px-6 py-4 rounded-3xl rounded-tr-md text-[15px] shadow-sm' : 'text-[15px] leading-relaxed w-full'}`}>
+                    <div className={`max-w-[90%] md:max-w-[85%] ${chat.role === 'user' ? 'bg-[#282a2c] px-5 py-3 md:px-6 md:py-4 rounded-[24px] rounded-br-md text-[15px] shadow-sm' : 'text-[15px] leading-relaxed w-full'}`}>
                       {chat.role === 'ai' ? (
-                        <div className="prose prose-invert max-w-none">
+                        <div className="prose prose-invert prose-sm md:prose-base max-w-none">
                           <ReactMarkdown components={{
                               code(props) {
                                 const {children, className, ...rest} = props;
                                 const match = /language-(\w+)/.exec(className || '');
                                 const codeString = String(children).replace(/\n$/, '');
-                                
                                 const isRenderable = match && (match[1] === 'html' || match[1] === 'xml');
 
                                 return match ? (
                                   <div className="rounded-xl border border-gray-700/50 my-6 bg-[#1e1f20] overflow-hidden shadow-2xl">
                                     <div className="flex items-center justify-between px-4 py-2 bg-[#282a2c] border-b border-gray-800">
                                       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{match[1]}</span>
-                                      
                                       {isRenderable && (
                                         <button 
-                                          // ⚡ UBAH FUNGSI KLIK: Otomatis masuk ke tab "preview" saat dibuka
-                                          onClick={() => { 
-                                            setPreviewCode(codeString); 
-                                            setIsPreviewOpen(true); 
-                                            setActiveCanvasTab("preview"); 
-                                          }}
-                                          className="flex items-center gap-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-3 py-1 rounded-md transition-colors font-medium"
+                                          onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); setActiveCanvasTab("preview"); }}
+                                          className="flex items-center gap-1.5 text-xs bg-blue-600/20 text-blue-400 px-3 py-1 rounded-md font-medium"
                                         >
-                                          <Play size={12} fill="currentColor" /> Preview Canvas
+                                          <Play size={12} fill="currentColor" /> Preview
                                         </button>
                                       )}
                                     </div>
-                                    <SyntaxHighlighter {...rest} children={codeString} language={match[1]} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1.5rem', fontSize: '0.9em' }} />
+                                    <SyntaxHighlighter {...rest} children={codeString} language={match[1]} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1.2rem', fontSize: '0.85em' }} />
                                   </div>
-                                ) : <code className="bg-gray-800 px-1.5 py-0.5 rounded text-blue-300 font-mono">{children}</code>;
+                                ) : <code className="bg-gray-800 px-1.5 py-0.5 rounded text-blue-300 font-mono text-sm">{children}</code>;
                               }
                             }}>
                             {chat.text}
@@ -458,98 +452,72 @@ export default function App() {
             </div>
           </main>
 
-          {/* INPUT AREA */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent pt-12 pb-8 px-4 md:px-8 z-20">
+          {/* ⚡ KANVAS PREVIEW (DRAWER DI MOBILE, SPLIT DI DESKTOP) */}
+          <AnimatePresence>
+            {isPreviewOpen && (
+              <motion.div 
+                initial={{ x: "100%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "100%", opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.4 }}
+                className={`flex flex-col bg-[#1e1f20] shadow-2xl z-40 ${window.innerWidth <= 768 ? 'absolute inset-0 w-full' : 'w-1/2 relative border-l border-white/10'}`}
+              >
+                <div className="bg-[#131314] border-b border-white/5 p-2 flex justify-between items-center shrink-0">
+                  <div className="flex bg-[#1e1f20] p-1 rounded-lg">
+                    <button onClick={() => setActiveCanvasTab("preview")} className={`px-4 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 ${activeCanvasTab === "preview" ? "bg-blue-600/20 text-blue-400 shadow" : "text-gray-400 hover:text-gray-200"}`}><Play size={14} /> Preview</button>
+                    <button onClick={() => setActiveCanvasTab("code")} className={`px-4 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 ${activeCanvasTab === "code" ? "bg-[#282a2c] text-white shadow" : "text-gray-400 hover:text-gray-200"}`}><Code size={14} /> Code</button>
+                  </div>
+                  <button onClick={() => setIsPreviewOpen(false)} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 mr-1"><X size={18} /></button>
+                </div>
+                
+                <div className="flex-1 relative bg-[#1e1f20]">
+                  {activeCanvasTab === "code" ? (
+                    <textarea value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} className="absolute inset-0 w-full h-full bg-transparent text-[#a8c7fa] font-mono text-[13px] p-5 outline-none resize-none" spellCheck="false" />
+                  ) : (
+                    <div className="absolute inset-0 bg-white"><iframe title="CanvasPreview" srcDoc={previewCode} className="w-full h-full border-none" sandbox="allow-scripts allow-modals allow-same-origin" /></div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ⚡ FLOATING INPUT AREA (GAYA GEMINI/CHATGPT MOBILE) */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent z-20 pointer-events-none">
+          <div className="max-w-3xl mx-auto pointer-events-auto">
             {attachments.length > 0 && (
-              <div className="max-w-3xl mx-auto mb-3 flex flex-wrap gap-2 px-4">
+              <div className="mb-3 flex flex-wrap gap-2">
                 {attachments.map((file, idx) => (
                   <div key={idx} className="bg-[#282a2c] border border-gray-700 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs text-gray-300 shadow-lg">
-                    <span className="truncate max-w-[150px] md:max-w-[200px] font-medium">{file.name}</span>
-                    <button onClick={() => hapusAttachment(idx)} className="hover:text-red-400 transition-colors bg-white/5 rounded-full p-0.5"><X size={12}/></button>
+                    <span className="truncate max-w-[120px] font-medium">{file.name}</span>
+                    <button onClick={() => hapusAttachment(idx)} className="hover:text-red-400 bg-white/5 rounded-full p-0.5"><X size={12}/></button>
                   </div>
                 ))}
               </div>
             )}
 
-            <div className="max-w-3xl mx-auto bg-[#1e1f20] rounded-[32px] pl-2 pr-3 py-3 flex items-center gap-2 shadow-2xl border border-white/5 focus-within:border-blue-500/50 transition-all duration-500">
+            <div className="bg-[#1e1f20] rounded-[28px] p-2 flex items-end gap-2 shadow-2xl border border-white/10 focus-within:border-blue-500/50 transition-all duration-300">
               <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-              <button onClick={() => fileInputRef.current?.click()} className="p-3 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10 shrink-0">
-                <Paperclip size={20} />
+              <button onClick={() => fileInputRef.current?.click()} className="p-3 text-gray-400 hover:text-white rounded-full">
+                <Paperclip size={22} />
               </button>
-
-              <input 
-                id="chat-input"
-                name="chat-input"
-                type="text" 
-                className="flex-1 bg-transparent border-none focus:ring-0 text-[16px] text-[#e3e3e3] placeholder-gray-500 outline-none" 
-                placeholder="Ketik instruksi untuk AI..." 
+              <textarea 
+                className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] md:text-[16px] text-[#e3e3e3] placeholder-gray-500 py-3 outline-none resize-none max-h-32 min-h-[44px]" 
+                placeholder="Tanya Qwen 3..." 
+                rows="1"
                 value={input} 
                 onChange={(e) => setInput(e.target.value)} 
-                onKeyDown={(e) => e.key === 'Enter' && kirimPesan()} 
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} 
                 disabled={isStreaming} 
               />
-              <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className="p-3.5 bg-white hover:bg-gray-200 disabled:bg-gray-800 text-black rounded-full transition-all flex items-center justify-center shrink-0 shadow-lg active:scale-90"><Send size={20} /></button>
+              <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className="p-3 bg-white text-black rounded-full hover:bg-gray-200 disabled:bg-gray-800 transition-all active:scale-90">
+                {isStreaming ? <Loader2 className="animate-spin" size={22} /> : <Send size={22} />}
+              </button>
             </div>
-            <div className="text-center text-[10px] text-gray-600 mt-4 font-bold tracking-widest uppercase">
-              {activeRoute ? `Jalur: ${activeRoute}` : "Sistem Siap"}
+            <div className="text-center text-[10px] text-gray-600 mt-3 font-bold tracking-widest uppercase">
+              {activeRoute ? `JALUR: ${activeRoute}` : "SISTEM SIAP"}
             </div>
           </div>
         </div>
-
-        {/* ⚡ KOLOM CANVAS PREVIEW (SISTEM TAB BARU) ⚡ */}
-        {isPreviewOpen && (
-          <motion.div 
-            initial={{ width: 0, opacity: 0 }} 
-            animate={{ width: "50%", opacity: 1 }} 
-            exit={{ width: 0, opacity: 0 }} 
-            className="flex flex-col bg-[#1e1f20] border-l border-white/10 overflow-hidden shadow-2xl z-30"
-          >
-            {/* ⚡ HEADER & TABS */}
-            <div className="bg-[#131314] border-b border-white/5 p-2 flex justify-between items-center shrink-0">
-              <div className="flex bg-[#1e1f20] p-1 rounded-lg">
-                <button 
-                  onClick={() => setActiveCanvasTab("preview")}
-                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${activeCanvasTab === "preview" ? "bg-blue-600/20 text-blue-400 shadow" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}
-                >
-                  <Play size={14} /> Preview
-                </button>
-                <button 
-                  onClick={() => setActiveCanvasTab("code")}
-                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${activeCanvasTab === "code" ? "bg-[#282a2c] text-white shadow" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}
-                >
-                  <Code size={14} /> Code
-                </button>
-              </div>
-              <button onClick={() => setIsPreviewOpen(false)} className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-gray-400 mr-1">
-                <X size={18} />
-              </button>
-            </div>
-            
-            {/* ⚡ AREA KONTEN (SWITCH BERDASARKAN TAB) */}
-            <div className="flex-1 relative bg-[#1e1f20]">
-              {activeCanvasTab === "code" ? (
-                <textarea 
-                  value={previewCode}
-                  onChange={(e) => setPreviewCode(e.target.value)}
-                  className="absolute inset-0 w-full h-full bg-transparent text-[#a8c7fa] font-mono text-[13px] p-5 outline-none resize-none selection:bg-blue-500/30"
-                  spellCheck="false"
-                  placeholder="Kode HTML akan muncul di sini..."
-                />
-              ) : (
-                <div className="absolute inset-0 bg-white">
-                  <iframe 
-                    title="CanvasPreview"
-                    srcDoc={previewCode} 
-                    className="w-full h-full border-none"
-                    sandbox="allow-scripts allow-modals allow-same-origin"
-                  />
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
+        
       </div>
-
     </div>
   );
 }
