@@ -348,21 +348,32 @@ export default function App() {
                             components={{
                               // ⚡ KUNCI PENTING UNTUK MENGUBAH TEKS MENJADI AUDIO PLAYER SUNO
                               a(props) {
-                                if (props.children && props.children[0] === "AUDIO_PLAYER") {
+                                // 1. Cek apakah ini adalah link khusus AUDIO_PLAYER dari engine.py
+                                if (props.children && String(props.children).includes("AUDIO_PLAYER")) {
                                   return (
                                     <div className="bg-[#1e1f20] p-4 rounded-2xl mt-4 border border-white/10 shadow-2xl flex flex-col gap-3 w-full md:max-w-md">
                                       <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
                                         <Music size={14} className="text-blue-400"/> Suno Music Player
                                       </div>
-                                      <audio controls src={props.href} className="w-full h-12 rounded-lg outline-none" />
+                                      
+                                      {/* ⚡ ELEMEN UTAMA: Pemutar Audio Bawaan Browser */}
+                                      <audio controls src={props.href} className="w-full h-12 rounded-lg outline-none" preload="auto">
+                                        Browser Anda tidak mendukung pemutar audio ini.
+                                      </audio>
+                                      
+                                      {/* ⚡ TOMBOL DOWNLOAD */}
                                       <a href={props.href} target="_blank" rel="noreferrer" download="lagu-suno.mp3" className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95">
                                         <Download size={16}/> Download MP3
                                       </a>
                                     </div>
                                   );
                                 }
+                                
+                                // 2. Jika ini hanya link internet biasa, tampilkan teks biru biasa
                                 return <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noreferrer" />;
                               },
+                              
+                              // ... (komponen img dan code biarkan seperti sebelumnya) ...
                               img(props) {
                                 return (
                                   <div className="relative group inline-block my-4">
