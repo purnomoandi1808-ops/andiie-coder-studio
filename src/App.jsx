@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion'; // ⚡ DIHAPUS: AnimatePresence yang tidak terpakai
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
-import JSZip from 'jszip'; // ⚡ IMPORT JSZIP (PEMBONGKAR ZIP DI BROWSER)
+import JSZip from 'jszip'; 
 
 // ==========================================
 // KONFIGURASI SUPABASE (DATABASE AWAN)
@@ -71,7 +71,6 @@ export default function App() {
         const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
         localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
         
-        // Simpan ke Supabase di latar belakang
         if (supabase) {
           const sesiSaatIni = updated.find(s => s.id === currentSessionId);
           if (sesiSaatIni) {
@@ -172,73 +171,55 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // ⚡ --- FUNGSI PEMBACA FILE PRO (DILENGKAPI JSZIP & FILTER ANTI 8MB) ---
+  // ⚡ --- FUNGSI PEMBACA FILE PRO (HALAL VERCEL) ---
   const bacaFile = async (file) => {
-    return new Promise(async (resolve, reject) => {
-      
-      // ⚡ JIKA FILE ADALAH ZIP -> Ekstrak Langsung di Browser!
-      if (file.name.endsWith('.zip') || file.type.includes('zip')) {
-        try {
-          const zip = new JSZip();
-          const loadedZip = await zip.loadAsync(file);
-          let extractedText = "";
+    // JIKA FILE ADALAH ZIP -> Ekstrak Langsung di Browser
+    if (file.name.endsWith('.zip') || file.type.includes('zip')) {
+      try {
+        const zip = new JSZip();
+        const loadedZip = await zip.loadAsync(file);
+        let extractedText = "";
+        
+        const MAX_CHARS = 150000; 
+        let isLimitReached = false;
+
+        for (const relativePath of Object.keys(loadedZip.files)) {
+          if (isLimitReached) break;
+
+          const zipEntry = loadedZip.files[relativePath];
+          if (zipEntry.dir) continue;
           
-          // ⛔ REM DARURAT: Batas teks ~150 KB (Sangat aman dari batas 8 MB OpenRouter)
-          const MAX_CHARS = 150000; 
-          let isLimitReached = false;
+          const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/'];
+          if (badFolders.some(folder => relativePath.includes(folder))) continue;
+          
+          const isImageOrBinary = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i.test(relativePath);
+          if (isImageOrBinary) continue;
 
-          // Baca setiap file di dalam zip satu per satu
-          for (const relativePath of Object.keys(loadedZip.files)) {
-            if (isLimitReached) break;
+          const fileContent = await zipEntry.async('string');
+          extractedText += `\n\n--- [FILE DARI ZIP: ${relativePath}] ---\n${fileContent}\n`;
 
-            const zipEntry = loadedZip.files[relativePath];
-            
-            // Abaikan folder
-            if (zipEntry.dir) continue;
-            
-            // ⛔ FILTER 1: Buang folder sampah & hasil build
-            const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/'];
-            if (badFolders.some(folder => relativePath.includes(folder))) continue;
-            
-            // ⛔ FILTER 2: Buang gambar, binary, dan file teks raksasa (.lock, .map)
-            const isImageOrBinary = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i.test(relativePath);
-            if (isImageOrBinary) continue;
-
-            // Ekstrak teks kodenya
-            const fileContent = await zipEntry.async('string');
-            extractedText += `\n\n--- [FILE DARI ZIP: ${relativePath}] ---\n${fileContent}\n`;
-
-            // Cek apakah teks sudah terlalu panjang
-            if (extractedText.length > MAX_CHARS) {
-              extractedText += `\n\n[PERINGATAN SISTEM: Proyek ZIP terlalu besar. Pemotongan dilakukan otomatis agar API OpenRouter tidak menolak (Limit 8MB).]`;
-              isLimitReached = true;
-            }
+          if (extractedText.length > MAX_CHARS) {
+            extractedText += `\n\n[PERINGATAN SISTEM: Proyek ZIP terlalu besar. Pemotongan dilakukan otomatis agar API OpenRouter tidak menolak (Limit 8MB).]`;
+            isLimitReached = true;
           }
-
-          resolve({ 
-            type: 'text', 
-            name: file.name + " (Extracted)", 
-            content: extractedText 
-          });
-        } catch (error) {
-          resolve({ type: 'text', name: file.name, content: `[Gagal memproses ZIP di browser: ${error.message}]` });
         }
-      } 
-      // JIKA GAMBAR -> Base64
-      else if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
+
+        return { type: 'text', name: file.name + " (Extracted)", content: extractedText };
+      } catch (error) {
+        return { type: 'text', name: file.name, content: `[Gagal memproses ZIP di browser: ${error.message}]` };
+      }
+    } 
+    
+    // JIKA BUKAN ZIP -> Gunakan Promise murni (Tanpa Async)
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      if (file.type.startsWith('image/')) {
         reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result });
         reader.readAsDataURL(file);
-      } 
-      // JIKA PDF -> Base64
-      else if (file.type === 'application/pdf') {
-        const reader = new FileReader();
+      } else if (file.type === 'application/pdf') {
         reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result });
         reader.readAsDataURL(file); 
-      }
-      // JIKA TEKS BIASA
-      else {
-        const reader = new FileReader();
+      } else {
         reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result });
         reader.readAsText(file);
       }
@@ -556,3 +537,8 @@ export default function App() {
             </div>
           </motion.div>
         )}
+      </div>
+
+    </div>
+  );
+}
