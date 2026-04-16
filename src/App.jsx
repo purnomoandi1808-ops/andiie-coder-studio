@@ -172,7 +172,7 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // ⚡ --- FUNGSI PEMBACA FILE PRO (DILENGKAPI JSZIP) ---
+  // ⚡ --- FUNGSI PEMBACA FILE PRO (DILENGKAPI JSZIP & FILTER ANTI 8MB) ---
   const bacaFile = async (file) => {
     return new Promise(async (resolve, reject) => {
       
@@ -182,26 +182,41 @@ export default function App() {
           const zip = new JSZip();
           const loadedZip = await zip.loadAsync(file);
           let extractedText = "";
+          
+          // ⛔ REM DARURAT: Batas teks ~150 KB (Sangat aman dari batas 8 MB OpenRouter)
+          const MAX_CHARS = 150000; 
+          let isLimitReached = false;
 
           // Baca setiap file di dalam zip satu per satu
           for (const relativePath of Object.keys(loadedZip.files)) {
+            if (isLimitReached) break;
+
             const zipEntry = loadedZip.files[relativePath];
             
-            // Abaikan folder dan filter sampah berat
+            // Abaikan folder
             if (zipEntry.dir) continue;
-            if (relativePath.includes('node_modules/') || relativePath.includes('.git/') || relativePath.includes('venv/')) continue;
             
-            // Abaikan file gambar/video
-            const isImageOrBinary = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock)$/i.test(relativePath);
+            // ⛔ FILTER 1: Buang folder sampah & hasil build
+            const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/'];
+            if (badFolders.some(folder => relativePath.includes(folder))) continue;
+            
+            // ⛔ FILTER 2: Buang gambar, binary, dan file teks raksasa (.lock, .map)
+            const isImageOrBinary = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i.test(relativePath);
             if (isImageOrBinary) continue;
 
             // Ekstrak teks kodenya
             const fileContent = await zipEntry.async('string');
             extractedText += `\n\n--- [FILE DARI ZIP: ${relativePath}] ---\n${fileContent}\n`;
+
+            // Cek apakah teks sudah terlalu panjang
+            if (extractedText.length > MAX_CHARS) {
+              extractedText += `\n\n[PERINGATAN SISTEM: Proyek ZIP terlalu besar. Pemotongan dilakukan otomatis agar API OpenRouter tidak menolak (Limit 8MB).]`;
+              isLimitReached = true;
+            }
           }
 
           resolve({ 
-            type: 'text', // Ubah wujudnya jadi teks murni
+            type: 'text', 
             name: file.name + " (Extracted)", 
             content: extractedText 
           });
