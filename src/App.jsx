@@ -513,36 +513,46 @@ export default function App() {
           </div>
         </div>
 
-        {/* KOLOM CANVAS PREVIEW */}
+        {/* KOLOM CANVAS PREVIEW (LIVE IDE) */}
         {isPreviewOpen && (
           <motion.div 
             initial={{ width: 0, opacity: 0 }} 
             animate={{ width: "50%", opacity: 1 }} 
             exit={{ width: 0, opacity: 0 }} 
-            className="flex flex-col bg-white overflow-hidden shadow-2xl"
+            className="flex flex-col bg-[#1e1f20] border-l border-white/10 overflow-hidden shadow-2xl z-30"
           >
-            <div className="bg-[#f1f3f4] border-b border-gray-200 p-3 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-2 text-gray-700 font-semibold text-sm">
+            <div className="bg-[#131314] border-b border-white/5 p-3 flex justify-between items-center shrink-0">
+              <div className="flex items-center gap-2 text-gray-300 font-semibold text-sm">
                 <LayoutTemplate size={18} className="text-blue-500"/>
-                <span>Live Canvas Preview</span>
+                <span>Live Canvas IDE</span>
               </div>
-              <button onClick={() => setIsPreviewOpen(false)} className="p-1 hover:bg-gray-300 rounded-md transition-colors text-gray-600">
+              <button onClick={() => setIsPreviewOpen(false)} className="p-1 hover:bg-white/10 rounded-md transition-colors text-gray-400">
                 <X size={18} />
               </button>
             </div>
             
-            <div className="flex-1 bg-white relative">
+            {/* LINGKUNGAN EDITOR (ATAS) */}
+            <div className="h-[45%] border-b border-white/10 flex flex-col relative bg-[#1e1f20] group">
+              <div className="text-[10px] text-gray-600 font-mono absolute top-2 right-4 uppercase tracking-widest pointer-events-none group-focus-within:text-blue-500 transition-colors">
+                HTML / CSS / JS Editor
+              </div>
+              <textarea 
+                value={previewCode}
+                onChange={(e) => setPreviewCode(e.target.value)}
+                className="w-full h-full bg-transparent text-[#a8c7fa] font-mono text-[13px] p-5 pt-8 outline-none resize-none selection:bg-blue-500/30"
+                spellCheck="false"
+                placeholder="Kode HTML akan muncul di sini..."
+              />
+            </div>
+
+            {/* LINGKUNGAN PREVIEW REAL-TIME (BAWAH) */}
+            <div className="h-[55%] bg-white relative">
               <iframe 
                 title="CanvasPreview"
                 srcDoc={previewCode} 
-                className="absolute inset-0 w-full h-full border-none bg-white"
+                className="absolute inset-0 w-full h-full border-none"
                 sandbox="allow-scripts allow-modals allow-same-origin"
               />
             </div>
           </motion.div>
         )}
-      </div>
-
-    </div>
-  );
-}
