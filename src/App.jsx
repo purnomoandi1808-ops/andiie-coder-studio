@@ -111,12 +111,10 @@ export default function App() {
     setMessages(prev => [...prev, { role: "user", text: instruksiUser }, { role: "ai", text: "" }]);
 
     try {
-      // PENENTUAN ALAMAT API (SINKRON DENGAN VERCEL)
-      const targetAPI = selectedModel === "lokal" 
-        ? "https://kurt-routine-citizenship-site.trycloudflare.com/api/chat" // Laptop
-        : (window.location.hostname === "localhost" 
-            ? "https://andiie-coder-studio.vercel.app/api/chat" // Cloud tembak via Vercel asli
-            : "/api/chat"); // Cloud tembak relatif
+      // PENENTUAN ALAMAT API YANG BENAR (Selalu tembak ke Laptop/Python)
+      // Jika di Vercel, dia akan pakai URL Cloudflare. Jika ngetes di laptop, pakai localhost.
+      const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
+      const targetAPI = `${BACKEND_URL}/api/chat/stream`; // <-- Pintu /stream sudah benar
 
       const respon = await fetch(targetAPI, {
         method: "POST",
@@ -128,7 +126,10 @@ export default function App() {
         })
       });
 
-      if (!respon.ok) throw new Error("404: Pintu API tidak ditemukan");
+      if (!respon.ok) {
+        // Jika laptop mati, respon tidak OK.
+        throw new Error("Gagal menghubungi server. Pastikan terminal Python dan Cloudflare di laptop menyala.");
+      }
 
       const reader = respon.body.getReader();
       const decoder = new TextDecoder("utf-8");
@@ -154,6 +155,7 @@ export default function App() {
         });
       }
     } catch (error) {
+// ... (lanjutan kode catch biarkan sama) ...
       setMessages(prev => {
         const newMessages = [...prev];
         newMessages[newMessages.length - 1] = { ...newMessages[newMessages.length - 1], text: `⚠️ Error: ${error.message}` };
