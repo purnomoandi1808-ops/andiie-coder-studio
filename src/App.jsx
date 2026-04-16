@@ -174,7 +174,7 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // ⚡ --- FUNGSI PEMBACA FILE (DIPERBARUI UNTUK PDF) ---
+  // ⚡ --- FUNGSI PEMBACA FILE (DIPERBARUI UNTUK PDF & ZIP) ---
   const bacaFile = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -184,8 +184,12 @@ export default function App() {
         reader.readAsDataURL(file);
       } 
       else if (file.type === 'application/pdf') {
-        // PDF wajib jadi Base64 agar dikirim aman ke Python
         reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result });
+        reader.readAsDataURL(file); 
+      }
+      // ⚡ TAMBAHAN BARU: DETEKSI FILE ZIP
+      else if (file.name.endsWith('.zip') || file.type.includes('zip')) {
+        reader.onload = (e) => resolve({ type: 'application/zip', name: file.name, content: e.target.result });
         reader.readAsDataURL(file); 
       }
       else {
