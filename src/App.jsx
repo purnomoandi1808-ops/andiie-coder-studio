@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion'; // ⚡ TAMBAH AnimatePresence
+import { motion, AnimatePresence } from 'framer-motion'; 
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -24,7 +24,7 @@ export default function App() {
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeRoute, setActiveRoute] = useState(null); 
-  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768); // ⚡ Responsive default
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768); 
   const [selectedModel, setSelectedModel] = useState("auto");
   
   // --- STATE PERSONA & ATTACHMENTS ---
@@ -67,7 +67,7 @@ export default function App() {
     fetchChats();
   }, []);
 
-  // --- EFEK SIMPAN DATA KE AWAN (DEBOUNCE) ---
+  // --- EFEK SIMPAN DATA KE AWAN (FIXED SUPABASE CATCH ERROR) ---
   useEffect(() => {
     if (isStreaming) return;
     if (currentSessionId && messages.length > 0) {
@@ -75,12 +75,16 @@ export default function App() {
         setSessions(prev => {
           const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
           localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
+          
           if (supabase) {
             const sesiSaatIni = updated.find(s => s.id === currentSessionId);
             if (sesiSaatIni) {
+              // ⚡ PERBAIKAN: Gunakan .then(({ error })) alih-alih .catch() untuk Supabase
               supabase.from('andiie_chats').upsert({ 
                 id: currentSessionId, title: sesiSaatIni.title, messages: messages, updated_at: new Date()
-              }).catch(err => console.error("Supabase Error", err));
+              }).then(({ error }) => {
+                if (error) console.error("Supabase Error:", error.message);
+              });
             }
           }
           return updated;
@@ -105,7 +109,7 @@ export default function App() {
   // --- FUNGSI MANAJEMEN CHAT ---
   const buatChatBaru = () => {
     setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]);
-    if(window.innerWidth < 768) setIsSidebarOpen(false); // Tutup sidebar di HP
+    if(window.innerWidth < 768) setIsSidebarOpen(false); 
   };
 
   const muatChatLama = (id) => {
@@ -113,7 +117,7 @@ export default function App() {
     const sesi = sessions.find(s => s.id === id);
     if (sesi) {
       setCurrentSessionId(id); setMessages(sesi.messages); setActiveRoute(null); setAttachments([]); 
-      if(window.innerWidth < 768) setIsSidebarOpen(false); // Tutup sidebar di HP
+      if(window.innerWidth < 768) setIsSidebarOpen(false); 
     }
   };
 
@@ -192,13 +196,12 @@ export default function App() {
     const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || ""; // KUNCI DARURAT DARI .ENV
+    const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || ""; 
 
     try {
       // ⚡ RENCANA A: TEMBAK KE LAPTOP RUMAH (LOCAL BACKEND)
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       
-      // Timer 8 detik. Kalau laptop mati, Vercel akan otomatis pindah Rencana B
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); 
 
@@ -207,7 +210,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           instruksi: instruksiUser, 
-          history: historyKirim, // ⚡ KIRIM INGATAN KE SERVER
+          history: historyKirim, 
           paksa_model: selectedModel,
           kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026",
           persona: selectedPersona, 
@@ -249,18 +252,20 @@ export default function App() {
       try {
         if(!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diisi di Vercel!");
 
-        // Konversi History Vercel ke format OpenRouter
         const openRouterMessages = historyKirim.map(msg => ({
           role: msg.role === 'ai' ? 'assistant' : 'user',
           content: msg.text
         }));
         openRouterMessages.push({ role: "user", content: teksTampilan });
 
+        // Jika rute yang dipilih adalah gemma, gunakan itu, jika tidak gunakan Qwen
+        const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen-2.5-coder-32b";
+
         const responOpenRouter = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            model: "qwen/qwen-2.5-coder-32b", // Prioritas Utama Cadangan
+            model: fallbackModel, 
             messages: openRouterMessages,
             stream: true 
           })
@@ -327,7 +332,7 @@ export default function App() {
     );
   }
 
-  // --- RENDER DASHBOARD UTAMA (DESAIN GEMINI/MOBILE PRO) ---
+  // --- RENDER DASHBOARD UTAMA ---
   return (
     <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans overflow-hidden selection:bg-blue-500/30 relative">
       
@@ -335,7 +340,6 @@ export default function App() {
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            {/* Backdrop Gelap untuk Mobile */}
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-40" />
             <motion.div 
               initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }}
@@ -370,7 +374,7 @@ export default function App() {
       {/* WORKSPACE */}
       <div className="flex-1 flex flex-col min-w-0 bg-[#131314] relative">
         
-        {/* HEADER */}
+        {/* HEADER LENGKAP */}
         <header className="flex items-center justify-between p-4 bg-[#131314]/80 backdrop-blur-md z-10 border-b border-white/5 shrink-0">
           <div className="flex items-center gap-3">
             {!isSidebarOpen && (
@@ -378,16 +382,32 @@ export default function App() {
             )}
             <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
           </div>
+          
           <div className="flex items-center gap-2">
             <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-purple-400 text-xs font-semibold rounded-full px-3 py-2 outline-none hidden md:block">
               <option value="default">👤 Asisten Umum</option>
               <option value="kartos">🤖 Ahli Robotika</option>
               <option value="seiso">🏨 IT Hotel</option>
             </select>
-            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-3 py-2 outline-none">
-              <option value="auto">✨ QWEN 3 AUTO</option>
-              <option value="anthropic/claude-sonnet-4.6">⚡ CLAUDE 4.6</option>
-              <option value="lokal">💻 LOKAL ONLY</option>
+
+            <select 
+              value={selectedModel} 
+              onChange={(e) => setSelectedModel(e.target.value)} 
+              className="bg-[#1e1f20] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-3 py-2 outline-none max-w-[150px] md:max-w-xs truncate"
+            >
+              <optgroup label="Auto Routing">
+                <option value="auto">✨ Auto Smart Manager</option>
+              </optgroup>
+              <optgroup label="Model Elite 2026 (OpenRouter)">
+                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6 (Akurasi)</option>
+                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6 (Cepat)</option>
+                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
+                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
+                <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
+              </optgroup>
+              <optgroup label="Lokal (Laptop Aero 15)">
+                <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
+              </optgroup>
             </select>
           </div>
         </header>
@@ -395,7 +415,6 @@ export default function App() {
         {/* KOLOM CHAT & CANVAS SPLIT (DESKTOP) */}
         <div className="flex-1 flex flex-row overflow-hidden relative">
           
-          {/* AREA CHAT */}
           <main className={`flex-1 overflow-y-auto scroll-smooth pb-40 transition-all ${isPreviewOpen && window.innerWidth > 768 ? 'w-1/2 border-r border-white/10' : 'w-full'}`}>
             <div className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
               {messages.length === 0 && (
@@ -452,7 +471,7 @@ export default function App() {
             </div>
           </main>
 
-          {/* ⚡ KANVAS PREVIEW (DRAWER DI MOBILE, SPLIT DI DESKTOP) */}
+          {/* KANVAS PREVIEW */}
           <AnimatePresence>
             {isPreviewOpen && (
               <motion.div 
@@ -479,7 +498,7 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* ⚡ FLOATING INPUT AREA (GAYA GEMINI/CHATGPT MOBILE) */}
+        {/* INPUT AREA */}
         <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent z-20 pointer-events-none">
           <div className="max-w-3xl mx-auto pointer-events-auto">
             {attachments.length > 0 && (
