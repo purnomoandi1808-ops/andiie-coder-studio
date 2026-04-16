@@ -218,7 +218,7 @@ export default function App() {
         if(!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diisi di Vercel!");
         const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text }));
         openRouterMessages.push({ role: "user", content: teksTampilan });
-        const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen-2.5-coder-32b";
+        const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen-3-30b-it";
 
         const responOpenRouter = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
@@ -344,24 +344,19 @@ export default function App() {
                       {chat.role === 'ai' ? (
                         <div className="prose prose-invert prose-sm md:prose-base max-w-none">
                           <ReactMarkdown 
-                            urlTransform={(value) => value} // ⚡ KUNCI PENTING UNTUK MEMBACA GAMBAR BASE64
+                            urlTransform={(value) => value} 
                             components={{
-                              // ⚡ KUNCI PENTING UNTUK MENGUBAH TEKS MENJADI AUDIO PLAYER SUNO
                               a(props) {
-                                // 1. Cek apakah ini adalah link khusus AUDIO_PLAYER dari engine.py
+                                // 1. AUDIO PLAYER SUNO
                                 if (props.children && String(props.children).includes("AUDIO_PLAYER")) {
                                   return (
                                     <div className="bg-[#1e1f20] p-4 rounded-2xl mt-4 border border-white/10 shadow-2xl flex flex-col gap-3 w-full md:max-w-md">
                                       <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
                                         <Music size={14} className="text-blue-400"/> Suno Music Player
                                       </div>
-                                      
-                                      {/* ⚡ ELEMEN UTAMA: Pemutar Audio Bawaan Browser */}
                                       <audio controls src={props.href} className="w-full h-12 rounded-lg outline-none" preload="auto">
                                         Browser Anda tidak mendukung pemutar audio ini.
                                       </audio>
-                                      
-                                      {/* ⚡ TOMBOL DOWNLOAD */}
                                       <a href={props.href} target="_blank" rel="noreferrer" download="lagu-suno.mp3" className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95">
                                         <Download size={16}/> Download MP3
                                       </a>
@@ -369,11 +364,24 @@ export default function App() {
                                   );
                                 }
                                 
-                                // 2. Jika ini hanya link internet biasa, tampilkan teks biru biasa
+                                // ⚡ 2. VIDEO PLAYER BARU (OPENROUTER)
+                                if (props.children && String(props.children).includes("VIDEO_PLAYER")) {
+                                  return (
+                                    <div className="bg-[#1e1f20] p-4 rounded-2xl mt-4 border border-white/10 shadow-2xl w-full md:max-w-xl">
+                                      <video controls src={props.href} className="w-full rounded-lg outline-none bg-black" preload="auto" autoPlay loop muted>
+                                        Browser Anda tidak mendukung pemutar video ini.
+                                      </video>
+                                      <a href={props.href} target="_blank" rel="noreferrer" download="video-ai.mp4" className="mt-3 flex items-center justify-center gap-2 bg-[#282a2c] hover:bg-white/10 text-white py-2.5 rounded-xl text-sm font-bold transition-all border border-gray-700">
+                                        <Download size={16}/> Download Video
+                                      </a>
+                                    </div>
+                                  );
+                                }
+                                
+                                // 3. Link Internet Biasa
                                 return <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noreferrer" />;
                               },
                               
-                              // ... (komponen img dan code biarkan seperti sebelumnya) ...
                               img(props) {
                                 return (
                                   <div className="relative group inline-block my-4">
