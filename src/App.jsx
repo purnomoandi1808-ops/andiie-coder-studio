@@ -4,6 +4,14 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip } from 'lucide-react';
+import { createClient } from '@supabase/supabase-js'; // ⚡ IMPORT SUPABASE BARU
+
+// ==========================================
+// KONFIGURASI SUPABASE (DATABASE AWAN)
+// ==========================================
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 export default function App() {
   // --- STATE AUTH ---
@@ -18,7 +26,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [selectedModel, setSelectedModel] = useState("auto");
   
-  // --- STATE PERSONA & ATTACHMENTS (BARU) ---
+  // --- STATE PERSONA & ATTACHMENTS ---
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [attachments, setAttachments] = useState([]); 
   const fileInputRef = useRef(null);
@@ -27,7 +35,7 @@ export default function App() {
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
-  // --- LOGIKA MEMORY ---
+  // --- LOGIKA MEMORY (LOKAL + CLOUD) ---
   const [sessions, setSessions] = useState(() => {
     const saved = localStorage.getItem("andiie_chat_history");
     return saved ? JSON.parse(saved) : [];
@@ -35,16 +43,45 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const chatEndRef = useRef(null);
 
-  // --- EFEK AUTH & MEMORY ---
+  // --- EFEK AUTH ---
   useEffect(() => {
     if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true);
   }, []);
 
+  // ⚡ 1. EFEK AMBIL DATA DARI AWAN SAAT WEB DIBUKA
+  useEffect(() => {
+    const fetchChats = async () => {
+      if (supabase) {
+        const { data, error } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false });
+        if (data && data.length > 0) {
+          setSessions(data);
+          localStorage.setItem("andiie_chat_history", JSON.stringify(data));
+          return;
+        }
+      }
+    };
+    fetchChats();
+  }, []);
+
+  // ⚡ 2. EFEK SIMPAN DATA KE AWAN & LOKAL OTOMATIS
   useEffect(() => {
     if (currentSessionId && messages.length > 0) {
       setSessions(prev => {
         const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
         localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
+        
+        // Simpan ke Supabase di latar belakang
+        if (supabase) {
+          const sesiSaatIni = updated.find(s => s.id === currentSessionId);
+          if (sesiSaatIni) {
+            supabase.from('andiie_chats').upsert({ 
+              id: currentSessionId, 
+              title: sesiSaatIni.title, 
+              messages: messages,
+              updated_at: new Date()
+            }).then(() => console.log("☁️ Tersimpan otomatis di Supabase"));
+          }
+        }
         return updated;
       });
     }
@@ -54,7 +91,7 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isStreaming]);
 
-  // --- FUNGSI LOGIN & CHAT ---
+  // --- FUNGSI LOGIN ---
   const handleLogin = (e) => {
     e.preventDefault();
     if (loginData.username === "andiie" && loginData.password === "Arsyad160216") {
@@ -70,12 +107,13 @@ export default function App() {
     setIsLoggedIn(false);
   };
 
+  // --- FUNGSI MANAJEMEN CHAT ---
   const buatChatBaru = () => {
     setCurrentSessionId(null);
     setMessages([]);
     setActiveRoute(null);
     setIsPreviewOpen(false);
-    setAttachments([]); // Reset file saat chat baru
+    setAttachments([]);
   };
 
   const muatChatLama = (id) => {
@@ -89,25 +127,29 @@ export default function App() {
     }
   };
 
-  const hapusChat = (e, id) => {
+  const hapusChat = async (e, id) => {
     e.stopPropagation();
     const updated = sessions.filter(s => s.id !== id);
     setSessions(updated);
     localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
     if (currentSessionId === id) buatChatBaru();
+
+    // Hapus juga dari Supabase jika ada
+    if (supabase) {
+      await supabase.from('andiie_chats').delete().eq('id', id);
+    }
   };
 
-  // --- LOGIKA UPLOAD UI SEDERHANA (BARU) ---
+  // --- LOGIKA UPLOAD UI ---
   const handleFileChange = (e) => {
     if (e.target.files) {
       const filesArray = Array.from(e.target.files).map(file => ({
         name: file.name,
         type: file.type,
-        rawFile: file // Disimpan untuk Tahap 2 nanti
+        rawFile: file 
       }));
       setAttachments(prev => [...prev, ...filesArray]);
     }
-    // Reset nilai input agar file yang sama bisa dipilih lagi jika dihapus
     e.target.value = null; 
   };
 
@@ -115,17 +157,20 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // --- FUNGSI PEMBACA FILE (BARU) ---
+  // ⚡ --- FUNGSI PEMBACA FILE (DIPERBARUI UNTUK PDF) ---
   const bacaFile = (file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       
-      // Jika gambar, ubah jadi format Base64 agar AI bisa "melihat"
       if (file.type.startsWith('image/')) {
         reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result });
         reader.readAsDataURL(file);
       } 
-      // Jika bukan gambar (txt, js, py, json), baca sebagai teks mentah
+      else if (file.type === 'application/pdf') {
+        // PDF wajib jadi Base64 agar dikirim aman ke Python
+        reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result });
+        reader.readAsDataURL(file); 
+      }
       else {
         reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result });
         reader.readAsText(file);
@@ -133,17 +178,17 @@ export default function App() {
     });
   };
 
-  // --- FUNGSI KIRIM PESAN (DIPERBARUI) ---
+  // --- FUNGSI KIRIM PESAN ---
   const kirimPesan = async () => {
-    if (!input.trim() && attachments.length === 0) return; // Bisa kirim gambar saja tanpa teks
+    if (!input.trim() && attachments.length === 0) return;
     if (isStreaming) return;
     
-    const instruksiUser = input || "Tolong analisis file lampiran ini."; // Default text jika kosong
+    const instruksiUser = input || "Tolong analisis file lampiran ini."; 
     setInput("");
     setIsStreaming(true);
     setActiveRoute(null);
 
-    // Proses semua file (membaca isinya) sebelum dikirim ke awan
+    // Membaca file
     const fileYangDiproses = await Promise.all(attachments.map(a => bacaFile(a.rawFile)));
 
     let sessionId = currentSessionId;
@@ -154,7 +199,6 @@ export default function App() {
       setSessions(prev => [{ id: sessionId, title: judulBaru, messages: [] }, ...prev]);
     }
 
-    // Tampilkan pesan di layar (tandai jika ada lampiran)
     const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
@@ -170,7 +214,7 @@ export default function App() {
           paksa_model: selectedModel,
           kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026",
           persona: selectedPersona, 
-          attachments: fileYangDiproses // ⚡ SEKARANG FILE DIKIRIM!
+          attachments: fileYangDiproses 
         })
       });
 
@@ -207,7 +251,7 @@ export default function App() {
       });
     } finally {
       setIsStreaming(false);
-      setAttachments([]); // ⚡ KOSONGKAN LAMPIRAN SETELAH TERKIRIM
+      setAttachments([]); 
     }
   };
 
@@ -283,7 +327,6 @@ export default function App() {
             </div>
             
             <div className="flex items-center gap-2">
-              {/* DROPDOWN PERSONA BARU */}
               <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className="bg-[#1e1f20] hover:bg-[#282a2c] border border-gray-700 text-purple-400 text-xs font-semibold rounded-full px-3 py-2 focus:outline-none cursor-pointer transition-all shadow-lg hidden md:block">
                 <option value="default">👤 Asisten Umum</option>
                 <option value="kartos">🤖 Ahli Robotika</option>
@@ -366,10 +409,7 @@ export default function App() {
             </div>
           </main>
 
-          {/* AREA INPUT (DIPERBARUI DENGAN FITUR UPLOAD) */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent pt-12 pb-8 px-4 md:px-8 z-20">
-            
-            {/* Indikator File yang Dipilih */}
             {attachments.length > 0 && (
               <div className="max-w-3xl mx-auto mb-3 flex flex-wrap gap-2 px-4">
                 {attachments.map((file, idx) => (
@@ -382,8 +422,6 @@ export default function App() {
             )}
 
             <div className="max-w-3xl mx-auto bg-[#1e1f20] rounded-[32px] pl-2 pr-3 py-3 flex items-center gap-2 shadow-2xl border border-white/5 focus-within:border-blue-500/50 transition-all duration-500">
-              
-              {/* TOMBOL UPLOAD KLIP KERTAS */}
               <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
               <button onClick={() => fileInputRef.current?.click()} className="p-3 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-white/10 shrink-0">
                 <Paperclip size={20} />
