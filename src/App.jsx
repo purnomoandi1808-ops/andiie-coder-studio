@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion'; // ⚡ DIHAPUS: AnimatePresence yang tidak terpakai
+import { motion } from 'framer-motion'; 
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip } from 'lucide-react';
+// ⚡ TAMBAH IKON 'Code' UNTUK TOMBOL TAB
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip, Code } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -35,6 +36,8 @@ export default function App() {
   // --- STATE CANVAS PREVIEW ---
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  // ⚡ STATE BARU UNTUK SISTEM TAB
+  const [activeCanvasTab, setActiveCanvasTab] = useState("preview"); 
 
   // --- LOGIKA MEMORY (LOKAL + CLOUD) ---
   const [sessions, setSessions] = useState(() => {
@@ -64,7 +67,7 @@ export default function App() {
     fetchChats();
   }, []);
 
-  // ⚡ 2. EFEK SIMPAN DATA KE AWAN (DILENGKAPI ALARM ERROR)
+  // ⚡ 2. EFEK SIMPAN DATA KE AWAN 
   useEffect(() => {
     if (currentSessionId && messages.length > 0) {
       setSessions(prev => {
@@ -86,8 +89,6 @@ export default function App() {
                   alert("Gagal menyimpan ke Awan:\n" + error.message);
                   window.hasAlertedSupabase = true; 
                 }
-              } else {
-                console.log("☁️ Tersimpan otomatis di Supabase");
               }
             });
           }
@@ -171,21 +172,18 @@ export default function App() {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // ⚡ --- FUNGSI PEMBACA FILE PRO (HALAL VERCEL) ---
+  // --- FUNGSI PEMBACA FILE PRO ---
   const bacaFile = async (file) => {
-    // JIKA FILE ADALAH ZIP -> Ekstrak Langsung di Browser
     if (file.name.endsWith('.zip') || file.type.includes('zip')) {
       try {
         const zip = new JSZip();
         const loadedZip = await zip.loadAsync(file);
         let extractedText = "";
-        
         const MAX_CHARS = 150000; 
         let isLimitReached = false;
 
         for (const relativePath of Object.keys(loadedZip.files)) {
           if (isLimitReached) break;
-
           const zipEntry = loadedZip.files[relativePath];
           if (zipEntry.dir) continue;
           
@@ -199,18 +197,16 @@ export default function App() {
           extractedText += `\n\n--- [FILE DARI ZIP: ${relativePath}] ---\n${fileContent}\n`;
 
           if (extractedText.length > MAX_CHARS) {
-            extractedText += `\n\n[PERINGATAN SISTEM: Proyek ZIP terlalu besar. Pemotongan dilakukan otomatis agar API OpenRouter tidak menolak (Limit 8MB).]`;
+            extractedText += `\n\n[PERINGATAN SISTEM: Proyek ZIP terlalu besar. Pemotongan otomatis dilakukan.]`;
             isLimitReached = true;
           }
         }
-
         return { type: 'text', name: file.name + " (Extracted)", content: extractedText };
       } catch (error) {
         return { type: 'text', name: file.name, content: `[Gagal memproses ZIP di browser: ${error.message}]` };
       }
     } 
     
-    // JIKA BUKAN ZIP -> Gunakan Promise murni (Tanpa Async)
     return new Promise((resolve) => {
       const reader = new FileReader();
       if (file.type.startsWith('image/')) {
@@ -236,7 +232,6 @@ export default function App() {
     setIsStreaming(true);
     setActiveRoute(null);
 
-    // Membaca file
     const fileYangDiproses = await Promise.all(attachments.map(a => bacaFile(a.rawFile)));
 
     let sessionId = currentSessionId;
@@ -433,7 +428,12 @@ export default function App() {
                                       
                                       {isRenderable && (
                                         <button 
-                                          onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); }}
+                                          // ⚡ UBAH FUNGSI KLIK: Otomatis masuk ke tab "preview" saat dibuka
+                                          onClick={() => { 
+                                            setPreviewCode(codeString); 
+                                            setIsPreviewOpen(true); 
+                                            setActiveCanvasTab("preview"); 
+                                          }}
                                           className="flex items-center gap-1.5 text-xs bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 px-3 py-1 rounded-md transition-colors font-medium"
                                         >
                                           <Play size={12} fill="currentColor" /> Preview Canvas
@@ -457,6 +457,7 @@ export default function App() {
             </div>
           </main>
 
+          {/* INPUT AREA */}
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent pt-12 pb-8 px-4 md:px-8 z-20">
             {attachments.length > 0 && (
               <div className="max-w-3xl mx-auto mb-3 flex flex-wrap gap-2 px-4">
@@ -494,7 +495,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* KOLOM CANVAS PREVIEW (LIVE IDE) */}
+        {/* ⚡ KOLOM CANVAS PREVIEW (SISTEM TAB BARU) ⚡ */}
         {isPreviewOpen && (
           <motion.div 
             initial={{ width: 0, opacity: 0 }} 
@@ -502,38 +503,47 @@ export default function App() {
             exit={{ width: 0, opacity: 0 }} 
             className="flex flex-col bg-[#1e1f20] border-l border-white/10 overflow-hidden shadow-2xl z-30"
           >
-            <div className="bg-[#131314] border-b border-white/5 p-3 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-2 text-gray-300 font-semibold text-sm">
-                <LayoutTemplate size={18} className="text-blue-500"/>
-                <span>Live Canvas IDE</span>
+            {/* ⚡ HEADER & TABS */}
+            <div className="bg-[#131314] border-b border-white/5 p-2 flex justify-between items-center shrink-0">
+              <div className="flex bg-[#1e1f20] p-1 rounded-lg">
+                <button 
+                  onClick={() => setActiveCanvasTab("preview")}
+                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${activeCanvasTab === "preview" ? "bg-blue-600/20 text-blue-400 shadow" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}
+                >
+                  <Play size={14} /> Preview
+                </button>
+                <button 
+                  onClick={() => setActiveCanvasTab("code")}
+                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all flex items-center gap-1.5 ${activeCanvasTab === "code" ? "bg-[#282a2c] text-white shadow" : "text-gray-400 hover:text-gray-200 hover:bg-white/5"}`}
+                >
+                  <Code size={14} /> Code
+                </button>
               </div>
-              <button onClick={() => setIsPreviewOpen(false)} className="p-1 hover:bg-white/10 rounded-md transition-colors text-gray-400">
+              <button onClick={() => setIsPreviewOpen(false)} className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-gray-400 mr-1">
                 <X size={18} />
               </button>
             </div>
             
-            {/* LINGKUNGAN EDITOR (ATAS) */}
-            <div className="h-[45%] border-b border-white/10 flex flex-col relative bg-[#1e1f20] group">
-              <div className="text-[10px] text-gray-600 font-mono absolute top-2 right-4 uppercase tracking-widest pointer-events-none group-focus-within:text-blue-500 transition-colors">
-                HTML / CSS / JS Editor
-              </div>
-              <textarea 
-                value={previewCode}
-                onChange={(e) => setPreviewCode(e.target.value)}
-                className="w-full h-full bg-transparent text-[#a8c7fa] font-mono text-[13px] p-5 pt-8 outline-none resize-none selection:bg-blue-500/30"
-                spellCheck="false"
-                placeholder="Kode HTML akan muncul di sini..."
-              />
-            </div>
-
-            {/* LINGKUNGAN PREVIEW REAL-TIME (BAWAH) */}
-            <div className="h-[55%] bg-white relative">
-              <iframe 
-                title="CanvasPreview"
-                srcDoc={previewCode} 
-                className="absolute inset-0 w-full h-full border-none"
-                sandbox="allow-scripts allow-modals allow-same-origin"
-              />
+            {/* ⚡ AREA KONTEN (SWITCH BERDASARKAN TAB) */}
+            <div className="flex-1 relative bg-[#1e1f20]">
+              {activeCanvasTab === "code" ? (
+                <textarea 
+                  value={previewCode}
+                  onChange={(e) => setPreviewCode(e.target.value)}
+                  className="absolute inset-0 w-full h-full bg-transparent text-[#a8c7fa] font-mono text-[13px] p-5 outline-none resize-none selection:bg-blue-500/30"
+                  spellCheck="false"
+                  placeholder="Kode HTML akan muncul di sini..."
+                />
+              ) : (
+                <div className="absolute inset-0 bg-white">
+                  <iframe 
+                    title="CanvasPreview"
+                    srcDoc={previewCode} 
+                    className="w-full h-full border-none"
+                    sandbox="allow-scripts allow-modals allow-same-origin"
+                  />
+                </div>
+              )}
             </div>
           </motion.div>
         )}
