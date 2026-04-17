@@ -1,9 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; 
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server } from 'lucide-react';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -15,6 +15,36 @@ import 'xterm/css/xterm.css';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+// =====================================
+// ⚡ FUNGSI EKSTRAK MEDIA (DETEKTIF PINTAR)
+// =====================================
+const ekstrakMediaDariRiwayat = (sessions) => {
+  const daftarMedia = [];
+  sessions.forEach(sesi => {
+    sesi.messages.forEach(msg => {
+      if (msg.role === 'ai') {
+        // Cari Gambar Markdown: ![Alt Text](URL)
+        const imgRegex = /!\[.*?\]\((.*?)\)/g;
+        let match;
+        while ((match = imgRegex.exec(msg.text)) !== null) {
+          daftarMedia.push({ type: 'image', url: match[1], title: sesi.title });
+        }
+        // Cari Video: [VIDEO_PLAYER](URL)
+        const vidRegex = /\[VIDEO_PLAYER\]\((.*?)\)/g;
+        while ((match = vidRegex.exec(msg.text)) !== null) {
+          daftarMedia.push({ type: 'video', url: match[1], title: sesi.title });
+        }
+        // Cari Audio: [AUDIO_PLAYER](URL)
+        const audRegex = /\[AUDIO_PLAYER\]\((.*?)\)/g;
+        while ((match = audRegex.exec(msg.text)) !== null) {
+          daftarMedia.push({ type: 'audio', url: match[1], title: sesi.title });
+        }
+      }
+    });
+  });
+  return daftarMedia.reverse(); // Balik urutan agar yang terbaru ada di atas
+};
 
 // =====================================
 // BLOK KODE PINTAR (TETAP SAMA)
@@ -90,21 +120,24 @@ export default function App() {
   const [attachments, setAttachments] = useState([]); 
   const fileInputRef = useRef(null);
   
-  // State untuk Panel Kanan (Preview / Code / Terminal)
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview"); 
   const [theme, setTheme] = useState(() => localStorage.getItem("andiie_theme") || "dark");
 
-  // ⚡ STATE KHUSUS TERMINAL SSH
   const terminalRef = useRef(null);
   const xtermInstance = useRef(null);
   const wsInstance = useRef(null);
-  const [sshStatus, setSshStatus] = useState("disconnected"); // disconnected, connecting, connected
+  const [sshStatus, setSshStatus] = useState("disconnected");
   const [sshCreds, setSshCreds] = useState({ host: "", port: "22", username: "", password: "" });
 
   const [showSlashCommands, setShowSlashCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState("");
+  
+  // ⚡ STATE UNTUK GALERI MEDIA
+  const [isGalleryOpen, setIsGalleryOpen] = useState(false);
+  const [galleryFilter, setGalleryFilter] = useState('all'); // all, image, video, audio
+
   const slashCommandsList = [
     { command: "/fix-diff", description: "Perbaiki bug (Visual Warna Diff)", prompt: "Tolong perbaiki kode ini. Tampilkan perubahannya menggunakan blok kode berformat 'diff' (awali baris yang dihapus dengan '-' dan baris baru dengan '+')." },
     { command: "/review", description: "Cari bug & error", prompt: "Tolong review baris kode ini, cari bug atau potensi error, dan berikan solusinya." },
@@ -118,6 +151,10 @@ export default function App() {
   const [sessions, setSessions] = useState(() => { const saved = localStorage.getItem("andiie_chat_history"); return saved ? JSON.parse(saved) : []; });
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const chatEndRef = useRef(null);
+
+  // ⚡ MENGEKSTRAK MEDIA SECARA OTOMATIS SETIAP KALI SESSIONS BERUBAH
+  const generatedMedia = useMemo(() => ekstrakMediaDariRiwayat(sessions), [sessions]);
+  const filteredMedia = generatedMedia.filter(m => galleryFilter === 'all' || m.type === galleryFilter);
 
   useEffect(() => {
     if (theme === "dark") document.documentElement.classList.add("dark");
@@ -156,89 +193,31 @@ export default function App() {
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isStreaming]);
 
-  // =====================================
-  // ⚡ LOGIKA SSH TERMINAL (BARU)
-  // =====================================
   const initTerminal = () => {
     if (!terminalRef.current) return;
-    
-    // Cegah duplikasi terminal
-    if (xtermInstance.current) {
-        xtermInstance.current.dispose();
-    }
-
-    const term = new Terminal({
-      cursorBlink: true,
-      theme: { background: '#1e1f20', foreground: '#a8c7fa', cursor: '#3b82f6' },
-      fontFamily: 'monospace', fontSize: 14
-    });
-    
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    term.open(terminalRef.current);
-    fitAddon.fit();
-    xtermInstance.current = term;
-
+    if (xtermInstance.current) xtermInstance.current.dispose();
+    const term = new Terminal({ cursorBlink: true, theme: { background: '#1e1f20', foreground: '#a8c7fa', cursor: '#3b82f6' }, fontFamily: 'monospace', fontSize: 14 });
+    const fitAddon = new FitAddon(); term.loadAddon(fitAddon); term.open(terminalRef.current); fitAddon.fit(); xtermInstance.current = term;
     window.addEventListener('resize', () => fitAddon.fit());
   };
 
   const connectSSH = async (e) => {
-    e.preventDefault();
-    setSshStatus("connecting");
-    
-    initTerminal(); // Siapkan kanvas hitamnya
-
-    // Ambil URL Backend dan ubah jadi format WebSocket (ws:// atau wss://)
+    e.preventDefault(); setSshStatus("connecting"); initTerminal(); 
     const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
     const wsUrl = BACKEND_URL.replace(/^http/, 'ws') + '/api/terminal/ws';
-
-    const ws = new WebSocket(wsUrl);
-    wsInstance.current = ws;
-
-    ws.onopen = () => {
-      // Kirim data rahasia ke server backend
-      ws.send(JSON.stringify(sshCreds));
-      setSshStatus("connected");
-    };
-
-    ws.onmessage = (event) => {
-      // Print balasan dari Robot Kartos ke layar hitam
-      if (xtermInstance.current) {
-        xtermInstance.current.write(event.data);
-      }
-    };
-
-    ws.onclose = () => {
-      setSshStatus("disconnected");
-      if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Koneksi Terputus]\x1b[0m\r\n');
-    };
-
-    // Saat Mas Andi ngetik di keyboard web, kirim ke Robot Kartos
-    if (xtermInstance.current) {
-      xtermInstance.current.onData((data) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(data);
-        }
-      });
-    }
+    const ws = new WebSocket(wsUrl); wsInstance.current = ws;
+    ws.onopen = () => { ws.send(JSON.stringify(sshCreds)); setSshStatus("connected"); };
+    ws.onmessage = (event) => { if (xtermInstance.current) xtermInstance.current.write(event.data); };
+    ws.onclose = () => { setSshStatus("disconnected"); if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Koneksi Terputus]\x1b[0m\r\n'); };
+    if (xtermInstance.current) { xtermInstance.current.onData((data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); }); }
   };
 
-  const disconnectSSH = () => {
-    if (wsInstance.current) { wsInstance.current.close(); }
-    setSshStatus("disconnected");
-  };
+  const disconnectSSH = () => { if (wsInstance.current) wsInstance.current.close(); setSshStatus("disconnected"); };
 
-  // Memastikan terminal hancur saat tab ditutup
   useEffect(() => {
-    if (activeCanvasTab !== "terminal" && xtermInstance.current) {
-      xtermInstance.current.dispose();
-      xtermInstance.current = null;
-    }
-    if (activeCanvasTab === "terminal" && sshStatus === "connected") {
-        setTimeout(() => initTerminal(), 100);
-    }
+    if (activeCanvasTab !== "terminal" && xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; }
+    if (activeCanvasTab === "terminal" && sshStatus === "connected") { setTimeout(() => initTerminal(), 100); }
   }, [activeCanvasTab]);
-
 
   const handleLogin = (e) => { e.preventDefault(); if (loginData.username === "andiie" && loginData.password === "Arsyad160216") { setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true"); } else { alert("Akses Ditolak: Hanya untuk Andi."); } };
   const handleLogout = () => { localStorage.removeItem("andiie_auth"); setIsLoggedIn(false); };
@@ -271,7 +250,7 @@ export default function App() {
     });
   };
 
-  const unduhGambar = async (url) => { try { const respon = await fetch(url); if (!respon.ok) throw new Error("Diblokir CORS"); const blob = await respon.blob(); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "hasil-media-ai.png"; document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch (err) { window.open(url, '_blank'); } };
+  const unduhGambar = async (url) => { try { const respon = await fetch(url); if (!respon.ok) throw new Error("Diblokir CORS"); const blob = await respon.blob(); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "media-ai-studio.png"; document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch (err) { window.open(url, '_blank'); } };
 
   const kirimPesan = async () => {
     if (!input.trim() && attachments.length === 0) return; if (isStreaming) return;
@@ -324,7 +303,14 @@ export default function App() {
                 <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-white hover:bg-gray-50 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
                 <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-2 p-2 text-gray-400 hover:text-blue-500"><X size={20}/></button>
               </div>
+              
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
+                
+                {/* ⚡ TOMBOL ITEM BUATAN SAYA (MENIRU GEMINI) */}
+                <button onClick={() => setIsGalleryOpen(true)} className={`w-full flex items-center gap-3 px-4 py-3 mb-4 rounded-2xl text-sm font-bold transition-all shadow-sm border ${theme === 'dark' ? 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20' : 'bg-gradient-to-r from-purple-50 to-blue-50 text-purple-600 border-purple-200 hover:bg-purple-100'}`}>
+                  <Sparkles size={18} /> Item Buatan Saya ({generatedMedia.length})
+                </button>
+
                 <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat Percakapan</div>
                 {sessions.map(sesi => (
                   <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-200 text-gray-600')}`}>
@@ -340,33 +326,38 @@ export default function App() {
       </AnimatePresence>
 
       <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-white'}`}>
-        <header className="flex items-center justify-between p-4 z-10 shrink-0">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Buka/Tutup Riwayat">
+        
+        {/* HEADER APLIKASI UTAMA (YANG SUDAH DIKOMPRES UNTUK HP) */}
+        <header className="flex items-center justify-between p-2 md:p-4 z-10 shrink-0 w-full overflow-hidden">
+          <div className="flex items-center gap-2 shrink-0">
+            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-1.5 md:p-2 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Buka/Tutup Riwayat">
               <Menu size={20} />
             </button>
-            <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
-            
-            {/* ⚡ TOMBOL SHORTCUT BUKA TERMINAL */}
-            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`ml-4 flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-gray-100 border-gray-300 text-green-600 hover:bg-gray-200'}`}>
-              <TerminalSquare size={14} /> Buka SSH Terminal
-            </button>
+            <span className="font-medium text-base md:text-lg tracking-tight hidden sm:block truncate">
+              AI Studio <span className="text-blue-500 text-[10px] md:text-xs font-bold">PRO</span>
+            </span>
           </div>
           
-          <div className="flex items-center gap-2">
-            <button onClick={toggleTheme} className={`p-2 rounded-full transition-all ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+            <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
+              {theme === 'dark' ? <Sun size={16} className="md:w-[18px] md:h-[18px]" /> : <Moon size={16} className="md:w-[18px] md:h-[18px]" />}
             </button>
 
-            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`} title="Prioritas: Qwen Lokal -> Qwen Cloud">
-              <Code size={14} /> <span className="hidden sm:inline">Mode Coding</span><span className="sm:hidden">Coding</span>
+            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-gray-100 border-gray-300 text-green-600 hover:bg-gray-200'}`} title="Buka SSH Terminal">
+              <TerminalSquare size={16} className="md:w-[14px] md:h-[14px]" /> 
+              <span className="hidden md:inline">SSH Terminal</span>
+            </button>
+
+            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`} title="Prioritas: Qwen Lokal -> Qwen Cloud">
+              <Code size={16} className="md:w-[14px] md:h-[14px]" /> 
+              <span className="hidden md:inline">Mode Coding</span>
             </button>
             
-            <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className={`text-xs font-semibold rounded-full px-3 py-2 outline-none hidden md:block border transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-purple-400' : 'bg-white border-gray-300 text-purple-600'}`}>
+            <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className={`text-xs font-semibold rounded-full px-3 py-1.5 outline-none hidden lg:block border transition-colors shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-purple-400' : 'bg-white border-gray-300 text-purple-600'}`}>
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
             
-            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-xs font-semibold rounded-full px-3 py-2 outline-none max-w-[150px] md:max-w-xs truncate border transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
+            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-[10px] md:text-xs font-semibold rounded-full px-2 md:px-3 py-1.5 outline-none w-[90px] sm:w-[110px] md:w-auto md:max-w-xs truncate border shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
               <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
               <optgroup label="💻 Coding & Logic"><option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option><option value="lokal">💻 Qwen 30B (Lokal Ollama)</option></optgroup>
               <optgroup label="🎨 Gambar (Images)"><option value="openai/dall-e-3">🎨 DALL-E 3</option></optgroup>
@@ -375,6 +366,59 @@ export default function App() {
             </select>
           </div>
         </header>
+
+        {/* ⚡ MODAL GALERI "ITEM BUATAN SAYA" */}
+        <AnimatePresence>
+          {isGalleryOpen && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-5xl h-full max-h-[85vh] rounded-3xl flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+                
+                {/* Header Galeri */}
+                <div className={`p-4 md:p-5 border-b flex justify-between items-center shrink-0 ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl shadow-lg"><Sparkles className="text-white" size={20}/></div>
+                    <h2 className={`text-lg md:text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Item Buatan Saya</h2>
+                  </div>
+                  <button onClick={() => setIsGalleryOpen(false)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}><X size={20}/></button>
+                </div>
+                
+                {/* Filter Tab */}
+                <div className={`flex gap-2 p-4 shrink-0 border-b overflow-x-auto scrollbar-hide ${theme === 'dark' ? 'border-white/5 bg-[#131314]' : 'border-gray-100 bg-gray-50'}`}>
+                  {['all', 'image', 'video', 'audio'].map(filter => (
+                     <button key={filter} onClick={() => setGalleryFilter(filter)} className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-colors border ${galleryFilter === filter ? (theme === 'dark' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' : 'bg-purple-100 text-purple-700 border-purple-300') : (theme === 'dark' ? 'bg-[#1e1f20] text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-300 hover:text-gray-900')}`}>
+                        {filter === 'all' ? 'Semua Media' : filter === 'image' ? '🖼️ Gambar' : filter === 'video' ? '🎬 Video' : '🎵 Audio'}
+                     </button>
+                  ))}
+                </div>
+
+                {/* Konten Grid */}
+                <div className={`flex-1 overflow-y-auto p-4 md:p-6 ${theme === 'dark' ? 'bg-[#131314]/50' : 'bg-gray-50'}`}>
+                   {filteredMedia.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4">
+                         <LayoutGrid size={48} className="opacity-20" />
+                         <p>Belum ada media yang di-generate.</p>
+                      </div>
+                   ) : (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                         {filteredMedia.map((media, i) => (
+                            <div key={i} className={`relative group rounded-2xl overflow-hidden border shadow-sm aspect-square flex items-center justify-center transition-all hover:ring-2 hover:ring-purple-500 ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+                               {media.type === 'image' && <img src={media.url} alt="Gen" className="w-full h-full object-cover" />}
+                               {media.type === 'video' && <video src={media.url} className="w-full h-full object-cover bg-black" controls muted />}
+                               {media.type === 'audio' && <div className="text-center w-full p-4"><Music size={32} className="mx-auto text-purple-500 mb-3"/><audio src={media.url} controls className="w-full h-8" /></div>}
+                               
+                               <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between">
+                                  <span className="text-[10px] text-white/90 font-medium truncate pr-2" title={media.title}>{media.title}</span>
+                                  <button onClick={() => unduhGambar(media.url)} className="p-1.5 bg-white/20 hover:bg-blue-500 rounded-lg text-white backdrop-blur-sm transition-colors shrink-0" title="Download"><Download size={14}/></button>
+                               </div>
+                            </div>
+                         ))}
+                      </div>
+                   )}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className="flex-1 flex flex-row overflow-hidden relative">
           <main className={`flex-1 overflow-y-auto scroll-smooth pb-40 transition-all ${isPreviewOpen && window.innerWidth > 768 ? (theme === 'dark' ? 'w-1/2 border-r border-white/10' : 'w-1/2 border-r border-gray-200') : 'w-full'}`}>
@@ -428,7 +472,7 @@ export default function App() {
                   {activeCanvasTab === "code" && (<textarea value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} className={`absolute inset-0 w-full h-full bg-transparent font-mono text-[13px] p-5 outline-none resize-none ${theme === 'dark' ? 'text-[#a8c7fa]' : 'text-blue-800'}`} spellCheck="false" />)}
                   {activeCanvasTab === "preview" && (<div className="absolute inset-0 bg-white"><iframe title="CanvasPreview" srcDoc={previewCode} className="w-full h-full border-none" sandbox="allow-scripts allow-modals allow-same-origin" /></div>)}
                   
-                  {/* UI TERMINAL SSH (BARU) */}
+                  {/* UI TERMINAL SSH */}
                   {activeCanvasTab === "terminal" && (
                     <div className="absolute inset-0 flex flex-col h-full bg-[#1e1f20]">
                       {sshStatus === "disconnected" ? (
@@ -461,7 +505,6 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        {/* INPUT BAWAH TETAP SAMA SEPERTI SEBELUMNYA */}
         <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-transparent z-20 pointer-events-none" style={{ backgroundImage: `linear-gradient(to top, ${theme === 'dark' ? '#131314 60%, transparent' : '#ffffff 60%, transparent'})` }}>
           <div className="max-w-3xl mx-auto pointer-events-auto relative">
             
