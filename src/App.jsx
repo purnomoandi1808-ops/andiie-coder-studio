@@ -12,18 +12,75 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 // =====================================
-// ⚡ KOMPONEN BARU: BLOK KODE PINTAR (DIFF & COPY)
+// ⚡ KOMPONEN BARU: BLOK KODE PINTAR (DIFF, COPY & PYTHON RUNNER)
 // =====================================
 const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
   const [isCopied, setIsCopied] = useState(false);
   const match = /language-(\w+)/.exec(className || '');
   const codeString = String(children).replace(/\n$/, '');
-  const isRenderable = match && (match[1] === 'html' || match[1] === 'xml');
+  
+  // ⚡ SEKARANG PYTHON BISA DI-RENDER LANGSUNG!
+  const isRenderable = match && ['html', 'xml', 'python', 'py'].includes(match[1].toLowerCase());
 
   const handleCopy = () => {
     navigator.clipboard.writeText(codeString);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handlePreview = () => {
+    let codeToRender = codeString;
+    
+    // ⚡ LOGIKA KHUSUS: Mesin Python di dalam Browser
+    if (match[1].toLowerCase() === 'python' || match[1].toLowerCase() === 'py') {
+      codeToRender = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+            <style>
+              body { background: ${theme === 'dark' ? '#131314' : '#ffffff'}; color: ${theme === 'dark' ? '#a8c7fa' : '#1f2937'}; font-family: monospace; padding: 20px; line-height: 1.5; }
+              #output { white-space: pre-wrap; word-wrap: break-word; }
+              .loading { color: #f59e0b; font-weight: bold; }
+              .success { color: #10b981; font-weight: bold; }
+              .error { color: #ef4444; font-weight: bold; }
+            </style>
+          </head>
+          <body>
+            <div id="status" class="loading">⏳ Memuat Mesin Python... (WebAssembly)</div>
+            <hr style="border-color: ${theme === 'dark' ? '#333' : '#e5e7eb'}; margin: 15px 0;" />
+            <div id="output"></div>
+            <script>
+              async function main() {
+                try {
+                  let pyodide = await loadPyodide();
+                  document.getElementById("status").innerText = "⚙️ Mesin Python Siap! Mengeksekusi kode...";
+                  
+                  // Menangkap hasil 'print()' dari Python ke dalam layar
+                  pyodide.setStdout({ batched: (msg) => {
+                    document.getElementById("output").innerText += msg + "\\n";
+                  }});
+                  
+                  await pyodide.runPythonAsync(${JSON.stringify(codeString)});
+                  
+                  document.getElementById("status").innerText = "✅ Eksekusi Selesai";
+                  document.getElementById("status").className = "success";
+                } catch (err) {
+                  document.getElementById("output").innerText += "\\n" + err;
+                  document.getElementById("status").innerText = "❌ Terjadi Kesalahan (Error)";
+                  document.getElementById("status").className = "error";
+                }
+              }
+              main();
+            </script>
+          </body>
+        </html>
+      `;
+    }
+    
+    setPreviewCode(codeToRender); 
+    setIsPreviewOpen(true); 
+    setActiveCanvasTab("preview");
   };
 
   if (!inline && match) {
@@ -33,7 +90,7 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{match[1]}</span>
           <div className="flex items-center gap-2">
             {isRenderable && (
-              <button onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); setActiveCanvasTab("preview"); }} className="flex items-center gap-1.5 text-xs bg-blue-600/10 text-blue-500 px-3 py-1.5 rounded-full font-bold hover:bg-blue-600/20 transition-colors">
+              <button onClick={handlePreview} className="flex items-center gap-1.5 text-xs bg-blue-600/10 text-blue-500 px-3 py-1.5 rounded-full font-bold hover:bg-blue-600/20 transition-colors">
                 <Play size={12} fill="currentColor" /> Preview
               </button>
             )}
@@ -50,14 +107,10 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
           customStyle={{ margin: 0, padding: '1.2rem', fontSize: '0.85em', background: 'transparent' }} 
           wrapLines={true}
           lineProps={(lineNumber) => {
-            const line = codeString.split('\n')[lineNumber - 1];
-            // Logika Warna Hijau/Merah untuk perbandingan kode (Diff)
+            const line = codeString.split('\\n')[lineNumber - 1];
             if (match[1] === 'diff') {
-              if (line.startsWith('+')) {
-                return { style: { backgroundColor: theme === 'dark' ? 'rgba(46, 160, 67, 0.2)' : 'rgba(46, 160, 67, 0.15)', display: 'block', width: '100%' } };
-              } else if (line.startsWith('-')) {
-                return { style: { backgroundColor: theme === 'dark' ? 'rgba(248, 81, 73, 0.2)' : 'rgba(248, 81, 73, 0.15)', display: 'block', width: '100%' } };
-              }
+              if (line.startsWith('+')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(46, 160, 67, 0.2)' : 'rgba(46, 160, 67, 0.15)', display: 'block', width: '100%' } };
+              else if (line.startsWith('-')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(248, 81, 73, 0.2)' : 'rgba(248, 81, 73, 0.15)', display: 'block', width: '100%' } };
             }
             return {};
           }}
