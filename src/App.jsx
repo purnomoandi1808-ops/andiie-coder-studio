@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion'; 
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip, Code, Download, Music } from 'lucide-react';
+import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip, Code, Download, Music, Sun, Moon } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -26,6 +26,9 @@ export default function App() {
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview"); 
+  
+  // Fitur Tema Gelap/Terang
+  const [theme, setTheme] = useState(() => localStorage.getItem("andiie_theme") || "dark");
 
   const [sessions, setSessions] = useState(() => {
     const saved = localStorage.getItem("andiie_chat_history");
@@ -33,6 +36,18 @@ export default function App() {
   });
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const chatEndRef = useRef(null);
+
+  // Efek ganti tema
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("andiie_theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === "dark" ? "light" : "dark");
 
   useEffect(() => {
     const handleResize = () => { if(window.innerWidth > 768) setIsSidebarOpen(true); else setIsSidebarOpen(false); };
@@ -218,7 +233,7 @@ export default function App() {
         if(!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diisi di Vercel!");
         const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text }));
         openRouterMessages.push({ role: "user", content: teksTampilan });
-        const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen-3-30b-it";
+        const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen3-coder:30b";
 
         const responOpenRouter = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
@@ -260,16 +275,16 @@ export default function App() {
 
   if (!isLoggedIn) {
     return (
-      <div className="h-screen bg-[#131314] flex items-center justify-center p-4">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-[#1e1f20] p-8 rounded-3xl border border-white/5 w-full max-w-md shadow-2xl">
+      <div className={`h-screen flex items-center justify-center p-4 transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f0f4f9]'}`}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-3xl w-full max-w-md shadow-2xl transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5' : 'bg-white border border-gray-200'}`}>
           <div className="flex justify-center mb-6">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20"><Lock className="text-white" size={28} /></div>
           </div>
-          <h2 className="text-2xl font-semibold text-center text-white mb-2">AI Coder Studio</h2>
+          <h2 className={`text-2xl font-semibold text-center mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>AI Coder Studio</h2>
           <p className="text-gray-400 text-center text-sm mb-8">Hanya untuk Andiie & Project ABAPE</p>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" placeholder="Username" className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 text-white" onChange={(e) => setLoginData({...loginData, username: e.target.value})} />
-            <input type="password" placeholder="Sandi" className="w-full bg-[#131314] border border-gray-700 rounded-xl p-3.5 outline-none focus:border-blue-500 text-white" onChange={(e) => setLoginData({...loginData, password: e.target.value})} />
+            <input type="text" placeholder="Username" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, username: e.target.value})} />
+            <input type="password" placeholder="Sandi" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, password: e.target.value})} />
             <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button>
           </form>
         </motion.div>
@@ -278,53 +293,60 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#131314] text-[#e3e3e3] font-sans overflow-hidden selection:bg-blue-500/30 relative">
+    <div className={`flex h-screen font-sans overflow-hidden transition-colors selection:bg-blue-500/30 relative ${theme === 'dark' ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-white text-gray-800'}`}>
       <AnimatePresence>
         {isSidebarOpen && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-40" />
-            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className="fixed md:relative inset-y-0 left-0 w-72 bg-[#1e1f20] flex flex-col border-r border-white/5 shadow-2xl z-50 shrink-0">
+            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`fixed md:relative inset-y-0 left-0 w-72 flex flex-col shadow-2xl z-50 shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-r border-white/5' : 'bg-[#f0f4f9] border-r border-gray-200'}`}>
               <div className="p-4 flex justify-between items-center">
-                <button onClick={buatChatBaru} className="flex-1 flex items-center gap-3 bg-[#131314] hover:bg-[#282a2c] px-4 py-3 rounded-2xl text-sm font-medium transition-colors border border-gray-700/50 shadow-sm"><Plus size={18} className="text-[#a8c7fa]" /> Chat baru</button>
-                <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-2 p-2 text-gray-400 hover:text-white"><X size={20}/></button>
+                <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-white hover:bg-gray-50 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
+                <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-2 p-2 text-gray-400 hover:text-blue-500"><X size={20}/></button>
               </div>
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
-                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat</div>
+                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat Percakapan</div>
                 {sessions.map(sesi => (
-                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${currentSessionId === sesi.id ? 'bg-[#282a2c] text-blue-300 shadow-inner' : 'hover:bg-white/5 text-gray-400'}`}>
+                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-200 text-gray-600')}`}>
                     <div className="flex items-center gap-3 overflow-hidden"><MessageSquare size={16} className="shrink-0" /><span className="truncate text-sm font-medium">{sesi.title}</span></div>
-                    <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all"><Trash2 size={14} /></button>
+                    <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
                   </div>
                 ))}
               </div>
-              <div className="p-4 border-t border-white/5"><button onClick={handleLogout} className="w-full text-xs text-gray-500 hover:text-red-400 transition-colors text-left px-2">Log out (Andiie)</button></div>
+              <div className={`p-4 border-t ${theme === 'dark' ? 'border-white/5' : 'border-gray-200'}`}><button onClick={handleLogout} className="w-full text-xs text-gray-500 hover:text-red-500 transition-colors text-left px-2">Log out (Andiie)</button></div>
             </motion.div>
           </>
         )}
       </AnimatePresence>
 
-      <div className="flex-1 flex flex-col min-w-0 bg-[#131314] relative">
-        <header className="flex items-center justify-between p-4 bg-[#131314]/80 backdrop-blur-md z-10 border-b border-white/5 shrink-0">
+      <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-white'}`}>
+        <header className="flex items-center justify-between p-4 z-10 shrink-0">
           <div className="flex items-center gap-3">
-            {!isSidebarOpen && (<button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-[#282a2c] rounded-full transition-colors text-gray-400"><Menu size={20} /></button>)}
+            {!isSidebarOpen && (<button onClick={() => setIsSidebarOpen(true)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}><Menu size={20} /></button>)}
             <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Trik UI: Tombol Mode Coding Utama */}
+            {/* Tombol Tema (Light/Dark) */}
+            <button onClick={toggleTheme} className={`p-2 rounded-full transition-all ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+
+            {/* Tombol Mode Coding Toggle */}
             <button 
-              onClick={() => setSelectedModel("auto_coding")}
-              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${selectedModel === "auto_coding" ? "bg-blue-600/20 border-blue-500 text-blue-400 shadow-sm" : "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white"}`}
+              onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`}
               title="Prioritas: Qwen Lokal -> Qwen Cloud"
             >
-              <Code size={14} /> Mode Coding
+              <Code size={14} /> 
+              <span className="hidden sm:inline">Mode Coding</span>
+              <span className="sm:hidden">Coding</span>
             </button>
             
-            <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-purple-400 text-xs font-semibold rounded-full px-3 py-2 outline-none hidden md:block">
+            <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className={`text-xs font-semibold rounded-full px-3 py-2 outline-none hidden md:block border transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-purple-400' : 'bg-white border-gray-300 text-purple-600'}`}>
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
             
-            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-3 py-2 outline-none max-w-[150px] md:max-w-xs truncate">
+            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-xs font-semibold rounded-full px-3 py-2 outline-none max-w-[150px] md:max-w-xs truncate border transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
               <optgroup label="📝 Text & General">
                 <option value="auto">✨ Auto Smart Manager</option>
                 <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
@@ -357,39 +379,39 @@ export default function App() {
         </header>
 
         <div className="flex-1 flex flex-row overflow-hidden relative">
-          <main className={`flex-1 overflow-y-auto scroll-smooth pb-40 transition-all ${isPreviewOpen && window.innerWidth > 768 ? 'w-1/2 border-r border-white/10' : 'w-full'}`}>
+          <main className={`flex-1 overflow-y-auto scroll-smooth pb-40 transition-all ${isPreviewOpen && window.innerWidth > 768 ? (theme === 'dark' ? 'w-1/2 border-r border-white/10' : 'w-1/2 border-r border-gray-200') : 'w-full'}`}>
             <div className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
               {messages.length === 0 && (
                 <div className="mt-16 md:mt-24 px-2 text-center md:text-left">
-                  <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Halo, Andi.</h1>
-                  <h2 className="text-2xl md:text-4xl font-medium text-gray-600 tracking-tight">Apa yang kita bangun hari ini?</h2>
+                  <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">Halo, Andi.</h1>
+                  <h2 className={`text-2xl md:text-4xl font-medium tracking-tight ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Apa yang kita bangun hari ini?</h2>
                 </div>
               )}
-              <div className="space-y-10 mt-6">
+              <div className="space-y-8 mt-6">
                 {messages.map((chat, idx) => (
                   <div key={idx} className={`flex gap-4 ${chat.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {chat.role === 'ai' && (
                       <div className="w-8 h-8 shrink-0 flex items-start justify-center pt-1 hidden md:flex">
-                        {isStreaming && idx === messages.length - 1 ? <Loader2 className="animate-spin text-blue-400" size={22} /> : <Sparkles className="text-blue-400" size={22} />}
+                        {isStreaming && idx === messages.length - 1 ? <Loader2 className="animate-spin text-blue-500" size={22} /> : <Sparkles className="text-blue-500" size={22} />}
                       </div>
                     )}
-                    <div className={`max-w-[90%] md:max-w-[85%] ${chat.role === 'user' ? 'bg-[#282a2c] px-5 py-3 md:px-6 md:py-4 rounded-[24px] rounded-br-md text-[15px] shadow-sm' : 'text-[15px] leading-relaxed w-full'}`}>
+                    <div className={`max-w-[90%] md:max-w-[85%] ${chat.role === 'user' ? (theme === 'dark' ? 'bg-[#282a2c] text-[#e3e3e3]' : 'bg-[#f0f4f9] text-gray-800') + ' px-5 py-3 md:px-6 md:py-4 rounded-[24px] rounded-br-sm text-[15px]' : 'text-[15px] leading-relaxed w-full'}`}>
                       {chat.role === 'ai' ? (
-                        <div className="prose prose-invert prose-sm md:prose-base max-w-none">
+                        <div className={`prose prose-sm md:prose-base max-w-none ${theme === 'dark' ? 'prose-invert' : 'prose-gray'}`}>
                           <ReactMarkdown 
                             urlTransform={(value) => value} 
                             components={{
                               a(props) {
                                 if (props.children && String(props.children).includes("AUDIO_PLAYER")) {
                                   return (
-                                    <div className="bg-[#1e1f20] p-4 rounded-2xl mt-4 border border-white/10 shadow-2xl flex flex-col gap-3 w-full md:max-w-md">
+                                    <div className={`p-4 rounded-2xl mt-4 border shadow-xl flex flex-col gap-3 w-full md:max-w-md ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
                                       <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
-                                        <Music size={14} className="text-blue-400"/> Suno Music Player
+                                        <Music size={14} className="text-blue-500"/> Suno Music Player
                                       </div>
                                       <audio controls src={props.href} className="w-full h-12 rounded-lg outline-none" preload="auto">
                                         Browser Anda tidak mendukung pemutar audio ini.
                                       </audio>
-                                      <a href={props.href} target="_blank" rel="noreferrer" download="lagu-suno.mp3" className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg active:scale-95">
+                                      <a href={props.href} target="_blank" rel="noreferrer" download="lagu-suno.mp3" className="flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white py-2.5 rounded-full text-sm font-bold transition-all shadow-md active:scale-95">
                                         <Download size={16}/> Download MP3
                                       </a>
                                     </div>
@@ -398,25 +420,25 @@ export default function App() {
                                 
                                 if (props.children && String(props.children).includes("VIDEO_PLAYER")) {
                                   return (
-                                    <div className="bg-[#1e1f20] p-4 rounded-2xl mt-4 border border-white/10 shadow-2xl w-full md:max-w-xl">
+                                    <div className={`p-4 rounded-2xl mt-4 border shadow-xl w-full md:max-w-xl ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
                                       <video controls src={props.href} className="w-full rounded-lg outline-none bg-black" preload="auto" autoPlay loop muted>
                                         Browser Anda tidak mendukung pemutar video ini.
                                       </video>
-                                      <a href={props.href} target="_blank" rel="noreferrer" download="video-ai.mp4" className="mt-3 flex items-center justify-center gap-2 bg-[#282a2c] hover:bg-white/10 text-white py-2.5 rounded-xl text-sm font-bold transition-all border border-gray-700">
+                                      <a href={props.href} target="_blank" rel="noreferrer" download="video-ai.mp4" className={`mt-3 flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-bold transition-all border ${theme === 'dark' ? 'bg-[#282a2c] hover:bg-white/10 text-white border-gray-700' : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border-gray-200'}`}>
                                         <Download size={16}/> Download Video
                                       </a>
                                     </div>
                                   );
                                 }
                                 
-                                return <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noreferrer" />;
+                                return <a {...props} className="text-blue-500 hover:underline" target="_blank" rel="noreferrer" />;
                               },
                               
                               img(props) {
                                 return (
                                   <div className="relative group inline-block my-4">
-                                    <img {...props} className="rounded-xl border border-white/10 shadow-lg max-w-full h-auto" />
-                                    <button onClick={() => unduhGambar(props.src)} className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-blue-600 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-all backdrop-blur-md" title="Unduh Gambar"><Download size={18} /></button>
+                                    <img {...props} className={`rounded-2xl border shadow-lg max-w-full h-auto ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`} />
+                                    <button onClick={() => unduhGambar(props.src)} className="absolute top-2 right-2 p-2 bg-black/60 hover:bg-blue-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all backdrop-blur-md" title="Unduh Gambar"><Download size={18} /></button>
                                   </div>
                                 );
                               },
@@ -426,14 +448,14 @@ export default function App() {
                                 const codeString = String(children).replace(/\n$/, '');
                                 const isRenderable = match && (match[1] === 'html' || match[1] === 'xml');
                                 return match ? (
-                                  <div className="rounded-xl border border-gray-700/50 my-6 bg-[#1e1f20] overflow-hidden shadow-2xl">
-                                    <div className="flex items-center justify-between px-4 py-2 bg-[#282a2c] border-b border-gray-800">
-                                      <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{match[1]}</span>
-                                      {isRenderable && (<button onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); setActiveCanvasTab("preview"); }} className="flex items-center gap-1.5 text-xs bg-blue-600/20 text-blue-400 px-3 py-1 rounded-md font-medium"><Play size={12} fill="currentColor" /> Preview</button>)}
+                                  <div className={`rounded-2xl border my-6 overflow-hidden shadow-xl ${theme === 'dark' ? 'border-gray-700/50 bg-[#1e1f20]' : 'border-gray-200 bg-[#f8f9fa]'}`}>
+                                    <div className={`flex items-center justify-between px-4 py-2 border-b ${theme === 'dark' ? 'bg-[#282a2c] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{match[1]}</span>
+                                      {isRenderable && (<button onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); setActiveCanvasTab("preview"); }} className="flex items-center gap-1.5 text-xs bg-blue-600/10 text-blue-500 px-3 py-1 rounded-full font-medium hover:bg-blue-600/20"><Play size={12} fill="currentColor" /> Preview</button>)}
                                     </div>
-                                    <SyntaxHighlighter {...rest} children={codeString} language={match[1]} style={vscDarkPlus} customStyle={{ margin: 0, padding: '1.2rem', fontSize: '0.85em' }} />
+                                    <SyntaxHighlighter {...rest} children={codeString} language={match[1]} style={theme === 'dark' ? vscDarkPlus : coy} customStyle={{ margin: 0, padding: '1.2rem', fontSize: '0.85em', background: 'transparent' }} />
                                   </div>
-                                ) : <code className="bg-gray-800 px-1.5 py-0.5 rounded text-blue-300 font-mono text-sm">{children}</code>;
+                                ) : <code className={`px-1.5 py-0.5 rounded font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 text-blue-300' : 'bg-gray-100 text-blue-600'}`}>{children}</code>;
                               }
                             }}>
                             {chat.text}
@@ -450,38 +472,38 @@ export default function App() {
 
           <AnimatePresence>
             {isPreviewOpen && (
-              <motion.div initial={{ x: "100%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "100%", opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className={`flex flex-col bg-[#1e1f20] shadow-2xl z-40 ${window.innerWidth <= 768 ? 'absolute inset-0 w-full' : 'w-1/2 relative border-l border-white/10'}`}>
-                <div className="bg-[#131314] border-b border-white/5 p-2 flex justify-between items-center shrink-0">
-                  <div className="flex bg-[#1e1f20] p-1 rounded-lg">
-                    <button onClick={() => setActiveCanvasTab("preview")} className={`px-4 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 ${activeCanvasTab === "preview" ? "bg-blue-600/20 text-blue-400 shadow" : "text-gray-400 hover:text-gray-200"}`}><Play size={14} /> Preview</button>
-                    <button onClick={() => setActiveCanvasTab("code")} className={`px-4 py-1.5 text-xs font-medium rounded-md flex items-center gap-1.5 ${activeCanvasTab === "code" ? "bg-[#282a2c] text-white shadow" : "text-gray-400 hover:text-gray-200"}`}><Code size={14} /> Code</button>
+              <motion.div initial={{ x: "100%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "100%", opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className={`flex flex-col shadow-2xl z-40 ${window.innerWidth <= 768 ? 'absolute inset-0 w-full' : 'w-1/2 relative border-l'} ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+                <div className={`p-2 flex justify-between items-center shrink-0 border-b ${theme === 'dark' ? 'bg-[#131314] border-white/5' : 'bg-white border-gray-200'}`}>
+                  <div className={`flex p-1 rounded-full ${theme === 'dark' ? 'bg-[#1e1f20]' : 'bg-gray-100'}`}>
+                    <button onClick={() => setActiveCanvasTab("preview")} className={`px-4 py-1.5 text-xs font-medium rounded-full flex items-center gap-1.5 transition-colors ${activeCanvasTab === "preview" ? (theme === 'dark' ? "bg-blue-600/20 text-blue-400" : "bg-white text-blue-600 shadow-sm") : "text-gray-500 hover:text-gray-700"}`}><Play size={14} /> Preview</button>
+                    <button onClick={() => setActiveCanvasTab("code")} className={`px-4 py-1.5 text-xs font-medium rounded-full flex items-center gap-1.5 transition-colors ${activeCanvasTab === "code" ? (theme === 'dark' ? "bg-[#282a2c] text-white" : "bg-white text-gray-800 shadow-sm") : "text-gray-500 hover:text-gray-700"}`}><Code size={14} /> Code</button>
                   </div>
-                  <button onClick={() => setIsPreviewOpen(false)} className="p-1.5 hover:bg-white/10 rounded-md text-gray-400 mr-1"><X size={18} /></button>
+                  <button onClick={() => setIsPreviewOpen(false)} className="p-1.5 hover:bg-gray-200/50 rounded-full text-gray-400 mr-1"><X size={18} /></button>
                 </div>
-                <div className="flex-1 relative bg-[#1e1f20]">
-                  {activeCanvasTab === "code" ? (<textarea value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} className="absolute inset-0 w-full h-full bg-transparent text-[#a8c7fa] font-mono text-[13px] p-5 outline-none resize-none" spellCheck="false" />) : (<div className="absolute inset-0 bg-white"><iframe title="CanvasPreview" srcDoc={previewCode} className="w-full h-full border-none" sandbox="allow-scripts allow-modals allow-same-origin" /></div>)}
+                <div className={`flex-1 relative ${theme === 'dark' ? 'bg-[#1e1f20]' : 'bg-gray-50'}`}>
+                  {activeCanvasTab === "code" ? (<textarea value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} className={`absolute inset-0 w-full h-full bg-transparent font-mono text-[13px] p-5 outline-none resize-none ${theme === 'dark' ? 'text-[#a8c7fa]' : 'text-blue-800'}`} spellCheck="false" />) : (<div className="absolute inset-0 bg-white"><iframe title="CanvasPreview" srcDoc={previewCode} className="w-full h-full border-none" sandbox="allow-scripts allow-modals allow-same-origin" /></div>)}
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-[#131314] via-[#131314] to-transparent z-20 pointer-events-none">
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-transparent z-20 pointer-events-none" style={{ backgroundImage: `linear-gradient(to top, ${theme === 'dark' ? '#131314 60%, transparent' : '#ffffff 60%, transparent'})` }}>
           <div className="max-w-3xl mx-auto pointer-events-auto">
             {attachments.length > 0 && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {attachments.map((file, idx) => (
-                  <div key={idx} className="bg-[#282a2c] border border-gray-700 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs text-gray-300 shadow-lg"><span className="truncate max-w-[120px] font-medium">{file.name}</span><button onClick={() => hapusAttachment(idx)} className="hover:text-red-400 bg-white/5 rounded-full p-0.5"><X size={12}/></button></div>
+                  <div key={idx} className={`border rounded-full px-4 py-1.5 flex items-center gap-2 text-xs shadow-sm ${theme === 'dark' ? 'bg-[#282a2c] border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}><span className="truncate max-w-[120px] font-medium">{file.name}</span><button onClick={() => hapusAttachment(idx)} className="hover:text-red-500 bg-black/5 rounded-full p-0.5"><X size={12}/></button></div>
                 ))}
               </div>
             )}
-            <div className="bg-[#1e1f20] rounded-[28px] p-2 flex items-end gap-2 shadow-2xl border border-white/10 focus-within:border-blue-500/50 transition-all duration-300">
+            <div className={`rounded-[32px] p-2 flex items-end gap-2 shadow-lg transition-all duration-300 ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5 focus-within:border-white/20' : 'bg-[#f0f4f9] border border-transparent focus-within:bg-white focus-within:shadow-xl focus-within:border-gray-200'}`}>
               <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-              <button onClick={() => fileInputRef.current?.click()} className="p-3 text-gray-400 hover:text-white rounded-full"><Paperclip size={22} /></button>
-              <textarea className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] md:text-[16px] text-[#e3e3e3] placeholder-gray-500 py-3 outline-none resize-none max-h-32 min-h-[44px]" placeholder="Tanya Qwen 3..." rows="1" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} disabled={isStreaming} />
-              <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className="p-3 bg-white text-black rounded-full hover:bg-gray-200 disabled:bg-gray-800 transition-all active:scale-90">{isStreaming ? <Loader2 className="animate-spin" size={22} /> : <Send size={22} />}</button>
+              <button onClick={() => fileInputRef.current?.click()} className={`p-3 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200'}`}><Paperclip size={22} /></button>
+              <textarea className={`flex-1 bg-transparent border-none focus:ring-0 text-[15px] md:text-[16px] py-3 outline-none resize-none max-h-32 min-h-[44px] ${theme === 'dark' ? 'text-[#e3e3e3] placeholder-gray-500' : 'text-gray-800 placeholder-gray-500'}`} placeholder="Tanya sesuatu ke AI Coder..." rows="1" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} disabled={isStreaming} />
+              <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className={`p-3 rounded-full transition-all active:scale-90 ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200 disabled:bg-[#282a2c] disabled:text-gray-600' : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-100'}`}>{isStreaming ? <Loader2 className="animate-spin" size={22} /> : <Send size={22} />}</button>
             </div>
-            <div className="text-center text-[10px] text-gray-600 mt-3 font-bold tracking-widest uppercase">{activeRoute ? `JALUR: ${activeRoute}` : "SISTEM SIAP"}</div>
+            <div className={`text-center text-[10px] mt-3 font-bold tracking-widest uppercase ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>{activeRoute ? `JALUR: ${activeRoute}` : "SISTEM SIAP"}</div>
           </div>
         </div>
       </div>
