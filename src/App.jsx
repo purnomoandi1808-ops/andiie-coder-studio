@@ -3,13 +3,71 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap } from 'lucide-react';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+// =====================================
+// ⚡ KOMPONEN BARU: BLOK KODE PINTAR (DIFF & COPY)
+// =====================================
+const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
+  const [isCopied, setIsCopied] = useState(false);
+  const match = /language-(\w+)/.exec(className || '');
+  const codeString = String(children).replace(/\n$/, '');
+  const isRenderable = match && (match[1] === 'html' || match[1] === 'xml');
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(codeString);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  if (!inline && match) {
+    return (
+      <div className={`rounded-2xl border my-6 overflow-hidden shadow-xl ${theme === 'dark' ? 'border-gray-700/50 bg-[#1e1f20]' : 'border-gray-200 bg-[#f8f9fa]'}`}>
+        <div className={`flex items-center justify-between px-4 py-2 border-b ${theme === 'dark' ? 'bg-[#282a2c] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{match[1]}</span>
+          <div className="flex items-center gap-2">
+            {isRenderable && (
+              <button onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); setActiveCanvasTab("preview"); }} className="flex items-center gap-1.5 text-xs bg-blue-600/10 text-blue-500 px-3 py-1.5 rounded-full font-bold hover:bg-blue-600/20 transition-colors">
+                <Play size={12} fill="currentColor" /> Preview
+              </button>
+            )}
+            <button onClick={handleCopy} className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-bold transition-all ${isCopied ? 'bg-green-500/20 text-green-500' : (theme === 'dark' ? 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white' : 'bg-black/5 text-gray-600 hover:bg-black/10 hover:text-black')}`}>
+              {isCopied ? <Check size={14} /> : <Copy size={14} />} 
+              {isCopied ? "Tersalin!" : "Copy"}
+            </button>
+          </div>
+        </div>
+        <SyntaxHighlighter 
+          children={codeString} 
+          language={match[1]} 
+          style={theme === 'dark' ? vscDarkPlus : coy} 
+          customStyle={{ margin: 0, padding: '1.2rem', fontSize: '0.85em', background: 'transparent' }} 
+          wrapLines={true}
+          lineProps={(lineNumber) => {
+            const line = codeString.split('\n')[lineNumber - 1];
+            // Logika Warna Hijau/Merah untuk perbandingan kode (Diff)
+            if (match[1] === 'diff') {
+              if (line.startsWith('+')) {
+                return { style: { backgroundColor: theme === 'dark' ? 'rgba(46, 160, 67, 0.2)' : 'rgba(46, 160, 67, 0.15)', display: 'block', width: '100%' } };
+              } else if (line.startsWith('-')) {
+                return { style: { backgroundColor: theme === 'dark' ? 'rgba(248, 81, 73, 0.2)' : 'rgba(248, 81, 73, 0.15)', display: 'block', width: '100%' } };
+              }
+            }
+            return {};
+          }}
+        />
+      </div>
+    );
+  }
+  return <code className={`px-1.5 py-0.5 rounded font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 text-blue-300' : 'bg-gray-100 text-blue-600'}`}>{children}</code>;
+};
+// =====================================
 
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -28,13 +86,12 @@ export default function App() {
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview"); 
   const [theme, setTheme] = useState(() => localStorage.getItem("andiie_theme") || "dark");
 
-  // =====================================
-  // ⚡ FITUR BARU: SLASH COMMANDS (QUICK PROMPT)
-  // =====================================
   const [showSlashCommands, setShowSlashCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState("");
   
   const slashCommandsList = [
+    // ⚡ Menambahkan prompt khusus agar AI menjawab dengan mode warna Diff
+    { command: "/fix-diff", description: "Perbaiki bug (Visual Warna Diff)", prompt: "Tolong perbaiki kode ini. Tampilkan perubahannya menggunakan blok kode berformat 'diff' (awali baris yang dihapus dengan '-' dan baris baru dengan '+')." },
     { command: "/review", description: "Cari bug & error", prompt: "Tolong review baris kode ini, cari bug atau potensi error, dan berikan solusinya." },
     { command: "/refactor", description: "Bersihkan kode (Clean Code)", prompt: "Tolong tulis ulang kode ini agar lebih bersih, efisien, rapi, dan tambahkan komentar penjelas yang relevan." },
     { command: "/explain", description: "Jelaskan cara kerja kode", prompt: "Tolong jelaskan cara kerja kode ini baris demi baris dengan bahasa yang mudah dipahami." },
@@ -45,8 +102,6 @@ export default function App() {
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInput(val);
-    
-    // Deteksi tanda slash "/" di awal kalimat
     if (val.startsWith("/")) {
       setShowSlashCommands(true);
       setCommandFilter(val.substring(1).toLowerCase());
@@ -59,7 +114,6 @@ export default function App() {
     setInput(promptText);
     setShowSlashCommands(false);
   };
-  // =====================================
 
   const [sessions, setSessions] = useState(() => {
     const saved = localStorage.getItem("andiie_chat_history");
@@ -472,20 +526,9 @@ export default function App() {
                                   </div>
                                 );
                               },
+                              // ⚡ Panggilan Komponen Kode Pintar
                               code(props) {
-                                const {children, className, ...rest} = props;
-                                const match = /language-(\w+)/.exec(className || '');
-                                const codeString = String(children).replace(/\n$/, '');
-                                const isRenderable = match && (match[1] === 'html' || match[1] === 'xml');
-                                return match ? (
-                                  <div className={`rounded-2xl border my-6 overflow-hidden shadow-xl ${theme === 'dark' ? 'border-gray-700/50 bg-[#1e1f20]' : 'border-gray-200 bg-[#f8f9fa]'}`}>
-                                    <div className={`flex items-center justify-between px-4 py-2 border-b ${theme === 'dark' ? 'bg-[#282a2c] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-                                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{match[1]}</span>
-                                      {isRenderable && (<button onClick={() => { setPreviewCode(codeString); setIsPreviewOpen(true); setActiveCanvasTab("preview"); }} className="flex items-center gap-1.5 text-xs bg-blue-600/10 text-blue-500 px-3 py-1 rounded-full font-medium hover:bg-blue-600/20"><Play size={12} fill="currentColor" /> Preview</button>)}
-                                    </div>
-                                    <SyntaxHighlighter {...rest} children={codeString} language={match[1]} style={theme === 'dark' ? vscDarkPlus : coy} customStyle={{ margin: 0, padding: '1.2rem', fontSize: '0.85em', background: 'transparent' }} />
-                                  </div>
-                                ) : <code className={`px-1.5 py-0.5 rounded font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 text-blue-300' : 'bg-gray-100 text-blue-600'}`}>{children}</code>;
+                                return <SmartCodeBlock {...props} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />;
                               }
                             }}>
                             {chat.text}
@@ -521,9 +564,6 @@ export default function App() {
         <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-transparent z-20 pointer-events-none" style={{ backgroundImage: `linear-gradient(to top, ${theme === 'dark' ? '#131314 60%, transparent' : '#ffffff 60%, transparent'})` }}>
           <div className="max-w-3xl mx-auto pointer-events-auto relative">
             
-            {/* ========================================= */}
-            {/* UI POPUP MENU UNTUK SLASH COMMANDS (BARU) */}
-            {/* ========================================= */}
             <AnimatePresence>
               {showSlashCommands && (
                 <motion.div
@@ -566,8 +606,6 @@ export default function App() {
             <div className={`rounded-[32px] p-2 flex items-end gap-2 shadow-lg transition-all duration-300 ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5 focus-within:border-white/20' : 'bg-[#f0f4f9] border border-transparent focus-within:bg-white focus-within:shadow-xl focus-within:border-gray-200'}`}>
               <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
               <button onClick={() => fileInputRef.current?.click()} className={`p-3 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200'}`}><Paperclip size={22} /></button>
-              
-              {/* Event handler text area kita ganti ke handleInputChange */}
               <textarea 
                 className={`flex-1 bg-transparent border-none focus:ring-0 text-[15px] md:text-[16px] py-3 outline-none resize-none max-h-32 min-h-[44px] ${theme === 'dark' ? 'text-[#e3e3e3] placeholder-gray-500' : 'text-gray-800 placeholder-gray-500'}`} 
                 placeholder="Ketik '/' untuk prompt cepat..." 
@@ -577,7 +615,6 @@ export default function App() {
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} 
                 disabled={isStreaming} 
               />
-              
               <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className={`p-3 rounded-full transition-all active:scale-90 ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200 disabled:bg-[#282a2c] disabled:text-gray-600' : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-100'}`}>{isStreaming ? <Loader2 className="animate-spin" size={22} /> : <Send size={22} />}</button>
             </div>
             <div className={`text-center text-[10px] mt-3 font-bold tracking-widest uppercase ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>{activeRoute ? `JALUR: ${activeRoute}` : "SISTEM SIAP"}</div>
