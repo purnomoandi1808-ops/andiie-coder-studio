@@ -12,15 +12,34 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 // =====================================
-// ⚡ KOMPONEN BARU: BLOK KODE PINTAR (DIFF, COPY & PYTHON RUNNER)
+// ⚡ KOMPONEN BARU: BLOK KODE PINTAR (AUTO-DETECT + PYTHON RUNNER)
 // =====================================
 const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
   const [isCopied, setIsCopied] = useState(false);
-  const match = /language-(\w+)/.exec(className || '');
   const codeString = String(children).replace(/\n$/, '');
   
-  // ⚡ SEKARANG PYTHON BISA DI-RENDER LANGSUNG!
-  const isRenderable = match && ['html', 'xml', 'python', 'py'].includes(match[1].toLowerCase());
+  // 1. Deteksi Bahasa (Baca label dari AI)
+  let language = 'text';
+  const match = /language-(\w+)/.exec(className || '');
+  
+  if (match) {
+    language = match[1].toLowerCase();
+  } else if (!inline || codeString.includes('\n')) {
+    // ⚡ AUTO-DETECT: Jika AI lupa nulis 'python' tapi isinya kodingan python
+    if (codeString.includes('def ') || codeString.includes('import ') || codeString.includes('print(')) {
+      language = 'python';
+    } else if (codeString.includes('<div') || codeString.includes('<html')) {
+      language = 'html';
+    } else {
+      language = 'code'; // Teks kodingan biasa
+    }
+  }
+
+  // 2. Cek apakah ini Blok Kode besar atau cuma teks sebaris
+  const isBlock = !inline || codeString.includes('\n');
+  
+  // 3. Cek apakah bahasa ini bisa di-Preview
+  const isRenderable = ['html', 'xml', 'python', 'py'].includes(language);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(codeString);
@@ -32,7 +51,10 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
     let codeToRender = codeString;
     
     // ⚡ LOGIKA KHUSUS: Mesin Python di dalam Browser
-    if (match[1].toLowerCase() === 'python' || match[1].toLowerCase() === 'py') {
+    if (language === 'python' || language === 'py') {
+      // Mengamankan kode agar tidak terjadi tabrakan script HTML
+      const safeCode = JSON.stringify(codeString).replace(/<\//g, '<\\/');
+      
       codeToRender = `
         <!DOCTYPE html>
         <html>
@@ -61,7 +83,7 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
                     document.getElementById("output").innerText += msg + "\\n";
                   }});
                   
-                  await pyodide.runPythonAsync(${JSON.stringify(codeString)});
+                  await pyodide.runPythonAsync(${safeCode});
                   
                   document.getElementById("status").innerText = "✅ Eksekusi Selesai";
                   document.getElementById("status").className = "success";
@@ -83,11 +105,12 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
     setActiveCanvasTab("preview");
   };
 
-  if (!inline && match) {
+  // Jika ini adalah blok kode (bergaris baru), render kotak besar beserta tombolnya
+  if (isBlock) {
     return (
       <div className={`rounded-2xl border my-6 overflow-hidden shadow-xl ${theme === 'dark' ? 'border-gray-700/50 bg-[#1e1f20]' : 'border-gray-200 bg-[#f8f9fa]'}`}>
         <div className={`flex items-center justify-between px-4 py-2 border-b ${theme === 'dark' ? 'bg-[#282a2c] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{match[1]}</span>
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{language}</span>
           <div className="flex items-center gap-2">
             {isRenderable && (
               <button onClick={handlePreview} className="flex items-center gap-1.5 text-xs bg-blue-600/10 text-blue-500 px-3 py-1.5 rounded-full font-bold hover:bg-blue-600/20 transition-colors">
@@ -102,13 +125,13 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
         </div>
         <SyntaxHighlighter 
           children={codeString} 
-          language={match[1]} 
+          language={language === 'text' || language === 'code' ? 'javascript' : language} 
           style={theme === 'dark' ? vscDarkPlus : coy} 
           customStyle={{ margin: 0, padding: '1.2rem', fontSize: '0.85em', background: 'transparent' }} 
           wrapLines={true}
           lineProps={(lineNumber) => {
-            const line = codeString.split('\\n')[lineNumber - 1];
-            if (match[1] === 'diff') {
+            const line = codeString.split('\n')[lineNumber - 1] || "";
+            if (language === 'diff') {
               if (line.startsWith('+')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(46, 160, 67, 0.2)' : 'rgba(46, 160, 67, 0.15)', display: 'block', width: '100%' } };
               else if (line.startsWith('-')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(248, 81, 73, 0.2)' : 'rgba(248, 81, 73, 0.15)', display: 'block', width: '100%' } };
             }
@@ -118,6 +141,7 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
       </div>
     );
   }
+  // Jika hanya teks inline biasa
   return <code className={`px-1.5 py-0.5 rounded font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 text-blue-300' : 'bg-gray-100 text-blue-600'}`}>{children}</code>;
 };
 // =====================================
