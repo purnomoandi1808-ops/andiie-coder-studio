@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, LayoutTemplate, Paperclip, Code, Download, Music, Sun, Moon } from 'lucide-react';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -26,9 +26,40 @@ export default function App() {
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview"); 
-  
-  // Fitur Tema Gelap/Terang
   const [theme, setTheme] = useState(() => localStorage.getItem("andiie_theme") || "dark");
+
+  // =====================================
+  // ⚡ FITUR BARU: SLASH COMMANDS (QUICK PROMPT)
+  // =====================================
+  const [showSlashCommands, setShowSlashCommands] = useState(false);
+  const [commandFilter, setCommandFilter] = useState("");
+  
+  const slashCommandsList = [
+    { command: "/review", description: "Cari bug & error", prompt: "Tolong review baris kode ini, cari bug atau potensi error, dan berikan solusinya." },
+    { command: "/refactor", description: "Bersihkan kode (Clean Code)", prompt: "Tolong tulis ulang kode ini agar lebih bersih, efisien, rapi, dan tambahkan komentar penjelas yang relevan." },
+    { command: "/explain", description: "Jelaskan cara kerja kode", prompt: "Tolong jelaskan cara kerja kode ini baris demi baris dengan bahasa yang mudah dipahami." },
+    { command: "/optimize", description: "Tingkatkan performa", prompt: "Tolong optimasi kode ini agar berjalan lebih cepat dan memakan memori lebih sedikit." },
+    { command: "/ui-ux", description: "Saran perbaikan tampilan", prompt: "Berikan saran untuk mempercantik UI/UX dari kode tampilan ini agar terlihat lebih modern dan premium." },
+  ];
+
+  const handleInputChange = (e) => {
+    const val = e.target.value;
+    setInput(val);
+    
+    // Deteksi tanda slash "/" di awal kalimat
+    if (val.startsWith("/")) {
+      setShowSlashCommands(true);
+      setCommandFilter(val.substring(1).toLowerCase());
+    } else {
+      setShowSlashCommands(false);
+    }
+  };
+
+  const applySlashCommand = (promptText) => {
+    setInput(promptText);
+    setShowSlashCommands(false);
+  };
+  // =====================================
 
   const [sessions, setSessions] = useState(() => {
     const saved = localStorage.getItem("andiie_chat_history");
@@ -37,7 +68,6 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const chatEndRef = useRef(null);
 
-  // Efek ganti tema
   useEffect(() => {
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
@@ -174,7 +204,7 @@ export default function App() {
     if (!input.trim() && attachments.length === 0) return;
     if (isStreaming) return;
     const instruksiUser = input || "Tolong analisis file lampiran ini."; 
-    setInput(""); setIsStreaming(true); setActiveRoute(null);
+    setInput(""); setShowSlashCommands(false); setIsStreaming(true); setActiveRoute(null);
 
     const fileYangDiproses = await Promise.all(attachments.map(a => bacaFile(a.rawFile)));
     const historyKirim = [...messages]; 
@@ -321,20 +351,17 @@ export default function App() {
       <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-white'}`}>
         <header className="flex items-center justify-between p-4 z-10 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Tombol Menu sekarang selalu tampil dan berfungsi sebagai saklar bolak-balik */}
-            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>
+            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Buka/Tutup Riwayat">
               <Menu size={20} />
             </button>
             <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
           </div>
           
           <div className="flex items-center gap-2">
-            {/* Tombol Tema (Light/Dark) */}
             <button onClick={toggleTheme} className={`p-2 rounded-full transition-all ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
               {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            {/* Tombol Mode Coding Toggle */}
             <button 
               onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`}
@@ -492,7 +519,42 @@ export default function App() {
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-transparent z-20 pointer-events-none" style={{ backgroundImage: `linear-gradient(to top, ${theme === 'dark' ? '#131314 60%, transparent' : '#ffffff 60%, transparent'})` }}>
-          <div className="max-w-3xl mx-auto pointer-events-auto">
+          <div className="max-w-3xl mx-auto pointer-events-auto relative">
+            
+            {/* ========================================= */}
+            {/* UI POPUP MENU UNTUK SLASH COMMANDS (BARU) */}
+            {/* ========================================= */}
+            <AnimatePresence>
+              {showSlashCommands && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 10 }}
+                  className={`absolute bottom-[calc(100%+10px)] left-0 w-full md:w-2/3 rounded-2xl shadow-2xl border overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700' : 'bg-white border-gray-200'}`}
+                >
+                  <div className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest border-b flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-400 border-gray-800' : 'text-gray-500 border-gray-100'}`}>
+                    <Zap size={14} className="text-yellow-500" /> Prompt Cepat (Pilih salah satu)
+                  </div>
+                  <div className="max-h-60 overflow-y-auto">
+                    {slashCommandsList.filter(c => c.command.toLowerCase().includes(commandFilter)).length === 0 ? (
+                      <div className={`p-4 text-center text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Perintah tidak ditemukan</div>
+                    ) : (
+                      slashCommandsList.filter(c => c.command.toLowerCase().includes(commandFilter)).map((cmd, i) => (
+                        <button
+                          key={i}
+                          onClick={() => applySlashCommand(cmd.prompt)}
+                          className={`w-full text-left px-4 py-3 flex flex-col transition-colors border-b last:border-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] border-white/5 text-gray-200' : 'hover:bg-gray-50 border-gray-50 text-gray-800'}`}
+                        >
+                          <span className="font-bold text-sm text-blue-500">{cmd.command}</span>
+                          <span className={`text-xs mt-0.5 truncate w-full ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{cmd.description}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {attachments.length > 0 && (
               <div className="mb-3 flex flex-wrap gap-2">
                 {attachments.map((file, idx) => (
@@ -500,10 +562,22 @@ export default function App() {
                 ))}
               </div>
             )}
+            
             <div className={`rounded-[32px] p-2 flex items-end gap-2 shadow-lg transition-all duration-300 ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5 focus-within:border-white/20' : 'bg-[#f0f4f9] border border-transparent focus-within:bg-white focus-within:shadow-xl focus-within:border-gray-200'}`}>
               <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
               <button onClick={() => fileInputRef.current?.click()} className={`p-3 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200'}`}><Paperclip size={22} /></button>
-              <textarea className={`flex-1 bg-transparent border-none focus:ring-0 text-[15px] md:text-[16px] py-3 outline-none resize-none max-h-32 min-h-[44px] ${theme === 'dark' ? 'text-[#e3e3e3] placeholder-gray-500' : 'text-gray-800 placeholder-gray-500'}`} placeholder="Tanya sesuatu ke AI Coder..." rows="1" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} disabled={isStreaming} />
+              
+              {/* Event handler text area kita ganti ke handleInputChange */}
+              <textarea 
+                className={`flex-1 bg-transparent border-none focus:ring-0 text-[15px] md:text-[16px] py-3 outline-none resize-none max-h-32 min-h-[44px] ${theme === 'dark' ? 'text-[#e3e3e3] placeholder-gray-500' : 'text-gray-800 placeholder-gray-500'}`} 
+                placeholder="Ketik '/' untuk prompt cepat..." 
+                rows="1" 
+                value={input} 
+                onChange={handleInputChange} 
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} 
+                disabled={isStreaming} 
+              />
+              
               <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className={`p-3 rounded-full transition-all active:scale-90 ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200 disabled:bg-[#282a2c] disabled:text-gray-600' : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-100'}`}>{isStreaming ? <Loader2 className="animate-spin" size={22} /> : <Send size={22} />}</button>
             </div>
             <div className={`text-center text-[10px] mt-3 font-bold tracking-widest uppercase ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>{activeRoute ? `JALUR: ${activeRoute}` : "SISTEM SIAP"}</div>
