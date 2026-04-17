@@ -321,7 +321,10 @@ export default function App() {
       <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-white'}`}>
         <header className="flex items-center justify-between p-4 z-10 shrink-0">
           <div className="flex items-center gap-3">
-            {!isSidebarOpen && (<button onClick={() => setIsSidebarOpen(true)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}><Menu size={20} /></button>)}
+            {/* Tombol Menu sekarang selalu tampil dan berfungsi sebagai saklar bolak-balik */}
+            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}>
+              <Menu size={20} />
+            </button>
             <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
           </div>
           
