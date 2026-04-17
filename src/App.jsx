@@ -309,16 +309,49 @@ export default function App() {
             {!isSidebarOpen && (<button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-[#282a2c] rounded-full transition-colors text-gray-400"><Menu size={20} /></button>)}
             <span className="font-medium text-lg tracking-tight hidden sm:block">AI Coder Studio <span className="text-blue-500 text-xs font-bold">PRO</span></span>
           </div>
+          
           <div className="flex items-center gap-2">
+            {/* Trik UI: Tombol Mode Coding Utama */}
+            <button 
+              onClick={() => setSelectedModel("auto_coding")}
+              className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${selectedModel === "auto_coding" ? "bg-blue-600/20 border-blue-500 text-blue-400 shadow-sm" : "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white"}`}
+              title="Prioritas: Qwen Lokal -> Qwen Cloud"
+            >
+              <Code size={14} /> Mode Coding
+            </button>
+            
             <select value={selectedPersona} onChange={(e) => setSelectedPersona(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-purple-400 text-xs font-semibold rounded-full px-3 py-2 outline-none hidden md:block">
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
+            
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="bg-[#1e1f20] border border-gray-700 text-[#a8c7fa] text-xs font-semibold rounded-full px-3 py-2 outline-none max-w-[150px] md:max-w-xs truncate">
-              <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
-              <optgroup label="💻 Coding & Logic"><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option><option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option><option value="lokal">💻 Qwen 30B (Lokal Ollama)</option></optgroup>
-              <optgroup label="🎨 Gambar (Images)"><option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option><option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option><option value="openai/dall-e-3">🎨 DALL-E 3 (OpenAI API)</option></optgroup>
-              <optgroup label="🎬 Video Generation"><option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option><option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option><option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option><option value="google/veo-3.1">📽️ Google: Veo 3.1</option></optgroup>
-              <optgroup label="🎵 Lagu & Audio"><option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option><option value="suno-api-custom">🎸 Suno API (sunoapi.org)</option></optgroup>
+              <optgroup label="📝 Text & General">
+                <option value="auto">✨ Auto Smart Manager</option>
+                <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
+              </optgroup>
+              <optgroup label="💻 Coding & Logic">
+                <option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option>
+                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
+                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option>
+                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
+                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
+                <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
+              </optgroup>
+              <optgroup label="🎨 Gambar (Images)">
+                <option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option>
+                <option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option>
+                <option value="openai/dall-e-3">🎨 DALL-E 3 (OpenAI API)</option>
+              </optgroup>
+              <optgroup label="🎬 Video Generation">
+                <option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option>
+                <option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option>
+                <option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option>
+                <option value="google/veo-3.1">📽️ Google: Veo 3.1</option>
+              </optgroup>
+              <optgroup label="🎵 Lagu & Audio">
+                <option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option>
+                <option value="suno-api-custom">🎸 Suno API (sunoapi.org)</option>
+              </optgroup>
             </select>
           </div>
         </header>
@@ -347,7 +380,6 @@ export default function App() {
                             urlTransform={(value) => value} 
                             components={{
                               a(props) {
-                                // 1. AUDIO PLAYER SUNO
                                 if (props.children && String(props.children).includes("AUDIO_PLAYER")) {
                                   return (
                                     <div className="bg-[#1e1f20] p-4 rounded-2xl mt-4 border border-white/10 shadow-2xl flex flex-col gap-3 w-full md:max-w-md">
@@ -364,7 +396,6 @@ export default function App() {
                                   );
                                 }
                                 
-                                // ⚡ 2. VIDEO PLAYER BARU (OPENROUTER)
                                 if (props.children && String(props.children).includes("VIDEO_PLAYER")) {
                                   return (
                                     <div className="bg-[#1e1f20] p-4 rounded-2xl mt-4 border border-white/10 shadow-2xl w-full md:max-w-xl">
@@ -378,7 +409,6 @@ export default function App() {
                                   );
                                 }
                                 
-                                // 3. Link Internet Biasa
                                 return <a {...props} className="text-blue-400 hover:underline" target="_blank" rel="noreferrer" />;
                               },
                               
