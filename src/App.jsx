@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-// ⚡ IMPORT BARU: Menambahkan ikon Settings, Save, Archive, Github
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, GitCommit } from 'lucide-react';
+// ⚡ IMPORT BARU: Menambahkan ikon FolderKanban, Layers, ChevronRight untuk Workspace
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban, Layers, ChevronRight } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -87,8 +87,8 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
 
   if (isBlock) {
     return (
-      <div className={`rounded-2xl border my-6 overflow-hidden shadow-xl ${theme === 'dark' ? 'border-gray-700/50 bg-[#1e1f20]' : 'border-gray-200 bg-[#f8f9fa]'}`}>
-        <div className={`flex items-center justify-between px-4 py-2 border-b ${theme === 'dark' ? 'bg-[#282a2c] border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+      <div className={`rounded-2xl border my-6 overflow-hidden shadow-sm ${theme === 'dark' ? 'border-white/10 bg-[#1e1f20]' : 'border-gray-200 bg-[#f8f9fa]'}`}>
+        <div className={`flex items-center justify-between px-4 py-2 border-b ${theme === 'dark' ? 'bg-[#282a2c] border-white/5' : 'bg-gray-100 border-gray-200'}`}>
           <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{language}</span>
           <div className="flex items-center gap-2">
             {isRenderable && (<button onClick={handlePreview} className="flex items-center gap-1.5 text-xs bg-blue-600/10 text-blue-500 px-3 py-1.5 rounded-full font-bold hover:bg-blue-600/20"><Play size={12} fill="currentColor" /> Preview</button>)}
@@ -99,7 +99,7 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
       </div>
     );
   }
-  return <code className={`px-1.5 py-0.5 rounded font-mono text-sm ${theme === 'dark' ? 'bg-gray-800 text-blue-300' : 'bg-gray-100 text-blue-600'}`}>{children}</code>;
+  return <code className={`px-1.5 py-0.5 rounded-md font-mono text-sm ${theme === 'dark' ? 'bg-white/10 text-blue-300' : 'bg-black/5 text-blue-600'}`}>{children}</code>;
 };
 
 // =====================================
@@ -135,10 +135,14 @@ export default function App() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState('all');
 
-  // ⚡ STATE BARU UNTUK PROMPT DINAMIS SUPABASE (Opsi B)
   const [slashCommands, setSlashCommands] = useState([]);
   const [isManagePromptOpen, setIsManagePromptOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState({ command: "", description: "", prompt: "" });
+
+  // ⚡ STATE UNTUK PROJECT WORKSPACE (OPSI C BARU)
+  const [isProjectsOpen, setIsProjectsOpen] = useState(false);
+  const [activeProject, setActiveProject] = useState(null);
+  const [projectsList, setProjectsList] = useState(() => { const saved = localStorage.getItem("andiie_projects"); return saved ? JSON.parse(saved) : []; });
 
   const slashCommandsList = [
     { command: "/fix-diff", description: "Perbaiki bug (Visual Warna Diff)", prompt: "Tolong perbaiki kode ini. Tampilkan perubahannya menggunakan blok kode berformat 'diff' (awali baris yang dihapus dengan '-' dan baris baru dengan '+')." },
@@ -147,7 +151,6 @@ export default function App() {
     { command: "/explain", description: "Jelaskan kode", prompt: "Tolong jelaskan cara kerja kode ini baris demi baris." },
   ];
 
-  // ⚡ GABUNGAN PROMPT LOKAL & SUPABASE
   const allPrompts = [...slashCommandsList, ...slashCommands];
 
   const handleInputChange = (e) => { const val = e.target.value; setInput(val); if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); } else { setShowSlashCommands(false); } };
@@ -160,7 +163,6 @@ export default function App() {
   const generatedMedia = useMemo(() => ekstrakMediaDariRiwayat(sessions), [sessions]);
   const filteredMedia = generatedMedia.filter(m => galleryFilter === 'all' || m.type === galleryFilter);
 
-  // ⚡ FUNGSI SUPABASE UNTUK PROMPT DINAMIS (Opsi B)
   const fetchPrompts = async () => {
     if (supabase) {
       const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true });
@@ -180,7 +182,9 @@ export default function App() {
   };
   useEffect(() => { fetchPrompts(); }, []);
 
-  // ⚡ FUNGSI EXPORT ZIP & GIT (Opsi C)
+  // Simpan Projects ke LocalStorage
+  useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
+
   const exportChatToZip = async () => {
     const zip = new JSZip();
     let fileCount = 0;
@@ -314,14 +318,28 @@ export default function App() {
     const fileYangDiproses = await Promise.all(attachments.map(a => bacaFile(a.rawFile))); const historyKirim = [...messages]; 
     let sessionId = currentSessionId;
     if (!sessionId) { sessionId = Date.now().toString(); setCurrentSessionId(sessionId); const judulBaru = instruksiUser.length > 25 ? instruksiUser.substring(0, 25) + "..." : instruksiUser; setSessions(prev => [{ id: sessionId, title: judulBaru, messages: [] }, ...prev]); }
+    
     const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
+
+    // ⚡ INJEKSI CLAUDE-STYLE (Reasoning & Mentoring)
+    let instruksiKeBackend = instruksiUser;
+    const isCodingRequest = instruksiUser.toLowerCase().includes('kode') || instruksiUser.toLowerCase().includes('code') || instruksiUser.toLowerCase().includes('script') || instruksiUser.toLowerCase().includes('buatkan');
+    if (isCodingRequest) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Bertindaklah sebagai Senior AI Architect (sekelas Claude Opus). Jika Anda memberikan kode pemrograman, ANDA DILARANG KERAS hanya memberikan kode mentah. ANDA WAJIB: 1) Menjelaskan arsitektur dan logika kode tersebut. 2) Memberikan panduan Step-by-Step cara deploy, install, atau menjalankannya. 3) Memastikan kode siap produksi.]`;
+    }
+    
+    // ⚡ INJEKSI KONTEKS PROYEK WORKSPACE
+    if (activeProject) {
+       instruksiKeBackend += `\n\n[PROJECT CONTEXT: Pengguna saat ini sedang bekerja pada proyek "${activeProject.name}". Aturan khusus proyek ini: ${activeProject.context}. Selalu ikuti aturan ini dalam setiap jawaban Anda.]`;
+    }
+
     const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || ""; 
     try {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"; const controller = new AbortController();
       const isMultimediaModel = ["openai/dall-e-3", "suno-api-custom", "sora", "veo", "wan", "seedance", "riverflow"].some(m => selectedModel.includes(m));
       const timeoutId = setTimeout(() => controller.abort(), isMultimediaModel ? 180000 : 8000); 
-      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instruksi: instruksiUser, history: historyKirim, paksa_model: selectedModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses }), signal: controller.signal });
+      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: selectedModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses }), signal: controller.signal });
       clearTimeout(timeoutId); if (!respon.ok) throw new Error("Server Lokal Menolak");
       const reader = respon.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
       while (true) {
@@ -333,7 +351,7 @@ export default function App() {
       setActiveRoute("OPENROUTER DARURAT (LAPTOP MATI)");
       try {
         if(!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diisi di Vercel!");
-        const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text })); openRouterMessages.push({ role: "user", content: teksTampilan });
+        const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text })); openRouterMessages.push({ role: "user", content: instruksiKeBackend });
         const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen3-coder:30b";
         const responOpenRouter = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: fallbackModel, messages: openRouterMessages, stream: true }) });
         const reader = responOpenRouter.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
@@ -345,35 +363,39 @@ export default function App() {
     } finally { setIsStreaming(false); setAttachments([]); }
   };
 
-  if (!isLoggedIn) { return ( <div className={`h-screen flex items-center justify-center p-4 transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f0f4f9]'}`}> <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-3xl w-full max-w-md shadow-2xl transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5' : 'bg-white border border-gray-200'}`}> <div className="flex justify-center mb-6"> <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20"><Lock className="text-white" size={28} /></div> </div> <h2 className={`text-2xl font-semibold text-center mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>AI Coder Studio</h2> <p className="text-gray-400 text-center text-sm mb-8">Hanya untuk Andiie & Project ABAPE</p> <form onSubmit={handleLogin} className="space-y-4"> <input type="text" placeholder="Username" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, username: e.target.value})} /> <input type="password" placeholder="Sandi" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, password: e.target.value})} /> <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button> </form> </motion.div> </div> ); }
+  if (!isLoggedIn) { return ( <div className={`h-screen flex items-center justify-center p-4 transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f0f4f9]'}`}> <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-[32px] w-full max-w-md shadow-2xl transition-colors ${theme === 'dark' ? 'bg-[#1e1f20]/80 backdrop-blur-xl border border-white/5' : 'bg-white/80 backdrop-blur-xl border border-gray-200'}`}> <div className="flex justify-center mb-6"> <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20"><Lock className="text-white" size={28} /></div> </div> <h2 className={`text-2xl font-semibold text-center mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>AI Studio Pro</h2> <p className="text-gray-400 text-center text-sm mb-8">Secure Login (Andiie)</p> <form onSubmit={handleLogin} className="space-y-4"> <input type="text" placeholder="Username" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, username: e.target.value})} /> <input type="password" placeholder="Sandi" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, password: e.target.value})} /> <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button> </form> </motion.div> </div> ); }
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden transition-colors selection:bg-blue-500/30 relative ${theme === 'dark' ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-white text-gray-800'}`}>
+    <div className={`flex h-screen font-sans overflow-hidden transition-colors selection:bg-blue-500/30 relative ${theme === 'dark' ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-[#f8f9fa] text-gray-800'}`}>
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-40" />
-            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`fixed md:relative inset-y-0 left-0 w-72 flex flex-col shadow-2xl z-50 shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-r border-white/5' : 'bg-[#f0f4f9] border-r border-gray-200'}`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
+            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`fixed md:relative inset-y-0 left-0 w-72 flex flex-col shadow-2xl z-50 shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20]/95 backdrop-blur-xl border-r border-white/5' : 'bg-white/95 backdrop-blur-xl border-r border-gray-200'}`}>
               <div className="p-4 flex justify-between items-center">
-                <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-white hover:bg-gray-50 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
+                <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
                 <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-2 p-2 text-gray-400 hover:text-blue-500"><X size={20}/></button>
               </div>
               
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
                 
-                {/* ⚡ TOMBOL ITEM BUATAN SAYA (MENIRU GEMINI) */}
+                {/* ⚡ TOMBOL PROJECT WORKSPACE BARU */}
+                <button onClick={() => setIsProjectsOpen(true)} className={`w-full flex items-center justify-between px-4 py-3 mb-2 rounded-2xl text-sm font-bold transition-all shadow-sm border ${activeProject ? (theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-200') : (theme === 'dark' ? 'bg-white/5 text-gray-300 border-white/5 hover:bg-white/10' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50')}`}>
+                  <div className="flex items-center gap-3"><FolderKanban size={18} /> {activeProject ? activeProject.name : "Projects Workspace"}</div>
+                  <ChevronRight size={16} className="opacity-50"/>
+                </button>
+
                 <button onClick={() => setIsGalleryOpen(true)} className={`w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-2xl text-sm font-bold transition-all shadow-sm border ${theme === 'dark' ? 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20' : 'bg-gradient-to-r from-purple-50 to-blue-50 text-purple-600 border-purple-200 hover:bg-purple-100'}`}>
                   <Sparkles size={18} /> Item Buatan Saya ({generatedMedia.length})
                 </button>
 
-                {/* ⚡ TOMBOL KELOLA PROMPT DINAMIS (OPSI B) */}
                 <button onClick={() => setIsManagePromptOpen(true)} className={`w-full flex items-center gap-3 px-4 py-3 mb-4 rounded-2xl text-sm font-bold transition-all shadow-sm border ${theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}>
                   <Settings size={18} /> Kelola Prompt Dinamis
                 </button>
 
-                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat Percakapan</div>
+                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest mt-4 mb-2">Riwayat Percakapan</div>
                 {sessions.map(sesi => (
-                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-200 text-gray-600')}`}>
+                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-100 text-gray-600')}`}>
                     <div className="flex items-center gap-3 overflow-hidden"><MessageSquare size={16} className="shrink-0" /><span className="truncate text-sm font-medium">{sesi.title}</span></div>
                     <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
                   </div>
@@ -385,22 +407,20 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-white'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f8f9fa]'}`}>
         
-        {/* HEADER APLIKASI UTAMA (YANG SUDAH DIKOMPRES UNTUK HP) */}
-        <header className="flex items-center justify-between p-2 md:p-4 z-10 shrink-0 w-full overflow-hidden">
+        {/* ⚡ HEADER NATIVE STYLE (Glassmorphism) */}
+        <header className={`sticky top-0 z-30 flex items-center justify-between p-2 md:p-3 w-full overflow-hidden transition-all ${theme === 'dark' ? 'bg-[#131314]/70 backdrop-blur-xl border-b border-white/5' : 'bg-white/70 backdrop-blur-xl border-b border-gray-200 shadow-sm'}`}>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-1.5 md:p-2 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Buka/Tutup Riwayat">
+            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-1.5 md:p-2 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Menu">
               <Menu size={20} />
             </button>
-            <span className="font-medium text-base md:text-lg tracking-tight hidden sm:block truncate">
-              AI Studio <span className="text-blue-500 text-[10px] md:text-xs font-bold">PRO</span>
+            <span className="font-semibold text-base md:text-lg tracking-tight hidden sm:block truncate">
+              AI Studio <span className="text-blue-500 text-[10px] md:text-xs font-bold bg-blue-500/10 px-1.5 py-0.5 rounded-md ml-1">PRO</span>
             </span>
           </div>
           
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-            
-            {/* ⚡ TOMBOL EXPORT ZIP & GIT COMMIT (OPSI C) */}
             {messages.length > 0 && (
               <>
                 <button onClick={exportChatToZip} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`} title="Export Kode ke ZIP"><Archive size={16} className="md:w-[18px] md:h-[18px]" /></button>
@@ -408,16 +428,16 @@ export default function App() {
               </>
             )}
 
-            <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
+            <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {theme === 'dark' ? <Sun size={16} className="md:w-[18px] md:h-[18px]" /> : <Moon size={16} className="md:w-[18px] md:h-[18px]" />}
             </button>
 
-            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-gray-100 border-gray-300 text-green-600 hover:bg-gray-200'}`} title="Buka SSH Terminal">
+            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-white border-gray-300 text-green-600 hover:bg-gray-50'}`} title="Buka SSH Terminal">
               <TerminalSquare size={16} className="md:w-[14px] md:h-[14px]" /> 
               <span className="hidden md:inline">SSH Terminal</span>
             </button>
 
-            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`} title="Prioritas: Qwen Lokal -> Qwen Cloud">
+            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`}>
               <Code size={16} className="md:w-[14px] md:h-[14px]" /> 
               <span className="hidden md:inline">Mode Coding</span>
             </button>
@@ -426,57 +446,60 @@ export default function App() {
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
             
+            {/* Model Select (Semua Model Aman) */}
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-[10px] md:text-xs font-semibold rounded-full px-2 md:px-3 py-1.5 outline-none w-[90px] sm:w-[110px] md:w-auto md:max-w-xs truncate border shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
-              
-              <optgroup label="🧠 Deep Thinking & Research">
-                <option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option>
-                <option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option>
-                <option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option>
-              </optgroup>
-
-              <optgroup label="📝 Text & General">
-                <option value="auto">✨ Auto Smart Manager</option>
-                <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
-              </optgroup>
-
-              <optgroup label="💻 Coding & Logic">
-                <option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option>
-                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
-                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option>
-                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
-                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
-                <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
-              </optgroup>
-
-              <optgroup label="🎨 Gambar (Images)">
-                <option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option>
-                <option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option>
-                <option value="openai/dall-e-3">🎨 DALL-E 3</option>
-              </optgroup>
-
-              <optgroup label="🎬 Video Generation">
-                <option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option>
-                <option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option>
-                <option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option>
-                <option value="google/veo-3.1">📽️ Google: Veo 3.1</option>
-              </optgroup>
-
-              <optgroup label="🎵 Lagu & Audio">
-                <option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option>
-                <option value="suno-api-custom">🎸 Suno API</option>
-              </optgroup>
-
+              <optgroup label="🧠 Deep Thinking & Research"><option value="SEARCH_MODE">🌐 Deep Web Research</option><option value="deepseek/deepseek-r1">💭 DeepSeek R1</option><option value="openai/o3-mini">🧠 OpenAI o3-mini</option></optgroup>
+              <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B</option></optgroup>
+              <optgroup label="💻 Coding & Logic"><option value="auto_coding">⚡ Auto Coding</option><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option><option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Next</option><option value="lokal">💻 Qwen 30B Lokal</option></optgroup>
+              <optgroup label="🎨 Gambar (Images)"><option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option><option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option><option value="openai/dall-e-3">🎨 DALL-E 3</option></optgroup>
+              <optgroup label="🎬 Video Generation"><option value="bytedance/seedance-2.0">💃 Seedance 2.0</option><option value="alibaba/wan-2.7">🎥 Wan 2.7</option><option value="openai/sora-2-pro">🌌 Sora 2 Pro</option><option value="google/veo-3.1">📽️ Veo 3.1</option></optgroup>
+              <optgroup label="🎵 Lagu & Audio"><option value="google/lyria-3-clip-preview">🎼 Lyria 3</option><option value="suno-api-custom">🎸 Suno API</option></optgroup>
             </select>
           </div>
         </header>
 
-        {/* ⚡ MODAL GALERI "ITEM BUATAN SAYA" */}
+        {/* ⚡ MODAL PROJECT WORKSPACE (BARU) */}
+        <AnimatePresence>
+          {isProjectsOpen && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-2xl rounded-[32px] p-6 shadow-2xl border flex flex-col max-h-[85vh] ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+                <div className="flex justify-between items-center mb-6"><div className="flex items-center gap-3"><div className="p-2 bg-orange-500/20 text-orange-500 rounded-xl"><Layers size={20}/></div><h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Projects Workspace</h2></div><button onClick={() => setIsProjectsOpen(false)} className="text-gray-400 hover:text-gray-600"><X/></button></div>
+                
+                <div className="grid md:grid-cols-2 gap-6 overflow-y-auto pr-2 scrollbar-hide">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Buat Project Baru</h3>
+                    <input id="projName" placeholder="Nama Project (misal: Aplikasi Hotel)" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} />
+                    <textarea id="projCtx" placeholder="Instruksi Khusus (misal: Gunakan framework React Tailwind. Jangan gunakan class components...)" rows="5" className={`w-full p-3 rounded-xl border outline-none resize-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} />
+                    <button onClick={() => {
+                        const n = document.getElementById('projName').value; const c = document.getElementById('projCtx').value;
+                        if(n) { setProjectsList([...projectsList, { id: Date.now(), name: n, context: c }]); document.getElementById('projName').value=''; document.getElementById('projCtx').value=''; }
+                    }} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"><Plus size={18}/> Simpan Project</button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Daftar Project</h3>
+                    <div className={`p-4 rounded-2xl border cursor-pointer transition-all ${!activeProject ? 'ring-2 ring-blue-500 border-transparent bg-blue-500/10' : (theme === 'dark' ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50')}`} onClick={() => setActiveProject(null)}>
+                        <div className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Tidak Ada (Chat Umum)</div>
+                    </div>
+                    {projectsList.map(proj => (
+                      <div key={proj.id} className={`p-4 rounded-2xl border cursor-pointer transition-all relative group ${activeProject?.id === proj.id ? 'ring-2 ring-orange-500 border-transparent bg-orange-500/10' : (theme === 'dark' ? 'border-white/10 hover:bg-white/5' : 'border-gray-200 hover:bg-gray-50')}`} onClick={() => setActiveProject(proj)}>
+                        <div className="font-bold text-sm text-orange-500">{proj.name}</div>
+                        <div className="text-xs text-gray-500 truncate mt-1">{proj.context}</div>
+                        <button onClick={(e) => { e.stopPropagation(); setProjectsList(projectsList.filter(p => p.id !== proj.id)); if(activeProject?.id === proj.id) setActiveProject(null); }} className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors"><Trash2 size={14}/></button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* MODAL GALERI "ITEM BUATAN SAYA" */}
         <AnimatePresence>
           {isGalleryOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
-              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-5xl h-full max-h-[85vh] rounded-3xl flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
-                
-                {/* Header Galeri */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-5xl h-full max-h-[85vh] rounded-[32px] flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
                 <div className={`p-4 md:p-5 border-b flex justify-between items-center shrink-0 ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl shadow-lg"><Sparkles className="text-white" size={20}/></div>
@@ -484,8 +507,6 @@ export default function App() {
                   </div>
                   <button onClick={() => setIsGalleryOpen(false)} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'hover:bg-white/10 text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}><X size={20}/></button>
                 </div>
-                
-                {/* Filter Tab */}
                 <div className={`flex gap-2 p-4 shrink-0 border-b overflow-x-auto scrollbar-hide ${theme === 'dark' ? 'border-white/5 bg-[#131314]' : 'border-gray-100 bg-gray-50'}`}>
                   {['all', 'image', 'video', 'audio'].map(filter => (
                      <button key={filter} onClick={() => setGalleryFilter(filter)} className={`px-4 py-1.5 rounded-full text-xs font-bold capitalize whitespace-nowrap transition-colors border ${galleryFilter === filter ? (theme === 'dark' ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' : 'bg-purple-100 text-purple-700 border-purple-300') : (theme === 'dark' ? 'bg-[#1e1f20] text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-300 hover:text-gray-900')}`}>
@@ -493,8 +514,6 @@ export default function App() {
                      </button>
                   ))}
                 </div>
-
-                {/* Konten Grid */}
                 <div className={`flex-1 overflow-y-auto p-4 md:p-6 ${theme === 'dark' ? 'bg-[#131314]/50' : 'bg-gray-50'}`}>
                    {filteredMedia.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4">
@@ -508,7 +527,6 @@ export default function App() {
                                {media.type === 'image' && <img src={media.url} alt="Gen" className="w-full h-full object-cover" />}
                                {media.type === 'video' && <video src={media.url} className="w-full h-full object-cover bg-black" controls muted />}
                                {media.type === 'audio' && <div className="text-center w-full p-4"><Music size={32} className="mx-auto text-purple-500 mb-3"/><audio src={media.url} controls className="w-full h-8" /></div>}
-                               
                                <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between">
                                   <span className="text-[10px] text-white/90 font-medium truncate pr-2" title={media.title}>{media.title}</span>
                                   <button onClick={() => unduhGambar(media.url)} className="p-1.5 bg-white/20 hover:bg-blue-500 rounded-lg text-white backdrop-blur-sm transition-colors shrink-0" title="Download"><Download size={14}/></button>
@@ -523,13 +541,46 @@ export default function App() {
           )}
         </AnimatePresence>
 
+        {/* MODAL KELOLA PROMPT DINAMIS */}
+        <AnimatePresence>
+          {isManagePromptOpen && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-xl rounded-[32px] p-6 shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Kelola Prompt Dinamis</h2>
+                  <button onClick={() => setIsManagePromptOpen(false)} className="text-gray-400 hover:text-gray-600"><X/></button>
+                </div>
+                <div className="space-y-4 mb-8">
+                  <input placeholder="/perintah (misal: /review)" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} value={newPrompt.command} onChange={e => setNewPrompt({...newPrompt, command: e.target.value})} />
+                  <input placeholder="Deskripsi singkat" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} value={newPrompt.description} onChange={e => setNewPrompt({...newPrompt, description: e.target.value})} />
+                  <textarea placeholder="Isi Prompt panjang..." rows="3" className={`w-full p-3 rounded-xl border outline-none resize-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} value={newPrompt.prompt} onChange={e => setNewPrompt({...newPrompt, prompt: e.target.value})} />
+                  <button onClick={savePrompt} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"><Save size={18}/> Simpan ke Supabase</button>
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-2 scrollbar-hide">
+                  {slashCommands.map(cmd => (
+                    <div key={cmd.id} className={`flex justify-between items-center p-3 rounded-xl border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
+                      <div>
+                        <div className="font-bold text-blue-500">{cmd.command}</div>
+                        <div className="text-xs text-gray-500">{cmd.description}</div>
+                      </div>
+                      <button onClick={() => deletePrompt(cmd.id)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                    </div>
+                  ))}
+                  {slashCommands.length === 0 && <div className="text-center text-sm text-gray-500 italic py-4">Belum ada prompt tersimpan.</div>}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex-1 flex flex-row overflow-hidden relative">
           <main className={`flex-1 overflow-y-auto scroll-smooth pb-40 transition-all ${isPreviewOpen && window.innerWidth > 768 ? (theme === 'dark' ? 'w-1/2 border-r border-white/10' : 'w-1/2 border-r border-gray-200') : 'w-full'}`}>
             <div className="max-w-4xl mx-auto px-4 md:px-8 pt-8">
               {messages.length === 0 && (
                 <div className="mt-16 md:mt-24 px-2 text-center md:text-left">
                   <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">Halo, Andi.</h1>
-                  <h2 className={`text-2xl md:text-4xl font-medium tracking-tight ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Apa yang kita bangun hari ini?</h2>
+                  <h2 className={`text-2xl md:text-4xl font-medium tracking-tight ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Apa yang kita bangun hari ini?</h2>
+                  {activeProject && (<div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-orange-500/10 border border-orange-500/30 text-orange-500 rounded-full text-sm font-bold"><FolderKanban size={16}/> Project Aktif: {activeProject.name}</div>)}
                 </div>
               )}
               <div className="space-y-8 mt-6">
@@ -540,7 +591,7 @@ export default function App() {
                         {isStreaming && idx === messages.length - 1 ? <Loader2 className="animate-spin text-blue-500" size={22} /> : <Sparkles className="text-blue-500" size={22} />}
                       </div>
                     )}
-                    <div className={`max-w-[90%] md:max-w-[85%] ${chat.role === 'user' ? (theme === 'dark' ? 'bg-[#282a2c] text-[#e3e3e3]' : 'bg-[#f0f4f9] text-gray-800') + ' px-5 py-3 md:px-6 md:py-4 rounded-[24px] rounded-br-sm text-[15px]' : 'text-[15px] leading-relaxed w-full'}`}>
+                    <div className={`max-w-[90%] md:max-w-[85%] ${chat.role === 'user' ? (theme === 'dark' ? 'bg-[#282a2c] text-[#e3e3e3] shadow-md' : 'bg-blue-600 text-white shadow-md') + ' px-5 py-3 md:px-6 md:py-4 rounded-[28px] rounded-br-sm text-[15px]' : 'text-[15px] leading-relaxed w-full'}`}>
                       {chat.role === 'ai' ? (
                         <div className={`prose prose-sm md:prose-base max-w-none ${theme === 'dark' ? 'prose-invert' : 'prose-gray'}`}>
                           <ReactMarkdown urlTransform={(value) => value} components={{ code(props) { return <SmartCodeBlock {...props} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />; } }}>
@@ -558,10 +609,10 @@ export default function App() {
 
           <AnimatePresence>
             {isPreviewOpen && (
-              <motion.div initial={{ x: "100%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "100%", opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className={`flex flex-col shadow-2xl z-40 ${window.innerWidth <= 768 ? 'absolute inset-0 w-full' : 'w-1/2 relative border-l'} ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-gray-50 border-gray-200'}`}>
+              <motion.div initial={{ x: "100%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "100%", opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className={`flex flex-col shadow-2xl z-40 ${window.innerWidth <= 768 ? 'absolute inset-0 w-full' : 'w-1/2 relative border-l'} ${theme === 'dark' ? 'bg-[#1e1f20]/95 backdrop-blur-xl border-white/10' : 'bg-white/95 backdrop-blur-xl border-gray-200'}`}>
                 
                 {/* ⚡ HEADER TAB PANEL KANAN */}
-                <div className={`p-2 flex justify-between items-center shrink-0 border-b ${theme === 'dark' ? 'bg-[#131314] border-white/5' : 'bg-white border-gray-200'}`}>
+                <div className={`p-2 flex justify-between items-center shrink-0 border-b ${theme === 'dark' ? 'bg-[#131314]/50 border-white/5' : 'bg-white/50 border-gray-200'}`}>
                   <div className={`flex p-1 rounded-full ${theme === 'dark' ? 'bg-[#1e1f20]' : 'bg-gray-100'}`}>
                     <button onClick={() => setActiveCanvasTab("preview")} className={`px-3 py-1.5 text-xs font-medium rounded-full flex items-center gap-1.5 transition-colors ${activeCanvasTab === "preview" ? (theme === 'dark' ? "bg-blue-600/20 text-blue-400" : "bg-white text-blue-600 shadow-sm") : "text-gray-500 hover:text-gray-700"}`}><Play size={14} /> Preview</button>
                     <button onClick={() => setActiveCanvasTab("code")} className={`px-3 py-1.5 text-xs font-medium rounded-full flex items-center gap-1.5 transition-colors ${activeCanvasTab === "code" ? (theme === 'dark' ? "bg-[#282a2c] text-white" : "bg-white text-gray-800 shadow-sm") : "text-gray-500 hover:text-gray-700"}`}><Code size={14} /> Code</button>
@@ -571,7 +622,7 @@ export default function App() {
                 </div>
 
                 {/* ⚡ ISI PANEL KANAN */}
-                <div className={`flex-1 relative ${theme === 'dark' ? 'bg-[#1e1f20]' : 'bg-gray-50'}`}>
+                <div className={`flex-1 relative ${theme === 'dark' ? 'bg-[#1e1f20]/50' : 'bg-transparent'}`}>
                   {activeCanvasTab === "code" && (<textarea value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} className={`absolute inset-0 w-full h-full bg-transparent font-mono text-[13px] p-5 outline-none resize-none ${theme === 'dark' ? 'text-[#a8c7fa]' : 'text-blue-800'}`} spellCheck="false" />)}
                   {activeCanvasTab === "preview" && (<div className="absolute inset-0 bg-white"><iframe title="CanvasPreview" srcDoc={previewCode} className="w-full h-full border-none" sandbox="allow-scripts allow-modals allow-same-origin" /></div>)}
                   
@@ -580,14 +631,14 @@ export default function App() {
                     <div className="absolute inset-0 flex flex-col h-full bg-[#1e1f20]">
                       {sshStatus === "disconnected" ? (
                         <div className="flex-1 flex items-center justify-center p-6">
-                          <form onSubmit={connectSSH} className="bg-[#282a2c] p-6 rounded-2xl w-full max-w-sm border border-gray-700 shadow-2xl">
+                          <form onSubmit={connectSSH} className="bg-[#282a2c] p-6 rounded-3xl w-full max-w-sm border border-gray-700 shadow-2xl">
                             <div className="flex justify-center mb-4"><Server size={32} className="text-green-500" /></div>
                             <h3 className="text-white text-center font-bold mb-4">Remote SSH Terminal</h3>
                             <div className="space-y-3">
-                              <input required type="text" placeholder="IP Address (contoh: 192.168.1.5)" className="w-full bg-[#131314] text-white p-3 rounded-lg text-sm border border-gray-700 outline-none focus:border-green-500" value={sshCreds.host} onChange={e => setSshCreds({...sshCreds, host: e.target.value})} />
-                              <input required type="text" placeholder="Username (contoh: pi)" className="w-full bg-[#131314] text-white p-3 rounded-lg text-sm border border-gray-700 outline-none focus:border-green-500" value={sshCreds.username} onChange={e => setSshCreds({...sshCreds, username: e.target.value})} />
-                              <input required type="password" placeholder="Password" className="w-full bg-[#131314] text-white p-3 rounded-lg text-sm border border-gray-700 outline-none focus:border-green-500" value={sshCreds.password} onChange={e => setSshCreds({...sshCreds, password: e.target.value})} />
-                              <button type="submit" className="w-full bg-green-600 hover:bg-green-500 text-white font-bold p-3 rounded-lg transition-colors mt-2">Connect to Server</button>
+                              <input required type="text" placeholder="IP Address (contoh: 192.168.1.5)" className="w-full bg-[#131314] text-white p-3 rounded-xl text-sm border border-gray-700 outline-none focus:border-green-500" value={sshCreds.host} onChange={e => setSshCreds({...sshCreds, host: e.target.value})} />
+                              <input required type="text" placeholder="Username (contoh: pi)" className="w-full bg-[#131314] text-white p-3 rounded-xl text-sm border border-gray-700 outline-none focus:border-green-500" value={sshCreds.username} onChange={e => setSshCreds({...sshCreds, username: e.target.value})} />
+                              <input required type="password" placeholder="Password" className="w-full bg-[#131314] text-white p-3 rounded-xl text-sm border border-gray-700 outline-none focus:border-green-500" value={sshCreds.password} onChange={e => setSshCreds({...sshCreds, password: e.target.value})} />
+                              <button type="submit" className="w-full bg-green-600 hover:bg-green-500 text-white font-bold p-3 rounded-xl transition-colors mt-2">Connect to Server</button>
                             </div>
                           </form>
                         </div>
@@ -608,20 +659,21 @@ export default function App() {
           </AnimatePresence>
         </div>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 md:pb-8 bg-gradient-to-t from-transparent z-20 pointer-events-none" style={{ backgroundImage: `linear-gradient(to top, ${theme === 'dark' ? '#131314 60%, transparent' : '#ffffff 60%, transparent'})` }}>
+        {/* ⚡ INPUT BAWAH NATIVE STYLE (Glassmorphism) */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6 pb-6 md:pb-8 bg-gradient-to-t from-black/20 to-transparent z-20 pointer-events-none">
           <div className="max-w-3xl mx-auto pointer-events-auto relative">
             
             <AnimatePresence>
               {showSlashCommands && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={`absolute bottom-[calc(100%+10px)] left-0 w-full md:w-2/3 rounded-2xl shadow-2xl border overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700' : 'bg-white border-gray-200'}`}>
-                  <div className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest border-b flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-400 border-gray-800' : 'text-gray-500 border-gray-100'}`}><Zap size={14} className="text-yellow-500" /> Prompt Cepat</div>
-                  <div className="max-h-60 overflow-y-auto">
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={`absolute bottom-[calc(100%+15px)] left-0 w-full md:w-2/3 rounded-3xl shadow-2xl border overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#1e1f20]/95 backdrop-blur-xl border-gray-700' : 'bg-white/95 backdrop-blur-xl border-gray-200'}`}>
+                  <div className={`px-4 py-3 text-[10px] font-bold uppercase tracking-widest border-b flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-400 border-gray-800' : 'text-gray-500 border-gray-100'}`}><Zap size={14} className="text-yellow-500" /> Prompt Cepat</div>
+                  <div className="max-h-60 overflow-y-auto scrollbar-hide">
                     {allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).length === 0 ? (
                       <div className={`p-4 text-center text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Perintah tidak ditemukan</div>
                     ) : (
                       allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).map((cmd, i) => (
-                        <button key={i} onClick={() => applySlashCommand(cmd.prompt)} className={`w-full text-left px-4 py-3 flex flex-col transition-colors border-b last:border-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] border-white/5 text-gray-200' : 'hover:bg-gray-50 border-gray-50 text-gray-800'}`}>
-                          <span className="font-bold text-sm text-blue-500">{cmd.command}</span><span className={`text-xs mt-0.5 truncate w-full ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{cmd.description}</span>
+                        <button key={i} onClick={() => applySlashCommand(cmd.prompt)} className={`w-full text-left px-5 py-4 flex flex-col transition-colors border-b last:border-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] border-white/5 text-gray-200' : 'hover:bg-gray-50 border-gray-50 text-gray-800'}`}>
+                          <span className="font-bold text-sm text-blue-500">{cmd.command}</span><span className={`text-xs mt-1 truncate w-full ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{cmd.description}</span>
                         </button>
                       ))
                     )}
@@ -632,53 +684,20 @@ export default function App() {
 
             {attachments.length > 0 && (
               <div className="mb-3 flex flex-wrap gap-2">
-                {attachments.map((file, idx) => ( <div key={idx} className={`border rounded-full px-4 py-1.5 flex items-center gap-2 text-xs shadow-sm ${theme === 'dark' ? 'bg-[#282a2c] border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}><span className="truncate max-w-[120px] font-medium">{file.name}</span><button onClick={() => hapusAttachment(idx)} className="hover:text-red-500 bg-black/5 rounded-full p-0.5"><X size={12}/></button></div> ))}
+                {attachments.map((file, idx) => ( <div key={idx} className={`border rounded-full px-4 py-1.5 flex items-center gap-2 text-xs shadow-sm ${theme === 'dark' ? 'bg-[#282a2c]/90 backdrop-blur-md border-gray-700 text-gray-300' : 'bg-white/90 backdrop-blur-md border-gray-200 text-gray-700'}`}><span className="truncate max-w-[120px] font-medium">{file.name}</span><button onClick={() => hapusAttachment(idx)} className="hover:text-red-500 bg-black/5 rounded-full p-0.5"><X size={12}/></button></div> ))}
               </div>
             )}
             
-            <div className={`rounded-[32px] p-2 flex items-end gap-2 shadow-lg transition-all duration-300 ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5 focus-within:border-white/20' : 'bg-[#f0f4f9] border border-transparent focus-within:bg-white focus-within:shadow-xl focus-within:border-gray-200'}`}>
+            <div className={`rounded-[32px] p-2 flex items-end gap-2 shadow-2xl transition-all duration-300 ${theme === 'dark' ? 'bg-[#1e1f20]/80 backdrop-blur-xl border border-white/10 focus-within:border-white/30' : 'bg-white/80 backdrop-blur-xl border border-gray-200 focus-within:border-blue-300 focus-within:shadow-blue-500/10'}`}>
               <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-              <button onClick={() => fileInputRef.current?.click()} className={`p-3 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/5' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-200'}`}><Paperclip size={22} /></button>
-              <textarea className={`flex-1 bg-transparent border-none focus:ring-0 text-[15px] md:text-[16px] py-3 outline-none resize-none max-h-32 min-h-[44px] ${theme === 'dark' ? 'text-[#e3e3e3] placeholder-gray-500' : 'text-gray-800 placeholder-gray-500'}`} placeholder="Ketik '/' untuk prompt cepat..." rows="1" value={input} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} disabled={isStreaming} />
-              <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className={`p-3 rounded-full transition-all active:scale-90 ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200 disabled:bg-[#282a2c] disabled:text-gray-600' : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-100'}`}>{isStreaming ? <Loader2 className="animate-spin" size={22} /> : <Send size={22} />}</button>
+              <button onClick={() => fileInputRef.current?.click()} className={`p-3 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-white/10' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`}><Paperclip size={24} /></button>
+              <textarea className={`flex-1 bg-transparent border-none focus:ring-0 text-[16px] py-3.5 px-2 outline-none resize-none max-h-32 min-h-[50px] ${theme === 'dark' ? 'text-[#e3e3e3] placeholder-gray-500' : 'text-gray-800 placeholder-gray-400'}`} placeholder="Ketik '/' untuk prompt cepat..." rows="1" value={input} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} disabled={isStreaming} />
+              <button onClick={kirimPesan} disabled={isStreaming || !input.trim()} className={`p-3.5 rounded-full transition-all active:scale-90 shadow-md ${theme === 'dark' ? 'bg-white text-black hover:bg-gray-200 disabled:bg-[#282a2c] disabled:text-gray-600 disabled:shadow-none' : 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none'}`}>{isStreaming ? <Loader2 className="animate-spin" size={24} /> : <Send size={24} />}</button>
             </div>
-            <div className={`text-center text-[10px] mt-3 font-bold tracking-widest uppercase ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>{activeRoute ? `JALUR: ${activeRoute}` : "SISTEM SIAP"}</div>
+            <div className={`text-center text-[10px] mt-3 font-bold tracking-widest uppercase ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>{activeRoute ? `JALUR: ${activeRoute}` : "SISTEM SIAP"}</div>
           </div>
         </div>
       </div>
-
-      {/* ⚡ MODAL KELOLA PROMPT DINAMIS (OPSI B) */}
-      <AnimatePresence>
-        {isManagePromptOpen && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-xl rounded-3xl p-6 shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white'}`}>
-              <div className="flex justify-between items-center mb-6">
-                <h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Kelola Prompt Dinamis</h2>
-                <button onClick={() => setIsManagePromptOpen(false)} className="text-gray-400 hover:text-gray-200"><X/></button>
-              </div>
-              <div className="space-y-4 mb-8">
-                <input placeholder="/perintah (misal: /review)" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500'}`} value={newPrompt.command} onChange={e => setNewPrompt({...newPrompt, command: e.target.value})} />
-                <input placeholder="Deskripsi singkat" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500'}`} value={newPrompt.description} onChange={e => setNewPrompt({...newPrompt, description: e.target.value})} />
-                <textarea placeholder="Isi Prompt panjang..." rows="3" className={`w-full p-3 rounded-xl border outline-none resize-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500'}`} value={newPrompt.prompt} onChange={e => setNewPrompt({...newPrompt, prompt: e.target.value})} />
-                <button onClick={savePrompt} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"><Save size={18}/> Simpan ke Supabase</button>
-              </div>
-              <div className="max-h-60 overflow-y-auto space-y-2 scrollbar-hide">
-                {slashCommands.map(cmd => (
-                  <div key={cmd.id} className={`flex justify-between items-center p-3 rounded-xl border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
-                    <div>
-                      <div className="font-bold text-blue-500">{cmd.command}</div>
-                      <div className="text-xs text-gray-500">{cmd.description}</div>
-                    </div>
-                    <button onClick={() => deletePrompt(cmd.id)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={16}/></button>
-                  </div>
-                ))}
-                {slashCommands.length === 0 && <div className="text-center text-sm text-gray-500 italic py-4">Belum ada prompt tersimpan.</div>}
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
     </div>
   );
 }
