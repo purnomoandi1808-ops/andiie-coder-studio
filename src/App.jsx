@@ -3,12 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-// ⚡ IMPORT BARU: Menambahkan ikon Pause, Rewind, FastForward
+// ⚡ IMPORT LENGKAP: Workspace + Audio Player + Vercel Fix (GitCommit)
 import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, Pause, Rewind, FastForward, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban, Layers, ChevronRight } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
-// ⚡ IMPORT LIBRARY TERMINAL
 import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
@@ -18,7 +17,7 @@ const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 // =====================================
-// ⚡ FUNGSI EKSTRAK MEDIA (DETEKTIF PINTAR)
+// ⚡ FUNGSI EKSTRAK MEDIA
 // =====================================
 const ekstrakMediaDariRiwayat = (sessions) => {
   const daftarMedia = [];
@@ -27,17 +26,11 @@ const ekstrakMediaDariRiwayat = (sessions) => {
       if (msg.role === 'ai') {
         const imgRegex = /!\[.*?\]\((.*?)\)/g;
         let match;
-        while ((match = imgRegex.exec(msg.text)) !== null) {
-          daftarMedia.push({ type: 'image', url: match[1], title: sesi.title });
-        }
+        while ((match = imgRegex.exec(msg.text)) !== null) daftarMedia.push({ type: 'image', url: match[1], title: sesi.title });
         const vidRegex = /\[VIDEO_PLAYER\]\((.*?)\)/g;
-        while ((match = vidRegex.exec(msg.text)) !== null) {
-          daftarMedia.push({ type: 'video', url: match[1], title: sesi.title });
-        }
+        while ((match = vidRegex.exec(msg.text)) !== null) daftarMedia.push({ type: 'video', url: match[1], title: sesi.title });
         const audRegex = /\[AUDIO_PLAYER\]\((.*?)\)/g;
-        while ((match = audRegex.exec(msg.text)) !== null) {
-          daftarMedia.push({ type: 'audio', url: match[1], title: sesi.title });
-        }
+        while ((match = audRegex.exec(msg.text)) !== null) daftarMedia.push({ type: 'audio', url: match[1], title: sesi.title });
       }
     });
   });
@@ -45,42 +38,26 @@ const ekstrakMediaDariRiwayat = (sessions) => {
 };
 
 // =====================================
-// BLOK KODE PINTAR (TETAP SAMA)
+// BLOK KODE PINTAR 
 // =====================================
 const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
   const [isCopied, setIsCopied] = useState(false);
   const codeString = String(children).replace(/\n$/, '');
-  
-  let language = 'text';
-  const match = /language-(\w+)/.exec(className || '');
-  
-  if (match) {
-    language = match[1].toLowerCase();
-  } else if (!inline || codeString.includes('\n')) {
+  let language = 'text'; const match = /language-(\w+)/.exec(className || '');
+  if (match) language = match[1].toLowerCase();
+  else if (!inline || codeString.includes('\n')) {
     if (codeString.includes('def ') || codeString.includes('import ') || codeString.includes('print(')) language = 'python';
     else if (codeString.includes('<div') || codeString.includes('<html')) language = 'html';
     else language = 'code';
   }
-
   const isBlock = !inline || codeString.includes('\n');
   const isRenderable = ['html', 'xml', 'python', 'py'].includes(language);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(codeString);
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-  };
-
+  const handleCopy = () => { navigator.clipboard.writeText(codeString); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); };
   const handlePreview = () => {
     let codeToRender = codeString;
     if (language === 'python' || language === 'py') {
       const safeCode = JSON.stringify(codeString).replace(/<\//g, '<\\/');
-      codeToRender = `
-        <!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
-        <style>body { background: ${theme === 'dark' ? '#131314' : '#ffffff'}; color: ${theme === 'dark' ? '#a8c7fa' : '#1f2937'}; font-family: monospace; padding: 20px; line-height: 1.5; } #output { white-space: pre-wrap; word-wrap: break-word; } .success { color: #10b981; } .error { color: #ef4444; }</style></head>
-        <body><div id="status" style="color:#f59e0b;font-weight:bold;">⏳ Memuat Mesin Python...</div><hr style="border-color:#333;margin:15px 0;"/><div id="output"></div>
-        <script>async function main(){ try{ let pyodide = await loadPyodide(); document.getElementById("status").innerText = "⚙️ Mengeksekusi..."; pyodide.setStdout({ batched: (msg) => { document.getElementById("output").innerText += msg + "\\n"; }}); await pyodide.runPythonAsync(${safeCode}); document.getElementById("status").innerText = "✅ Selesai"; document.getElementById("status").className = "success"; } catch(err){ document.getElementById("output").innerText += "\\n" + err; document.getElementById("status").innerText = "❌ Error"; document.getElementById("status").className = "error"; }} main();</script></body></html>
-      `;
+      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script><style>body { background: ${theme === 'dark' ? '#131314' : '#ffffff'}; color: ${theme === 'dark' ? '#a8c7fa' : '#1f2937'}; font-family: monospace; padding: 20px; line-height: 1.5; } #output { white-space: pre-wrap; word-wrap: break-word; } .success { color: #10b981; } .error { color: #ef4444; }</style></head><body><div id="status" style="color:#f59e0b;font-weight:bold;">⏳ Memuat Mesin Python...</div><hr style="border-color:#333;margin:15px 0;"/><div id="output"></div><script>async function main(){ try{ let pyodide = await loadPyodide(); document.getElementById("status").innerText = "⚙️ Mengeksekusi..."; pyodide.setStdout({ batched: (msg) => { document.getElementById("output").innerText += msg + "\\n"; }}); await pyodide.runPythonAsync(${safeCode}); document.getElementById("status").innerText = "✅ Selesai"; document.getElementById("status").className = "success"; } catch(err){ document.getElementById("output").innerText += "\\n" + err; document.getElementById("status").innerText = "❌ Error"; document.getElementById("status").className = "error"; }} main();</script></body></html>`;
     }
     setPreviewCode(codeToRender); setIsPreviewOpen(true); setActiveCanvasTab("preview");
   };
@@ -142,20 +119,19 @@ const CustomAudioPlayer = ({ src, theme }) => {
   };
 
   return (
-    <div className={`w-full max-w-sm flex flex-col gap-3 p-4 rounded-2xl border shadow-lg transition-all my-3 ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+    <div className={`w-full max-w-sm flex flex-col gap-3 p-4 rounded-2xl border shadow-lg transition-all my-3 ${theme === 'dark' ? 'bg-[#1e1f20]/90 backdrop-blur-md border-white/10' : 'bg-white/90 backdrop-blur-md border-gray-200'}`}>
       <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={() => setIsPlaying(false)} className="hidden" />
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5">
           <button onClick={() => skip(-10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-blue-400 hover:bg-white/5' : 'text-gray-500 hover:text-blue-600 hover:bg-black/5'}`}><Rewind size={16}/></button>
-          <button onClick={togglePlay} className="p-3 bg-blue-600 text-white rounded-full shadow-md hover:bg-blue-500 active:scale-95 transition-all">
+          <button onClick={togglePlay} className="p-3 bg-gradient-to-tr from-blue-600 to-blue-400 text-white rounded-full shadow-md hover:scale-105 active:scale-95 transition-all">
             {isPlaying ? <Pause size={16} fill="currentColor"/> : <Play size={16} fill="currentColor" className="ml-0.5"/>}
           </button>
           <button onClick={() => skip(10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-blue-400 hover:bg-white/5' : 'text-gray-500 hover:text-blue-600 hover:bg-black/5'}`}><FastForward size={16}/></button>
         </div>
         
-        {/* FAKE SPECTRUM */}
         <div className="flex items-end gap-[3px] h-8 flex-1 mx-4 justify-center overflow-hidden">
-          {[...Array(12)].map((_, i) => (
+          {[...Array(14)].map((_, i) => (
             <motion.div key={i} animate={{ height: isPlaying ? ['20%', '100%', '30%', '80%', '40%'] : '10%' }} transition={{ repeat: Infinity, duration: 0.5 + (i % 3) * 0.2, ease: "easeInOut", delay: i * 0.05 }} className={`w-1.5 rounded-full ${theme === 'dark' ? 'bg-blue-500/80' : 'bg-blue-600/80'}`} />
           ))}
         </div>
@@ -195,7 +171,6 @@ export default function App() {
 
   const [showSlashCommands, setShowSlashCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState("");
-  
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState('all');
 
@@ -203,7 +178,7 @@ export default function App() {
   const [isManagePromptOpen, setIsManagePromptOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState({ command: "", description: "", prompt: "" });
 
-  // ⚡ STATE UNTUK PROJECT WORKSPACE (OPSI C BARU)
+  // ⚡ STATE UNTUK PROJECT WORKSPACE
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
   const [projectsList, setProjectsList] = useState(() => { const saved = localStorage.getItem("andiie_projects"); return saved ? JSON.parse(saved) : []; });
@@ -229,117 +204,40 @@ export default function App() {
   const generatedMedia = useMemo(() => ekstrakMediaDariRiwayat(sessions), [sessions]);
   const filteredMedia = generatedMedia.filter(m => galleryFilter === 'all' || m.type === galleryFilter);
 
-  const fetchPrompts = async () => {
-    if (supabase) {
-      const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true });
-      if (!error && data) setSlashCommands(data);
-    }
-  };
-  const savePrompt = async () => {
-    if (!newPrompt.command || !newPrompt.prompt) return;
-    if (supabase) {
-      const cmd = newPrompt.command.startsWith('/') ? newPrompt.command : '/' + newPrompt.command;
-      const { error } = await supabase.from('andiie_prompts').upsert({ ...newPrompt, command: cmd });
-      if (!error) { fetchPrompts(); setNewPrompt({ command: "", description: "", prompt: "" }); }
-    }
-  };
-  const deletePrompt = async (id) => {
-    if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); }
-  };
+  const fetchPrompts = async () => { if (supabase) { const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true }); if (!error && data) setSlashCommands(data); } };
+  const savePrompt = async () => { if (!newPrompt.command || !newPrompt.prompt) return; if (supabase) { const cmd = newPrompt.command.startsWith('/') ? newPrompt.command : '/' + newPrompt.command; const { error } = await supabase.from('andiie_prompts').upsert({ ...newPrompt, command: cmd }); if (!error) { fetchPrompts(); setNewPrompt({ command: "", description: "", prompt: "" }); } } };
+  const deletePrompt = async (id) => { if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); } };
   useEffect(() => { fetchPrompts(); }, []);
 
   const exportChatToZip = async () => {
-    const zip = new JSZip();
-    let fileCount = 0;
+    const zip = new JSZip(); let fileCount = 0;
     messages.forEach((msg, idx) => {
       if (msg.role === 'ai') {
-        const codeRegex = /```(\w+)?\n([\s\S]*?)```/g;
-        let match;
+        const codeRegex = /```(\w+)?\n([\s\S]*?)```/g; let match;
         while ((match = codeRegex.exec(msg.text)) !== null) {
-          const lang = match[1] || 'txt';
-          const code = match[2];
+          const lang = match[1] || 'txt'; const code = match[2];
           const fileNameMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._-]+)/i);
           const fileName = fileNameMatch ? fileNameMatch[1] : `ai_generated_${idx}_${fileCount}.${lang}`;
-          zip.file(fileName, code);
-          fileCount++;
+          zip.file(fileName, code); fileCount++;
         }
       }
     });
-    if (fileCount > 0) {
-      const content = await zip.generateAsync({ type: "blob" });
-      const url = window.URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url; a.download = `Project_Andiie_${Date.now()}.zip`;
-      a.click(); window.URL.revokeObjectURL(url);
-    } else { alert("Tidak ada blok kode yang ditemukan di obrolan ini."); }
+    if (fileCount > 0) { const content = await zip.generateAsync({ type: "blob" }); const url = window.URL.createObjectURL(content); const a = document.createElement('a'); a.href = url; a.download = `Project_Andiie_${Date.now()}.zip`; a.click(); window.URL.revokeObjectURL(url); } else { alert("Tidak ada blok kode yang ditemukan di obrolan ini."); }
   };
 
-  const generateGitCommit = () => {
-    setInput("Tolong buatkan pesan Git Commit yang profesional (Conventional Commits) berdasarkan seluruh perubahan kode yang kamu berikan di obrolan ini.");
-  };
+  const generateGitCommit = () => { setInput("Tolong buatkan pesan Git Commit yang profesional (Conventional Commits) berdasarkan seluruh perubahan kode yang kamu berikan di obrolan ini."); };
 
-  useEffect(() => {
-    if (theme === "dark") document.documentElement.classList.add("dark");
-    else document.documentElement.classList.remove("dark");
-    localStorage.setItem("andiie_theme", theme);
-  }, [theme]);
-
+  useEffect(() => { if (theme === "dark") document.documentElement.classList.add("dark"); else document.documentElement.classList.remove("dark"); localStorage.setItem("andiie_theme", theme); }, [theme]);
   const toggleTheme = () => setTheme(prev => prev === "dark" ? "light" : "dark");
-
-  useEffect(() => {
-    const handleResize = () => { if(window.innerWidth > 768) setIsSidebarOpen(true); else setIsSidebarOpen(false); };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true);
-    const fetchChats = async () => { if (supabase) { const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false }); if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); } } };
-    fetchChats();
-  }, []);
-
-  useEffect(() => {
-    if (isStreaming) return;
-    if (currentSessionId && messages.length > 0) {
-      const pengirimOtomatis = setTimeout(() => {
-        setSessions(prev => {
-          const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
-          localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
-          if (supabase) { const sesiSaatIni = updated.find(s => s.id === currentSessionId); if (sesiSaatIni) { supabase.from('andiie_chats').upsert({ id: currentSessionId, title: sesiSaatIni.title, messages: messages, updated_at: new Date() }).then(({ error }) => { if (error) console.error("Supabase Error:", error.message); }); } }
-          return updated;
-        });
-      }, 2000); 
-      return () => clearTimeout(pengirimOtomatis);
-    }
-  }, [messages, currentSessionId, isStreaming]); 
-
+  useEffect(() => { const handleResize = () => { if(window.innerWidth > 768) setIsSidebarOpen(true); else setIsSidebarOpen(false); }; window.addEventListener('resize', handleResize); return () => window.removeEventListener('resize', handleResize); }, []);
+  useEffect(() => { if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true); const fetchChats = async () => { if (supabase) { const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false }); if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); } } }; fetchChats(); }, []);
+  useEffect(() => { if (isStreaming) return; if (currentSessionId && messages.length > 0) { const pengirimOtomatis = setTimeout(() => { setSessions(prev => { const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s); localStorage.setItem("andiie_chat_history", JSON.stringify(updated)); if (supabase) { const sesiSaatIni = updated.find(s => s.id === currentSessionId); if (sesiSaatIni) { supabase.from('andiie_chats').upsert({ id: currentSessionId, title: sesiSaatIni.title, messages: messages, updated_at: new Date() }).then(({ error }) => { if (error) console.error("Supabase Error:", error.message); }); } } return updated; }); }, 2000); return () => clearTimeout(pengirimOtomatis); } }, [messages, currentSessionId, isStreaming]); 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isStreaming]);
 
-  const initTerminal = () => {
-    if (!terminalRef.current) return;
-    if (xtermInstance.current) xtermInstance.current.dispose();
-    const term = new Terminal({ cursorBlink: true, theme: { background: '#1e1f20', foreground: '#a8c7fa', cursor: '#3b82f6' }, fontFamily: 'monospace', fontSize: 14 });
-    const fitAddon = new FitAddon(); term.loadAddon(fitAddon); term.open(terminalRef.current); fitAddon.fit(); xtermInstance.current = term;
-    window.addEventListener('resize', () => fitAddon.fit());
-  };
-
-  const connectSSH = async (e) => {
-    e.preventDefault(); setSshStatus("connecting"); initTerminal(); 
-    const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-    const wsUrl = BACKEND_URL.replace(/^http/, 'ws') + '/api/terminal/ws';
-    const ws = new WebSocket(wsUrl); wsInstance.current = ws;
-    ws.onopen = () => { ws.send(JSON.stringify(sshCreds)); setSshStatus("connected"); };
-    ws.onmessage = (event) => { if (xtermInstance.current) xtermInstance.current.write(event.data); };
-    ws.onclose = () => { setSshStatus("disconnected"); if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Koneksi Terputus]\x1b[0m\r\n'); };
-    if (xtermInstance.current) { xtermInstance.current.onData((data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); }); }
-  };
-
+  const initTerminal = () => { if (!terminalRef.current) return; if (xtermInstance.current) xtermInstance.current.dispose(); const term = new Terminal({ cursorBlink: true, theme: { background: '#1e1f20', foreground: '#a8c7fa', cursor: '#3b82f6' }, fontFamily: 'monospace', fontSize: 14 }); const fitAddon = new FitAddon(); term.loadAddon(fitAddon); term.open(terminalRef.current); fitAddon.fit(); xtermInstance.current = term; window.addEventListener('resize', () => fitAddon.fit()); };
+  const connectSSH = async (e) => { e.preventDefault(); setSshStatus("connecting"); initTerminal(); const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"; const wsUrl = BACKEND_URL.replace(/^http/, 'ws') + '/api/terminal/ws'; const ws = new WebSocket(wsUrl); wsInstance.current = ws; ws.onopen = () => { ws.send(JSON.stringify(sshCreds)); setSshStatus("connected"); }; ws.onmessage = (event) => { if (xtermInstance.current) xtermInstance.current.write(event.data); }; ws.onclose = () => { setSshStatus("disconnected"); if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Koneksi Terputus]\x1b[0m\r\n'); }; if (xtermInstance.current) { xtermInstance.current.onData((data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); }); } };
   const disconnectSSH = () => { if (wsInstance.current) wsInstance.current.close(); setSshStatus("disconnected"); };
-
-  useEffect(() => {
-    if (activeCanvasTab !== "terminal" && xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; }
-    if (activeCanvasTab === "terminal" && sshStatus === "connected") { setTimeout(() => initTerminal(), 100); }
-  }, [activeCanvasTab]);
+  useEffect(() => { if (activeCanvasTab !== "terminal" && xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; } if (activeCanvasTab === "terminal" && sshStatus === "connected") { setTimeout(() => initTerminal(), 100); } }, [activeCanvasTab]);
 
   const handleLogin = (e) => { e.preventDefault(); if (loginData.username === "andiie" && loginData.password === "Arsyad160216") { setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true"); } else { alert("Akses Ditolak: Hanya untuk Andi."); } };
   const handleLogout = () => { localStorage.removeItem("andiie_auth"); setIsLoggedIn(false); };
@@ -385,14 +283,12 @@ export default function App() {
     const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    // ⚡ INJEKSI CLAUDE-STYLE (Reasoning & Mentoring)
+    // ⚡ INJEKSI CLAUDE-STYLE & KONTEKS PROYEK
     let instruksiKeBackend = instruksiUser;
     const isCodingRequest = instruksiUser.toLowerCase().includes('kode') || instruksiUser.toLowerCase().includes('code') || instruksiUser.toLowerCase().includes('script') || instruksiUser.toLowerCase().includes('buatkan');
     if (isCodingRequest) {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Bertindaklah sebagai Senior AI Architect (sekelas Claude Opus). Jika Anda memberikan kode pemrograman, ANDA DILARANG KERAS hanya memberikan kode mentah. ANDA WAJIB: 1) Menjelaskan arsitektur dan logika kode tersebut. 2) Memberikan panduan Step-by-Step cara deploy, install, atau menjalankannya. 3) Memastikan kode siap produksi.]`;
     }
-    
-    // ⚡ INJEKSI KONTEKS PROYEK WORKSPACE
     if (activeProject) {
        instruksiKeBackend += `\n\n[PROJECT CONTEXT: Pengguna saat ini sedang bekerja pada proyek "${activeProject.name}". Aturan khusus proyek ini: ${activeProject.context}. Selalu ikuti aturan ini dalam setiap jawaban Anda.]`;
     }
@@ -426,23 +322,23 @@ export default function App() {
     } finally { setIsStreaming(false); setAttachments([]); }
   };
 
-  if (!isLoggedIn) { return ( <div className={`h-screen flex items-center justify-center p-4 transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f0f4f9]'}`}> <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-3xl w-full max-w-md shadow-2xl transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5' : 'bg-white border border-gray-200'}`}> <div className="flex justify-center mb-6"> <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20"><Lock className="text-white" size={28} /></div> </div> <h2 className={`text-2xl font-semibold text-center mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>AI Coder Studio</h2> <p className="text-gray-400 text-center text-sm mb-8">Hanya untuk Andiie & Project ABAPE</p> <form onSubmit={handleLogin} className="space-y-4"> <input type="text" placeholder="Username" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, username: e.target.value})} /> <input type="password" placeholder="Sandi" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, password: e.target.value})} /> <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button> </form> </motion.div> </div> ); }
+  if (!isLoggedIn) { return ( <div className={`h-screen flex items-center justify-center p-4 transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f0f4f9]'}`}> <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-[32px] w-full max-w-md shadow-2xl transition-colors ${theme === 'dark' ? 'bg-[#1e1f20]/80 backdrop-blur-xl border border-white/5' : 'bg-white/80 backdrop-blur-xl border border-gray-200'}`}> <div className="flex justify-center mb-6"> <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20"><Lock className="text-white" size={28} /></div> </div> <h2 className={`text-2xl font-semibold text-center mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>AI Studio Pro</h2> <p className="text-gray-400 text-center text-sm mb-8">Secure Login (Andiie)</p> <form onSubmit={handleLogin} className="space-y-4"> <input type="text" placeholder="Username" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, username: e.target.value})} /> <input type="password" placeholder="Sandi" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, password: e.target.value})} /> <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button> </form> </motion.div> </div> ); }
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden transition-colors selection:bg-blue-500/30 relative ${theme === 'dark' ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-white text-gray-800'}`}>
+    <div className={`flex h-screen font-sans overflow-hidden transition-colors selection:bg-blue-500/30 relative ${theme === 'dark' ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-[#f8f9fa] text-gray-800'}`}>
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-40" />
-            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`fixed md:relative inset-y-0 left-0 w-72 flex flex-col shadow-2xl z-50 shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-r border-white/5' : 'bg-[#f0f4f9] border-r border-gray-200'}`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
+            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`fixed md:relative inset-y-0 left-0 w-72 flex flex-col shadow-2xl z-50 shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20]/95 backdrop-blur-xl border-r border-white/5' : 'bg-white/95 backdrop-blur-xl border-r border-gray-200'}`}>
               <div className="p-4 flex justify-between items-center">
-                <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-white hover:bg-gray-50 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
+                <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
                 <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-2 p-2 text-gray-400 hover:text-blue-500"><X size={20}/></button>
               </div>
               
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
                 
-                {/* ⚡ TOMBOL PROJECT WORKSPACE BARU */}
+                {/* ⚡ TOMBOL PROJECT WORKSPACE */}
                 <button onClick={() => setIsProjectsOpen(true)} className={`w-full flex items-center justify-between px-4 py-3 mb-2 rounded-2xl text-sm font-bold transition-all shadow-sm border ${activeProject ? (theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-200') : (theme === 'dark' ? 'bg-white/5 text-gray-300 border-white/5 hover:bg-white/10' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50')}`}>
                   <div className="flex items-center gap-3"><FolderKanban size={18} /> {activeProject ? activeProject.name : "Projects Workspace"}</div>
                   <ChevronRight size={16} className="opacity-50"/>
@@ -456,9 +352,9 @@ export default function App() {
                   <Settings size={18} /> Kelola Prompt Dinamis
                 </button>
 
-                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat Percakapan</div>
+                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest mt-4 mb-2">Riwayat Percakapan</div>
                 {sessions.map(sesi => (
-                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-200 text-gray-600')}`}>
+                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-100 text-gray-600')}`}>
                     <div className="flex items-center gap-3 overflow-hidden"><MessageSquare size={16} className="shrink-0" /><span className="truncate text-sm font-medium">{sesi.title}</span></div>
                     <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
                   </div>
@@ -470,22 +366,20 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-white'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f8f9fa]'}`}>
         
-        {/* HEADER APLIKASI UTAMA */}
-        <header className="flex items-center justify-between p-2 md:p-4 z-10 shrink-0 w-full overflow-hidden">
+        {/* ⚡ HEADER NATIVE STYLE (Glassmorphism) */}
+        <header className={`sticky top-0 z-30 flex items-center justify-between p-2 md:p-3 w-full overflow-hidden transition-all ${theme === 'dark' ? 'bg-[#131314]/70 backdrop-blur-xl border-b border-white/5' : 'bg-white/70 backdrop-blur-xl border-b border-gray-100 shadow-sm'}`}>
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-1.5 md:p-2 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Buka/Tutup Riwayat">
+            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-1.5 md:p-2 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Menu">
               <Menu size={20} />
             </button>
-            <span className="font-medium text-base md:text-lg tracking-tight hidden sm:block truncate">
-              AI Studio <span className="text-blue-500 text-[10px] md:text-xs font-bold">PRO</span>
+            <span className="font-semibold text-base md:text-lg tracking-tight hidden sm:block truncate">
+              AI Studio <span className="text-blue-500 text-[10px] md:text-xs font-bold bg-blue-500/10 px-1.5 py-0.5 rounded-md ml-1">PRO</span>
             </span>
           </div>
           
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-            
-            {/* ⚡ TOMBOL EXPORT ZIP & GIT COMMIT (OPSI C) */}
             {messages.length > 0 && (
               <>
                 <button onClick={exportChatToZip} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`} title="Export Kode ke ZIP"><Archive size={16} className="md:w-[18px] md:h-[18px]" /></button>
@@ -493,16 +387,16 @@ export default function App() {
               </>
             )}
 
-            <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
+            <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
               {theme === 'dark' ? <Sun size={16} className="md:w-[18px] md:h-[18px]" /> : <Moon size={16} className="md:w-[18px] md:h-[18px]" />}
             </button>
 
-            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-gray-100 border-gray-300 text-green-600 hover:bg-gray-200'}`} title="Buka SSH Terminal">
+            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-white border-gray-300 text-green-600 hover:bg-gray-50'}`} title="Buka SSH Terminal">
               <TerminalSquare size={16} className="md:w-[14px] md:h-[14px]" /> 
               <span className="hidden md:inline">SSH Terminal</span>
             </button>
 
-            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`} title="Prioritas: Qwen Lokal -> Qwen Cloud">
+            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`}>
               <Code size={16} className="md:w-[14px] md:h-[14px]" /> 
               <span className="hidden md:inline">Mode Coding</span>
             </button>
@@ -559,11 +453,11 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* MODAL GALERI "ITEM BUATAN SAYA" */}
+        {/* ⚡ MODAL GALERI DENGAN CUSTOM AUDIO PLAYER */}
         <AnimatePresence>
           {isGalleryOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
-              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-5xl h-full max-h-[85vh] rounded-3xl flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
+              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-5xl h-full max-h-[85vh] rounded-[32px] flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
                 <div className={`p-4 md:p-5 border-b flex justify-between items-center shrink-0 ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl shadow-lg"><Sparkles className="text-white" size={20}/></div>
