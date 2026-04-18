@@ -357,12 +357,47 @@ export default function App() {
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
             
+            {/* Model Select (Sangat dikompres di Mobile, tapi Isinya Super Lengkap) */}
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-[10px] md:text-xs font-semibold rounded-full px-2 md:px-3 py-1.5 outline-none w-[90px] sm:w-[110px] md:w-auto md:max-w-xs truncate border shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
-              <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
-              <optgroup label="💻 Coding & Logic"><option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option><option value="lokal">💻 Qwen 30B (Lokal Ollama)</option></optgroup>
-              <optgroup label="🎨 Gambar (Images)"><option value="openai/dall-e-3">🎨 DALL-E 3</option></optgroup>
-              <optgroup label="🎬 Video Generation"><option value="google/veo-3.1">📽️ Google: Veo 3.1</option></optgroup>
-              <optgroup label="🎵 Lagu & Audio"><option value="suno-api-custom">🎸 Suno API</option></optgroup>
+              
+              <optgroup label="🧠 Deep Thinking & Research">
+                <option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option>
+                <option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option>
+                <option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option>
+              </optgroup>
+
+              <optgroup label="📝 Text & General">
+                <option value="auto">✨ Auto Smart Manager</option>
+                <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
+              </optgroup>
+
+              <optgroup label="💻 Coding & Logic">
+                <option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option>
+                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
+                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option>
+                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
+                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
+                <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
+              </optgroup>
+
+              <optgroup label="🎨 Gambar (Images)">
+                <option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option>
+                <option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option>
+                <option value="openai/dall-e-3">🎨 DALL-E 3</option>
+              </optgroup>
+
+              <optgroup label="🎬 Video Generation">
+                <option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option>
+                <option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option>
+                <option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option>
+                <option value="google/veo-3.1">📽️ Google: Veo 3.1</option>
+              </optgroup>
+
+              <optgroup label="🎵 Lagu & Audio">
+                <option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option>
+                <option value="suno-api-custom">🎸 Suno API</option>
+              </optgroup>
+
             </select>
           </div>
         </header>
