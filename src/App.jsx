@@ -10,7 +10,8 @@ import {
   LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban,
   Layers, ChevronRight, ChevronDown, Bot, User, StopCircle,
   PanelRightOpen, PanelRightClose, Search, Hash, Image as ImageIcon,
-  Video, Volume2, ExternalLink, MoreHorizontal, LogOut, Folder
+  Video, Volume2, ExternalLink, MoreHorizontal, LogOut, Folder,
+  GraduationCap, FolderSync
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
@@ -111,7 +112,7 @@ const SmartCodeBlock = ({
     let codeToRender = codeString;
     if (language === 'python' || language === 'py') {
       const safeCode = JSON.stringify(codeString).replace(/<\//g, '<\\/');
-      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Loading Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Running…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Done";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
+      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Memuat Mesin Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Menjalankan…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Selesai";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
     }
     setPreviewCode(codeToRender);
     setIsPreviewOpen(true);
@@ -140,7 +141,7 @@ const SmartCodeBlock = ({
                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold
                   bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
               >
-                <Play size={11} fill="currentColor" /> Run
+                <Play size={11} fill="currentColor" /> Preview
               </button>
             )}
             <button
@@ -152,7 +153,7 @@ const SmartCodeBlock = ({
               }`}
             >
               {isCopied ? <Check size={11} /> : <Copy size={11} />}
-              {isCopied ? "Copied" : "Copy"}
+              {isCopied ? "Tersalin" : "Salin"}
             </button>
           </div>
         </div>
@@ -329,11 +330,7 @@ const MessageBubble = React.memo(({
   const isAI = chat.role === 'ai';
 
   return (
-    <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors ${
-      isAI
-        ? (theme === 'dark' ? '' : '')
-        : ''
-    }`}>
+    <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors`}>
       <div className="max-w-3xl mx-auto flex gap-3 md:gap-4">
         {/* Avatar */}
         <div className="shrink-0 pt-0.5">
@@ -459,13 +456,17 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeRoute, setActiveRoute] = useState(null);
 
-  // UI
+  // UI States
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
-  const [selectedModel, setSelectedModel] = useState("google/gemma-4-31b-it");
+  const [selectedModel, setSelectedModel] = useState("auto");
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [attachments, setAttachments] = useState([]);
-  const [isCodingMode, setIsCodingMode] = useState(false);
   
+  // ⚡ STATE BARU: Coding Mode & Exam Mode & Local Directory Sync
+  const [isCodingMode, setIsCodingMode] = useState(false);
+  const [isExamMode, setIsExamMode] = useState(false);
+  const [dirHandle, setDirHandle] = useState(null);
+
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -533,19 +534,15 @@ export default function App() {
   const allPrompts = useMemo(() => [...slashCommandsList, ...slashCommands], [slashCommandsList, slashCommands]);
 
   // ========== EFFECTS ==========
-
-  // Theme
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     localStorage.setItem("andiie_theme", theme);
   }, [theme]);
 
-  // Auth persist
   useEffect(() => {
     if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true);
   }, []);
 
-  // Fetch chats from supabase
   useEffect(() => {
     if (!supabase) return;
     (async () => {
@@ -557,29 +554,20 @@ export default function App() {
     })();
   }, []);
 
-  // Save projects
   useEffect(() => {
     localStorage.setItem("andiie_projects", JSON.stringify(projectsList));
   }, [projectsList]);
 
-  // Save sessions to storage + supabase (debounced)
   useEffect(() => {
     if (isStreaming || !currentSessionId || messages.length === 0) return;
     const timer = setTimeout(() => {
       setSessions(prev => {
-        const updated = prev.map(s =>
-          s.id === currentSessionId ? { ...s, messages } : s
-        );
+        const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
         localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
         if (supabase) {
           const sesi = updated.find(s => s.id === currentSessionId);
           if (sesi) {
-            supabase.from('andiie_chats').upsert({
-              id: currentSessionId,
-              title: sesi.title,
-              messages,
-              updated_at: new Date()
-            }).then(({ error }) => {
+            supabase.from('andiie_chats').upsert({ id: currentSessionId, title: sesi.title, messages, updated_at: new Date() }).then(({ error }) => {
               if (error) console.error("Supabase sync error:", error.message);
             });
           }
@@ -590,40 +578,31 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [messages, currentSessionId, isStreaming]);
 
-  // Scroll to bottom
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" });
     }
   }, [messages, isStreaming]);
 
-  // Sidebar responsive
   useEffect(() => {
     if (!isMobile) setIsSidebarOpen(true);
     else setIsSidebarOpen(false);
   }, [isMobile]);
 
-  // Fetch prompts
   const fetchPrompts = useCallback(async () => {
     if (!supabase) return;
-    const { data, error } = await supabase
-      .from('andiie_prompts').select('*').order('created_at', { ascending: true });
+    const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true });
     if (!error && data) setSlashCommands(data);
   }, []);
-
   useEffect(() => { fetchPrompts(); }, [fetchPrompts]);
 
-  // Terminal cleanup
   useEffect(() => {
-    if (activeCanvasTab !== "terminal") {
-      if (xtermInstance.current) {
-        xtermInstance.current.dispose();
-        xtermInstance.current = null;
-      }
+    if (activeCanvasTab !== "terminal" && xtermInstance.current) {
+      xtermInstance.current.dispose();
+      xtermInstance.current = null;
     }
   }, [activeCanvasTab]);
 
-  // Close model dropdown on click outside
   useEffect(() => {
     if (!showModelDropdown) return;
     const handler = () => setShowModelDropdown(false);
@@ -642,7 +621,7 @@ export default function App() {
       localStorage.setItem("andiie_auth", "true");
       setLoginError("");
     } else {
-      setLoginError("Nama pengguna atau kata sandi salah.");
+      setLoginError("Kredensial tidak valid.");
     }
   };
 
@@ -652,11 +631,7 @@ export default function App() {
   };
 
   const buatChatBaru = () => {
-    setCurrentSessionId(null);
-    setMessages([]);
-    setActiveRoute(null);
-    setIsPreviewOpen(false);
-    setAttachments([]);
+    setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]);
     if (isMobile) setIsSidebarOpen(false);
   };
 
@@ -664,10 +639,7 @@ export default function App() {
     if (isStreaming) return;
     const sesi = sessions.find(s => s.id === id);
     if (sesi) {
-      setCurrentSessionId(id);
-      setMessages(sesi.messages || []);
-      setActiveRoute(null);
-      setAttachments([]);
+      setCurrentSessionId(id); setMessages(sesi.messages || []); setActiveRoute(null); setAttachments([]);
       if (isMobile) setIsSidebarOpen(false);
     }
   };
@@ -683,32 +655,19 @@ export default function App() {
 
   const handleFileChange = (e) => {
     if (e.target.files) {
-      const filesArray = Array.from(e.target.files).map(file => ({
-        name: file.name, type: file.type, rawFile: file
-      }));
+      const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file }));
       setAttachments(prev => [...prev, ...filesArray]);
     }
     e.target.value = null;
   };
-
   const hapusAttachment = (idx) => setAttachments(prev => prev.filter((_, i) => i !== idx));
 
   const handleInputChange = (e) => {
-    const val = e.target.value;
-    setInput(val);
-    if (val.startsWith("/")) {
-      setShowSlashCommands(true);
-      setCommandFilter(val.substring(1).toLowerCase());
-    } else {
-      setShowSlashCommands(false);
-    }
+    const val = e.target.value; setInput(val);
+    if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); }
+    else setShowSlashCommands(false);
   };
-
-  const applySlashCommand = (promptText) => {
-    setInput(promptText);
-    setShowSlashCommands(false);
-    textareaRef.current?.focus();
-  };
+  const applySlashCommand = (promptText) => { setInput(promptText); setShowSlashCommands(false); textareaRef.current?.focus(); };
 
   const savePrompt = async () => {
     if (!newPrompt.command || !newPrompt.prompt) return;
@@ -718,219 +677,186 @@ export default function App() {
       if (!error) { fetchPrompts(); setNewPrompt({ command: "", description: "", prompt: "" }); }
     }
   };
+  const deletePrompt = async (id) => { if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); } };
 
-  const deletePrompt = async (id) => {
-    if (supabase) {
-      await supabase.from('andiie_prompts').delete().eq('id', id);
-      fetchPrompts();
+  // ⚡ NATIVE FILE SYSTEM SYNC LOGIC
+  const linkFolder = async () => {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
+      setDirHandle(handle);
+      alert("Folder lokal berhasil ditautkan! Kode akan tersimpan otomatis saat Anda menekan 'Simpan ke Folder Lokal'.");
+    } catch (e) {
+      console.error("Gagal menautkan folder", e);
     }
   };
 
-  const exportChatToZip = async () => {
-    const zip = new JSZip();
-    let fileCount = 0;
-    messages.forEach((msg, idx) => {
+  const saveToLocal = async () => {
+    if (!dirHandle) return alert("Silakan 'Tautkan Folder' terlebih dahulu!");
+    let savedCount = 0;
+    for (const msg of messages) {
       if (msg.role === 'ai') {
         const codeRegex = /```(\w+)?\n([\s\S]*?)```/g;
         let match;
         while ((match = codeRegex.exec(msg.text)) !== null) {
-          const lang = match[1] || 'txt';
           const code = match[2];
           const fnMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._/-]+)/i);
+          if (fnMatch) {
+            try {
+               const fileHandle = await dirHandle.getFileHandle(fnMatch[1], { create: true });
+               const writable = await fileHandle.createWritable();
+               await writable.write(code);
+               await writable.close();
+               savedCount++;
+            } catch(e) { console.error(e); }
+          }
+        }
+      }
+    }
+    if (savedCount > 0) alert(`Berhasil menyimpan/menimpa ${savedCount} file ke folder lokal Anda!`);
+    else alert("Tidak ada file dengan penanda komentar // FILE: namafile.ext ditemukan di chat ini.");
+  };
+
+  const exportChatToZip = async () => {
+    const zip = new JSZip(); let fileCount = 0;
+    messages.forEach((msg, idx) => {
+      if (msg.role === 'ai') {
+        const codeRegex = /```(\w+)?\n([\s\S]*?)```/g; let match;
+        while ((match = codeRegex.exec(msg.text)) !== null) {
+          const lang = match[1] || 'txt'; const code = match[2];
+          const fnMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._/-]+)/i);
           const fileName = fnMatch ? fnMatch[1] : `generated_${idx}_${fileCount}.${lang}`;
-          zip.file(fileName, code);
-          fileCount++;
+          zip.file(fileName, code); fileCount++;
         }
       }
     });
     if (fileCount > 0) {
       const content = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(content);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `AI_Studio_${Date.now()}.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } else {
-      alert("Tidak ada blok kode yang ditemukan.");
-    }
+      const url = URL.createObjectURL(content); const a = document.createElement('a');
+      a.href = url; a.download = `AI_Studio_${Date.now()}.zip`; a.click(); URL.revokeObjectURL(url);
+    } else alert("Tidak ada blok kode ditemukan.");
   };
 
   const generateGitCommit = () => {
-    setInput("Tolong buatkan pesan Git Commit yang profesional (Conventional Commits) berdasarkan seluruh perubahan kode yang kamu berikan di obrolan ini.");
+    setInput("Tolong buatkan pesan Git Commit profesional berdasarkan seluruh perubahan kode yang kamu berikan di obrolan ini.");
     textareaRef.current?.focus();
   };
 
   const bacaFile = async (file) => {
     if (file.name.endsWith('.zip') || file.type.includes('zip')) {
       try {
-        const zip = new JSZip();
-        const loadedZip = await zip.loadAsync(file);
-        let extractedText = "";
-        const MAX_CHARS = 150000;
-        let isLimitReached = false;
+        const zip = new JSZip(); const loadedZip = await zip.loadAsync(file);
+        let extractedText = ""; const MAX_CHARS = 150000; let isLimitReached = false;
         const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/'];
         const binaryExt = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i;
 
         for (const relativePath of Object.keys(loadedZip.files)) {
           if (isLimitReached) break;
           const entry = loadedZip.files[relativePath];
-          if (entry.dir) continue;
-          if (badFolders.some(f => relativePath.includes(f))) continue;
-          if (binaryExt.test(relativePath)) continue;
+          if (entry.dir || badFolders.some(f => relativePath.includes(f)) || binaryExt.test(relativePath)) continue;
           const content = await entry.async('string');
           extractedText += `\n\n--- [FILE: ${relativePath}] ---\n${content}\n`;
-          if (extractedText.length > MAX_CHARS) {
-            extractedText += `\n\n[PERINGATAN: Proyek ZIP terlalu besar. Terpotong otomatis.]`;
-            isLimitReached = true;
-          }
+          if (extractedText.length > MAX_CHARS) { extractedText += `\n\n[ZIP dipotong karena terlalu besar.]`; isLimitReached = true; }
         }
         return { type: 'text', name: file.name + " (Extracted)", content: extractedText };
-      } catch (error) {
-        return { type: 'text', name: file.name, content: `[Gagal memproses ZIP: ${error.message}]` };
-      }
+      } catch (error) { return { type: 'text', name: file.name, content: `[Gagal ZIP: ${error.message}]` }; }
     }
     return new Promise((resolve) => {
       const reader = new FileReader();
-      if (file.type.startsWith('image/')) {
-        reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result });
-        reader.readAsDataURL(file);
-      } else if (file.type === 'application/pdf') {
-        reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result });
-        reader.readAsDataURL(file);
-      } else {
-        reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result });
-        reader.readAsText(file);
-      }
+      if (file.type.startsWith('image/')) { reader.onload = (e) => resolve({ type: 'image', name: file.name, content: e.target.result }); reader.readAsDataURL(file); }
+      else if (file.type === 'application/pdf') { reader.onload = (e) => resolve({ type: 'application/pdf', name: file.name, content: e.target.result }); reader.readAsDataURL(file); }
+      else { reader.onload = (e) => resolve({ type: 'text', name: file.name, content: e.target.result }); reader.readAsText(file); }
     });
   };
 
   const unduhGambar = async (url) => {
     try {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("CORS");
-      const blob = await res.blob();
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "ai-media." + (blob.type.split('/')[1] || 'png');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    } catch {
-      window.open(url, '_blank');
-    }
+      const res = await fetch(url); if (!res.ok) throw new Error("CORS");
+      const blob = await res.blob(); const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob); link.download = "ai-media." + (blob.type.split('/')[1] || 'png');
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    } catch { window.open(url, '_blank'); }
   };
 
   // Terminal
   const initTerminal = useCallback(() => {
     if (!terminalRef.current) return;
     if (xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; }
-    const term = new Terminal({
-      cursorBlink: true,
-      theme: { background: '#0d1117', foreground: '#c9d1d9', cursor: '#58a6ff' },
-      fontFamily: '"Fira Code", "Cascadia Code", Menlo, monospace',
-      fontSize: 13,
-      lineHeight: 1.4,
-    });
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    term.open(terminalRef.current);
-    setTimeout(() => fitAddon.fit(), 50);
-    xtermInstance.current = term;
-    fitAddonRef.current = fitAddon;
+    const term = new Terminal({ cursorBlink: true, theme: { background: '#0d1117', foreground: '#c9d1d9', cursor: '#58a6ff' }, fontFamily: '"Fira Code", monospace', fontSize: 13, lineHeight: 1.4 });
+    const fitAddon = new FitAddon(); term.loadAddon(fitAddon); term.open(terminalRef.current);
+    setTimeout(() => fitAddon.fit(), 50); xtermInstance.current = term; fitAddonRef.current = fitAddon;
     const resizeHandler = () => { if (fitAddonRef.current) fitAddonRef.current.fit(); };
-    window.addEventListener('resize', resizeHandler);
-    return () => window.removeEventListener('resize', resizeHandler);
+    window.addEventListener('resize', resizeHandler); return () => window.removeEventListener('resize', resizeHandler);
   }, []);
 
   const connectSSH = async (e) => {
-    e.preventDefault();
-    setSshStatus("connecting");
-    initTerminal();
+    e.preventDefault(); setSshStatus("connecting"); initTerminal();
     const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
     const wsUrl = BACKEND_URL.replace(/^http/, 'ws') + '/api/terminal/ws';
-    const ws = new WebSocket(wsUrl);
-    wsInstance.current = ws;
+    const ws = new WebSocket(wsUrl); wsInstance.current = ws;
     ws.onopen = () => { ws.send(JSON.stringify(sshCreds)); setSshStatus("connected"); };
     ws.onmessage = (event) => { if (xtermInstance.current) xtermInstance.current.write(event.data); };
-    ws.onclose = () => {
-      setSshStatus("disconnected");
-      if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Koneksi Ditutup]\x1b[0m\r\n');
-    };
+    ws.onclose = () => { setSshStatus("disconnected"); if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Koneksi Ditutup]\x1b[0m\r\n'); };
     ws.onerror = () => { setSshStatus("disconnected"); };
-    if (xtermInstance.current) {
-      xtermInstance.current.onData((data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); });
-    }
+    if (xtermInstance.current) { xtermInstance.current.onData((data) => { if (ws.readyState === WebSocket.OPEN) ws.send(data); }); }
   };
+  const disconnectSSH = () => { if (wsInstance.current) wsInstance.current.close(); setSshStatus("disconnected"); };
 
-  const disconnectSSH = () => {
-    if (wsInstance.current) wsInstance.current.close();
-    setSshStatus("disconnected");
-  };
-
-  // ========== PENGELOLA PESAN (SMART ROUTER) ==========
+  // ========== SEND MESSAGE ==========
   const kirimPesan = async () => {
     const trimmed = input.trim();
     if (!trimmed && attachments.length === 0) return;
     if (isStreaming) return;
 
     const instruksiUser = trimmed || "Tolong analisis file lampiran ini.";
-    setInput("");
-    setShowSlashCommands(false);
-    setIsStreaming(true);
-    setActiveRoute(null);
+    setInput(""); setShowSlashCommands(false); setIsStreaming(true); setActiveRoute(null);
 
     const fileYangDiproses = await Promise.all(attachments.map(a => bacaFile(a.rawFile)));
     const historyKirim = [...messages];
 
     let sessionId = currentSessionId;
     if (!sessionId) {
-      sessionId = Date.now().toString();
-      setCurrentSessionId(sessionId);
+      sessionId = Date.now().toString(); setCurrentSessionId(sessionId);
       const judulBaru = instruksiUser.length > 30 ? instruksiUser.substring(0, 30) + "…" : instruksiUser;
       setSessions(prev => [{ id: sessionId, title: judulBaru, messages: [] }, ...prev]);
     }
 
-    const teksTampilan = attachments.length > 0
-      ? `📎 ${attachments.map(a => a.name).join(', ')}\n\n${instruksiUser}`
-      : instruksiUser;
-
+    const teksTampilan = attachments.length > 0 ? `📎 ${attachments.map(a => a.name).join(', ')}\n\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    // ⚡ SMART ROUTER (Auto Prompt & Override Model)
+    // ⚡ SMART ROUTER 
     let finalModel = selectedModel;
     let instruksiKeBackend = instruksiUser;
     const lowerInput = instruksiUser.toLowerCase();
 
-    // 1. DETEKSI DALL-E GAMBAR
     if (lowerInput.includes("buatkan gambar")) {
       finalModel = "openai/dall-e-3";
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Hasilkan prompt gambar berbahasa Inggris yang kaya detail untuk DALL-E 3 berdasarkan instruksi user.]`;
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Hasilkan prompt gambar berbahasa Inggris detail untuk DALL-E 3.]`;
     } 
-    // 2. DETEKSI DEEP RESEARCH / JURNAL
     else if (lowerInput.includes("tolong riset") || lowerInput.includes("deep riset")) {
       finalModel = "SEARCH_MODE";
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Lakukan pencarian internet mendalam (Deep Research) ke berbagai sumber web terpercaya di dunia. Susun hasilnya menjadi format bacaan jurnal atau artikel ilmiah yang terstruktur dan mendetail.]`;
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Lakukan Deep Research ke web terpercaya. Rangkum menjadi format jurnal.]`;
     } 
-    // 3. DETEKSI TERJEMAHAN
     else if (lowerInput.includes("artikan ke") || lowerInput.includes("terjemahkan")) {
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Anda adalah penerjemah profesional sekelas native speaker. Terjemahkan teks dengan akurat, natural, dan perhatikan konteks budaya sasaran.]`;
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Terjemahkan dengan akurat, natural, sekelas native speaker.]`;
     } 
-    // 4. DETEKSI ANALISIS GAMBAR (LENS)
-    else if (attachments.some(a => a.type === 'image') && (lowerInput.includes("apa ini") || lowerInput.includes("apa kegunaan") || lowerInput.includes("jelaskan gambar"))) {
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Analisis gambar dengan teliti. Identifikasi objek/tempat, jelaskan spesifikasinya, fungsinya, atau kegunaannya secara detail layaknya Google Lens AI.]`;
+    else if (attachments.some(a => a.type === 'image') && (lowerInput.includes("apa ini") || lowerInput.includes("kegunaan"))) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Analisis spesifikasi/fungsi gambar secara presisi layaknya Google Lens.]`;
     } 
-    // 5. DETEKSI KODING (CLAUDE STYLE)
+    // MODE KODING (Claude Style)
     else if (isCodingMode) {
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Koding AKTIF. Bertindaklah sebagai Senior AI Architect (Claude Opus). JANGAN memberikan kode mentah. WAJIB: 1) Jelaskan arsitektur & logika kode. 2) Beri panduan Step-by-Step cara instalasi/deploy. 3) Pastikan kode siap produksi. Gunakan bahasa Indonesia profesional.]`;
-    } 
-    // 6. DEFAULT (MODE CHAT BIASA)
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Koding AKTIF. Bertindaklah sebagai Senior AI Architect (Claude Opus). JANGAN memberikan kode mentah. WAJIB: 1) Jelaskan arsitektur/logika kode. 2) Panduan Step-by-Step deploy/install. 3) Pastikan kode siap produksi. Berbahasa Indonesia profesional.]`;
+    }
+    // MODE UJIAN (Sensei Mode)
+    else if (isExamMode) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Ujian AKTIF. Bertindaklah sebagai Sensei penguji. Berikan 1 soal pilihan ganda interaktif. JANGAN berikan jawaban sebelum dijawab. Utamakan penggunaan huruf hiragana dibandingkan kanji rumit jika terkait dengan bahasa Jepang.]`;
+    }
+    // DEFAULT
     else {
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Ini adalah Mode Chat Biasa. Anda adalah AI yang pintar. Jawablah secara RINGKAS dan to the point untuk menghemat token, kecuali user meminta penjelasan panjang.]`;
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Jawablah secara RINGKAS dan to the point untuk menghemat token.]`;
     }
 
     if (activeProject) {
-      instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}. Selalu ikuti aturan ini.]`;
+      instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}.]`;
     }
 
     const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || "";
@@ -938,86 +864,57 @@ export default function App() {
     try {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const controller = new AbortController();
-      const isMultimedia = ["dall-e", "suno", "sora", "veo", "wan", "seedance", "riverflow", "lyria"]
-        .some(m => finalModel.includes(m));
+      const isMultimedia = ["dall-e", "suno", "sora", "veo", "wan", "seedance", "riverflow", "lyria"].some(m => finalModel.includes(m));
       const timeoutId = setTimeout(() => controller.abort(), isMultimedia ? 600000 : 60000);
 
       const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          instruksi: instruksiKeBackend,
-          history: historyKirim,
-          paksa_model: finalModel, // MENGIRIM MODEL HASIL ROUTER
-          kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026",
-          persona: selectedPersona,
-          attachments: fileYangDiproses
+          instruksi: instruksiKeBackend, history: historyKirim, paksa_model: finalModel,
+          kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses
         }),
         signal: controller.signal
       });
-      clearTimeout(timeoutId);
-      if (!respon.ok) throw new Error("Server Lokal Menolak");
+      clearTimeout(timeoutId); if (!respon.ok) throw new Error("Server Lokal Menolak");
 
-      const reader = respon.body.getReader();
-      const decoder = new TextDecoder("utf-8");
-      let bufferText = "";
+      const reader = respon.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
       while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        const { done, value } = await reader.read(); if (done) break;
         const chunk = decoder.decode(value, { stream: true });
         if (chunk.includes("RUTE_AKTIF:")) {
           const ruteMatch = chunk.match(/RUTE_AKTIF:(.*?)\n\n/);
           if (ruteMatch) setActiveRoute(ruteMatch[1]);
           bufferText += chunk.replace(/RUTE_AKTIF:.*\n\n/, "");
-        } else {
-          bufferText += chunk;
-        }
+        } else bufferText += chunk;
+        
         setMessages(prev => {
-          const n = [...prev];
-          n[n.length - 1] = { ...n[n.length - 1], text: bufferText };
-          return n;
+          const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: bufferText }; return n;
         });
       }
     } catch (error) {
       setActiveRoute("FALLBACK: OpenRouter");
       try {
         if (!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diatur");
-        const openRouterMessages = historyKirim.map(msg => ({
-          role: msg.role === 'ai' ? 'assistant' : 'user',
-          content: msg.text
-        }));
+        const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text }));
         openRouterMessages.push({ role: "user", content: instruksiKeBackend });
-        const fallbackModel = finalModel === "google/gemma-4-31b-it" || finalModel === "auto"
-          ? "google/gemma-4-31b-it"
-          : "qwen/qwen3-coder:30b";
+        const fallbackModel = finalModel === "google/gemma-4-31b-it" || finalModel === "auto" ? "google/gemma-4-31b-it" : "qwen/qwen3-coder:30b";
 
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+          method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
           body: JSON.stringify({ model: fallbackModel, messages: openRouterMessages, stream: true })
         });
-
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let bufferText = "";
+        const reader = res.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
         while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          const lines = chunk.split('\n').filter(l => l.trim());
+          const { done, value } = await reader.read(); if (done) break;
+          const chunk = decoder.decode(value, { stream: true }); const lines = chunk.split('\n').filter(l => l.trim());
           for (const line of lines) {
             if (line.includes('[DONE]')) break;
             if (line.startsWith('data: ')) {
               try {
-                const data = JSON.parse(line.slice(6));
-                const content = data.choices?.[0]?.delta?.content;
+                const data = JSON.parse(line.slice(6)); const content = data.choices?.[0]?.delta?.content;
                 if (content) {
                   bufferText += content;
-                  setMessages(prev => {
-                    const n = [...prev];
-                    n[n.length - 1] = { ...n[n.length - 1], text: bufferText };
-                    return n;
-                  });
+                  setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: bufferText }; return n; });
                 }
               } catch {}
             }
@@ -1026,339 +923,93 @@ export default function App() {
       } catch (fatalError) {
         setMessages(prev => {
           const n = [...prev];
-          n[n.length - 1] = {
-            ...n[n.length - 1],
-            text: `⚠️ **Koneksi Gagal**\n\nServer lokal mati dan API cadangan tidak tersedia.\n\n\`Error: ${fatalError.message}\``
-          };
-          return n;
+          n[n.length - 1] = { ...n[n.length - 1], text: `⚠️ **Koneksi Gagal**\n\nServer mati.\n\n\`Error: ${fatalError.message}\`` }; return n;
         });
       }
-    } finally {
-      setIsStreaming(false);
-      setAttachments([]);
-    }
+    } finally { setIsStreaming(false); setAttachments([]); }
   };
 
-  // ========== MODEL CONFIG ==========
-  const modelGroups = [
-    {
-      label: "🧠 Deep Thinking & Research",
-      models: [
-        { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" },
-        { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" },
-        { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini (Math/Logic)" },
-      ]
-    },
-    {
-      label: "📝 Text & General",
-      models: [
-        { value: "auto", label: "✨ Auto Smart Manager" },
-        { value: "google/gemma-4-31b-it", label: "🔵 Google: Gemma 4 31B (Free)" },
-      ]
-    },
-    {
-      label: "💻 Coding & Logic",
-      models: [
-        { value: "auto_coding", label: "⚡ Auto Coding (Lokal/Cloud)" },
-        { value: "anthropic/claude-opus-4.6", label: "🧠 Claude Opus 4.6" },
-        { value: "anthropic/claude-sonnet-4.6", label: "⚡ Claude Sonnet 4.6" },
-        { value: "openai/gpt-5.3-codex", label: "🚀 GPT-5.3 Codex" },
-        { value: "qwen/qwen3-coder-next", label: "☁️ Qwen3 Coder Next" },
-        { value: "lokal", label: "💻 Qwen 30B (Lokal Ollama)" },
-      ]
-    },
-    {
-      label: "🎨 Gambar (Images)",
-      models: [
-        { value: "sourceful/riverflow-v2-pro", label: "🌊 Riverflow V2 Pro" },
-        { value: "google/gemini-3.1-flash-image-preview", label: "🖼️ Gemini 3.1 Flash" },
-        { value: "openai/dall-e-3", label: "🎨 DALL-E 3" },
-      ]
-    },
-    {
-      label: "🎬 Video Generation",
-      models: [
-        { value: "bytedance/seedance-2.0", label: "💃 ByteDance: Seedance 2.0" },
-        { value: "alibaba/wan-2.7", label: "🎥 Alibaba: Wan 2.7" },
-        { value: "openai/sora-2-pro", label: "🌌 OpenAI: Sora 2 Pro" },
-        { value: "google/veo-3.1", label: "📽️ Google: Veo 3.1" },
-      ]
-    },
-    {
-      label: "🎵 Lagu & Audio",
-      models: [
-        { value: "google/lyria-3-clip-preview", label: "🎼 Google: Lyria 3" },
-        { value: "suno-api-custom", label: "🎸 Suno API" },
-      ]
-    },
-  ];
-
-  const currentModelLabel = modelGroups
-    .flatMap(g => g.models)
-    .find(m => m.value === selectedModel)?.label || selectedModel;
-
-  // ==========================================
-  // LOGIN SCREEN
-  // ==========================================
   if (!isLoggedIn) {
     return (
-      <div className={`h-dvh flex items-center justify-center p-4 ${
-        theme === 'dark' ? 'bg-[#0d1117]' : 'bg-gray-50'
-      }`}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={`p-8 rounded-2xl w-full max-w-sm shadow-xl border ${
-            theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'
-          }`}
-        >
-          <div className="flex justify-center mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg">
-              <Sparkles className="text-white" size={24} />
-            </div>
-          </div>
-          <h2 className={`text-xl font-bold text-center mb-1 ${
-            theme === 'dark' ? 'text-white' : 'text-gray-900'
-          }`}>AI Studio Pro</h2>
-          <p className={`text-center text-sm mb-6 ${
-            theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-          }`}>Masuk untuk melanjutkan</p>
-
+      <div className={`h-dvh flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-[#0d1117]' : 'bg-gray-50'}`}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-2xl w-full max-w-sm shadow-xl border ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+          <div className="flex justify-center mb-6"><div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg"><Sparkles className="text-white" size={24} /></div></div>
+          <h2 className={`text-xl font-bold text-center mb-1 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>AI Studio Pro</h2>
+          <p className={`text-center text-sm mb-6 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Masuk untuk melanjutkan</p>
           <form onSubmit={handleLogin} className="space-y-3">
-            <input
-              type="text"
-              placeholder="Nama Pengguna"
-              autoComplete="username"
-              className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${
-                theme === 'dark'
-                  ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 placeholder-gray-600'
-                  : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 placeholder-gray-400'
-              }`}
-              onChange={(e) => setLoginData({ ...loginData, username: e.target.value })}
-            />
-            <input
-              type="password"
-              placeholder="Sandi"
-              autoComplete="current-password"
-              className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${
-                theme === 'dark'
-                  ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500 placeholder-gray-600'
-                  : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-blue-500 placeholder-gray-400'
-              }`}
-              onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
-            />
-            {loginError && (
-              <p className="text-red-500 text-xs text-center">{loginError}</p>
-            )}
-            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all active:scale-[0.98]">
-              Masuk
-            </button>
+            <input type="text" placeholder="Nama Pengguna" className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 focus:border-blue-500'}`} onChange={(e) => setLoginData({ ...loginData, username: e.target.value })} />
+            <input type="password" placeholder="Sandi" className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 focus:border-blue-500'}`} onChange={(e) => setLoginData({ ...loginData, password: e.target.value })} />
+            {loginError && <p className="text-red-500 text-xs text-center">{loginError}</p>}
+            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all active:scale-[0.98]">Masuk</button>
           </form>
         </motion.div>
       </div>
     );
   }
 
-  // ==========================================
-  // MAIN APP
-  // ==========================================
   return (
-    <div className={`flex h-dvh overflow-hidden transition-colors ${
-      theme === 'dark' ? 'bg-[#0d1117] text-[#e6edf3]' : 'bg-white text-gray-900'
-    }`}>
+    <div className={`flex h-dvh overflow-hidden transition-colors ${theme === 'dark' ? 'bg-[#0d1117] text-[#e6edf3]' : 'bg-white text-gray-900'}`}>
 
       {/* ========== SIDEBAR ========== */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            {/* Mobile overlay */}
-            {isMobile && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsSidebarOpen(false)}
-                className="fixed inset-0 bg-black/50 z-40"
-              />
-            )}
-            <motion.aside
-              initial={isMobile ? { x: "-100%" } : { opacity: 1 }}
-              animate={isMobile ? { x: 0 } : { opacity: 1 }}
-              exit={isMobile ? { x: "-100%" } : { opacity: 1 }}
-              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-              className={`${
-                isMobile ? 'fixed inset-y-0 left-0 z-50' : 'relative'
-              } w-[280px] flex flex-col shrink-0 border-r ${
-                theme === 'dark'
-                  ? 'bg-[#010409] border-[#30363d]'
-                  : 'bg-gray-50 border-gray-200'
-              }`}
-            >
-              {/* Sidebar Header */}
+            {isMobile && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-40" />}
+            <motion.aside initial={isMobile ? { x: "-100%" } : { opacity: 1 }} animate={isMobile ? { x: 0 } : { opacity: 1 }} exit={isMobile ? { x: "-100%" } : { opacity: 1 }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`${isMobile ? 'fixed inset-y-0 left-0 z-50' : 'relative'} w-[280px] flex flex-col shrink-0 border-r ${theme === 'dark' ? 'bg-[#010409] border-[#30363d]' : 'bg-gray-50 border-gray-200'}`}>
               <div className="p-3 flex items-center gap-2">
-                <button
-                  onClick={buatChatBaru}
-                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all active:scale-[0.97] ${
-                    theme === 'dark'
-                      ? 'bg-[#161b22] border-[#30363d] text-white hover:bg-[#1c2128]'
-                      : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-100 shadow-sm'
-                  }`}
-                >
-                  <Plus size={16} /> Chat Baru
-                </button>
-                {isMobile && (
-                  <button onClick={() => setIsSidebarOpen(false)}
-                    className={`p-2 rounded-xl ${theme === 'dark' ? 'hover:bg-[#161b22] text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}>
-                    <X size={18} />
-                  </button>
-                )}
+                <button onClick={buatChatBaru} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all active:scale-[0.97] ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-white hover:bg-[#1c2128]' : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-100 shadow-sm'}`}><Plus size={16} /> Chat Baru</button>
+                {isMobile && <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'hover:bg-[#161b22] text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={18} /></button>}
               </div>
 
-              {/* Sidebar Content */}
-              <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1"
-                style={{ scrollbarWidth: 'none' }}>
-
-                {/* Quick Actions */}
+              <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: 'none' }}>
                 <div className="space-y-1 mb-4">
-                  <button
-                    onClick={() => setIsProjectsOpen(true)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                      activeProject
-                        ? (theme === 'dark' ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600')
-                        : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100')
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <Folder size={16} />
-                      {activeProject ? activeProject.name : "Proyek"}
-                    </span>
-                    <ChevronRight size={14} className="opacity-40" />
+                  <button onClick={() => setIsProjectsOpen(true)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeProject ? (theme === 'dark' ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100')}`}>
+                    <span className="flex items-center gap-2.5"><Folder size={16} />{activeProject ? activeProject.name : "Proyek"}</span><ChevronRight size={14} className="opacity-40" />
                   </button>
-
-                  <button
-                    onClick={() => setIsGalleryOpen(true)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                      theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <ImageIcon size={16} />
-                    Galeri Media
-                    {generatedMedia.length > 0 && (
-                      <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                        theme === 'dark' ? 'bg-[#161b22] text-gray-500' : 'bg-gray-200 text-gray-500'
-                      }`}>{generatedMedia.length}</span>
-                    )}
+                  <button onClick={() => setIsGalleryOpen(true)} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    <ImageIcon size={16} />Galeri Media
+                    {generatedMedia.length > 0 && <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-md ${theme === 'dark' ? 'bg-[#161b22] text-gray-500' : 'bg-gray-200 text-gray-500'}`}>{generatedMedia.length}</span>}
                   </button>
-
-                  <button
-                    onClick={() => setIsManagePromptOpen(true)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                      theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    <Settings size={16} />
-                    Kelola Prompt
+                  <button onClick={() => setIsManagePromptOpen(true)} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100'}`}>
+                    <Settings size={16} />Kelola Prompt
                   </button>
                 </div>
 
-                {/* Chat History */}
-                <div className={`text-[10px] font-semibold uppercase tracking-wider px-3 py-2 ${
-                  theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
-                }`}>
-                  Riwayat Percakapan
-                </div>
-
-                {sessions.length === 0 && (
-                  <div className={`text-center text-xs py-8 ${
-                    theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
-                  }`}>
-                    Belum ada percakapan
-                  </div>
-                )}
-
+                <div className={`text-[10px] font-semibold uppercase tracking-wider px-3 py-2 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Riwayat Percakapan</div>
+                {sessions.length === 0 && <div className={`text-center text-xs py-8 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Belum ada percakapan</div>}
                 {sessions.map(sesi => (
-                  <div
-                    key={sesi.id}
-                    onClick={() => muatChatLama(sesi.id)}
-                    className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
-                      currentSessionId === sesi.id
-                        ? (theme === 'dark' ? 'bg-[#161b22] text-white' : 'bg-blue-50 text-blue-800')
-                        : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-gray-200' : 'text-gray-600 hover:bg-gray-100')
-                    }`}
-                  >
-                    <MessageSquare size={14} className="shrink-0 opacity-50" />
-                    <span className="flex-1 truncate text-sm">{sesi.title}</span>
-                    <button
-                      onClick={(e) => hapusChat(e, sesi.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all rounded"
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#161b22] text-white' : 'bg-blue-50 text-blue-800') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-gray-200' : 'text-gray-600 hover:bg-gray-100')}`}>
+                    <MessageSquare size={14} className="shrink-0 opacity-50" /><span className="flex-1 truncate text-sm">{sesi.title}</span>
+                    <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all rounded"><Trash2 size={13} /></button>
                   </div>
                 ))}
               </div>
-
-              {/* Sidebar Footer */}
               <div className={`p-3 border-t ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
-                <button
-                  onClick={handleLogout}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${
-                    theme === 'dark' ? 'text-gray-500 hover:text-red-400 hover:bg-red-500/5' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
-                  }`}
-                >
-                  <LogOut size={14} /> Keluar
-                </button>
+                <button onClick={handleLogout} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-red-400 hover:bg-red-500/5' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}><LogOut size={14} /> Keluar</button>
               </div>
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
-      {/* ========== MAIN AREA ========== */}
       <div className="flex-1 flex flex-col min-w-0 relative">
 
         {/* ===== HEADER ===== */}
-        <header className={`sticky top-0 z-30 flex items-center justify-between h-12 px-3 border-b shrink-0 ${
-          theme === 'dark'
-            ? 'bg-[#0d1117]/80 backdrop-blur-xl border-[#30363d]'
-            : 'bg-white/80 backdrop-blur-xl border-gray-200'
-        }`}>
+        <header className={`sticky top-0 z-30 flex items-center justify-between h-14 px-3 md:px-4 border-b shrink-0 ${theme === 'dark' ? 'bg-[#0d1117]/80 backdrop-blur-xl border-[#30363d]' : 'bg-white/80 backdrop-blur-xl border-gray-200'}`}>
           <div className="flex items-center gap-2">
-            {!isSidebarOpen && (
-              <button onClick={() => setIsSidebarOpen(true)}
-                className={`p-1.5 rounded-lg transition-colors ${
-                  theme === 'dark' ? 'hover:bg-[#161b22] text-gray-400' : 'hover:bg-gray-100 text-gray-600'
-                }`}>
-                <Menu size={18} />
-              </button>
-            )}
-
-            {/* Model Selector Dropdown */}
+            {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'hover:bg-[#161b22] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}><Menu size={20} /></button>}
+            
             <div className="relative">
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowModelDropdown(p => !p); }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  theme === 'dark'
-                    ? 'hover:bg-[#161b22] text-gray-300'
-                    : 'hover:bg-gray-100 text-gray-700'
-                }`}
-              >
-                <span className="truncate max-w-[150px] md:max-w-[200px]">{currentModelLabel}</span>
-                <ChevronDown size={12} className="opacity-50" />
+              <button onClick={(e) => { e.stopPropagation(); setShowModelDropdown(p => !p); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${theme === 'dark' ? 'bg-[#161b22] hover:bg-[#1c2128] border-[#30363d] text-gray-300' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700'}`}>
+                <span className="truncate max-w-[120px] md:max-w-[200px]">{currentModelLabel}</span><ChevronDown size={14} className="opacity-50" />
               </button>
 
               <AnimatePresence>
                 {showModelDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    onClick={(e) => e.stopPropagation()}
-                    className={`absolute top-full left-0 mt-1 w-64 rounded-xl border shadow-xl overflow-hidden z-50 ${
-                      theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'
-                    }`}
-                  >
+                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} onClick={(e) => e.stopPropagation()} className={`absolute top-full left-0 mt-2 w-72 rounded-2xl border shadow-xl overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
                     <div className="max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                      
+                      {/* PENTING: TAG SELECT DARI PENGGUNA (TIDAK BERUBAH) */}
                       <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="hidden">
                         <optgroup label="🧠 Deep Thinking & Research"><option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option><option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option><option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option></optgroup>
                         <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
@@ -1370,19 +1021,9 @@ export default function App() {
 
                       {modelGroups.map((group, gi) => (
                         <div key={gi}>
-                          <div className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider sticky top-0 ${
-                            theme === 'dark' ? 'bg-[#0d1117] text-gray-500' : 'bg-gray-50 text-gray-400'
-                          }`}>{group.label}</div>
+                          <div className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider sticky top-0 ${theme === 'dark' ? 'bg-[#0d1117] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>{group.label}</div>
                           {group.models.map(model => (
-                            <button
-                              key={model.value}
-                              onClick={() => { setSelectedModel(model.value); setShowModelDropdown(false); }}
-                              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
-                                selectedModel === model.value
-                                  ? (theme === 'dark' ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600')
-                                  : (theme === 'dark' ? 'text-gray-300 hover:bg-[#1c2128]' : 'text-gray-700 hover:bg-gray-50')
-                              }`}
-                            >
+                            <button key={model.value} onClick={() => { setSelectedModel(model.value); setShowModelDropdown(false); setIsCodingMode(model.value === "auto_coding" || model.value.includes("coder") || model.value.includes("claude")); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedModel === model.value ? (theme === 'dark' ? 'bg-blue-500/10 text-blue-400 font-semibold' : 'bg-blue-50 text-blue-600 font-semibold') : (theme === 'dark' ? 'text-gray-300 hover:bg-[#1c2128]' : 'text-gray-700 hover:bg-gray-50')}`}>
                               {model.label}
                             </button>
                           ))}
@@ -1395,86 +1036,40 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 md:gap-2">
             
-            {/* ⚡ TOMBOL CODING MODE */}
-            <button
-              onClick={() => {
-                const modeBaru = !isCodingMode;
-                setIsCodingMode(modeBaru);
-                if (modeBaru) {
-                  setSelectedModel("auto_coding"); // Otomatis pindah ke model koding saat dihidupkan
-                } else {
-                  setSelectedModel("google/gemma-4-31b-it"); // Otomatis ke Gemma 4 saat dimatikan
-                }
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
-                isCodingMode
-                  ? (theme === 'dark' ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm')
-                  : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')
-              }`}
-            >
-              <Code size={14} />
-              <span className="hidden md:inline">Mode Koding</span>
+            {/* ⚡ TOMBOL MODE KODING */}
+            <button onClick={() => { setIsCodingMode(!isCodingMode); setIsExamMode(false); if (!isCodingMode) setSelectedModel("auto_coding"); else setSelectedModel("google/gemma-4-31b-it"); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border hidden sm:flex ${isCodingMode ? (theme === 'dark' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Penjelasan Kode (Claude Style)">
+              <Code size={16} /> Mode Koding
+            </button>
+
+            {/* ⚡ TOMBOL MODE UJIAN (Baru) */}
+            <button onClick={() => { setIsExamMode(!isExamMode); setIsCodingMode(false); if (!isExamMode) setSelectedModel("auto"); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all border hidden md:flex ${isExamMode ? (theme === 'dark' ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-green-100 border-green-300 text-green-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Penguji / Soal Interaktif">
+              <GraduationCap size={16} /> Mode Ujian
             </button>
 
             {messages.length > 0 && (
               <>
-                <button onClick={exportChatToZip} title="Export ZIP"
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                  }`}><Archive size={16} /></button>
-                <button onClick={generateGitCommit} title="Git Commit"
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'
-                  }`}><GitCommit size={16} /></button>
+                <button onClick={exportChatToZip} title="Export ke ZIP" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><Archive size={18} /></button>
+                <button onClick={generateGitCommit} title="Buat Git Commit" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><GitCommit size={18} /></button>
+                {/* ⚡ TOMBOL SIMPAN KE LOKAL (Baru) */}
+                <button onClick={saveToLocal} title={dirHandle ? "Simpan Kode ke Folder" : "Tautkan Folder VS Code"} className={`p-2 rounded-lg transition-colors border hidden lg:block ${dirHandle ? (theme === 'dark' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700') : (theme === 'dark' ? 'border-transparent text-gray-400 hover:bg-[#161b22]' : 'border-transparent text-gray-500 hover:bg-gray-100')}`}><FolderSync size={18} /></button>
               </>
             )}
+            
+            <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1 hidden md:block"></div>
 
-            <button
-              onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }}
-              title="Terminal"
-              className={`p-1.5 rounded-lg transition-colors ${
-                theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-green-400' : 'text-gray-500 hover:bg-gray-100 hover:text-green-600'
-              }`}
-            >
-              <TerminalSquare size={16} />
-            </button>
+            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} title="Terminal" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-green-400' : 'text-gray-500 hover:bg-gray-100 hover:text-green-600'}`}><TerminalSquare size={18} /></button>
 
             {isPreviewOpen ? (
-              <button onClick={() => setIsPreviewOpen(false)} title="Tutup Panel"
-                className={`p-1.5 rounded-lg transition-colors ${
-                  theme === 'dark' ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-500 hover:bg-blue-50'
-                }`}><PanelRightClose size={16} /></button>
+              <button onClick={() => setIsPreviewOpen(false)} title="Tutup Panel" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-blue-400 bg-blue-500/10' : 'text-blue-600 bg-blue-50'}`}><PanelRightClose size={18} /></button>
             ) : (
-              previewCode && (
-                <button onClick={() => setIsPreviewOpen(true)} title="Buka Panel"
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-500 hover:bg-gray-100'
-                  }`}><PanelRightOpen size={16} /></button>
-              )
+              previewCode && <button onClick={() => setIsPreviewOpen(true)} title="Buka Panel" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-500 hover:bg-gray-100'}`}><PanelRightOpen size={18} /></button>
             )}
 
-            <button onClick={toggleTheme}
-              className={`p-1.5 rounded-lg transition-colors ${
-                theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-yellow-400' : 'text-gray-500 hover:bg-gray-100'
-              }`}>
-              {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+            <button onClick={toggleTheme} className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-yellow-400' : 'text-gray-500 hover:bg-gray-100'}`}>
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-
-            <select
-              value={selectedPersona}
-              onChange={(e) => setSelectedPersona(e.target.value)}
-              className={`hidden lg:block text-xs font-medium rounded-lg px-2 py-1.5 outline-none border cursor-pointer ${
-                theme === 'dark'
-                  ? 'bg-[#161b22] border-[#30363d] text-gray-300'
-                  : 'bg-gray-50 border-gray-200 text-gray-700'
-              }`}
-            >
-              <option value="default">👤 Umum</option>
-              <option value="kartos">🤖 Robotika</option>
-              <option value="seiso">🏨 Hotel IT</option>
-            </select>
           </div>
         </header>
 
@@ -1482,53 +1077,31 @@ export default function App() {
         <div className="flex-1 flex min-h-0">
 
           {/* ===== CHAT AREA ===== */}
-          <div className={`flex-1 flex flex-col min-w-0 ${
-            isPreviewOpen && !isMobile ? 'border-r ' + (theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200') : ''
-          }`}>
+          <div className={`flex-1 flex flex-col min-w-0 ${isPreviewOpen && !isMobile ? 'border-r ' + (theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200') : ''}`}>
 
-            {/* Messages */}
-            <div
-              ref={chatContainerRef}
-              className="flex-1 overflow-y-auto"
-              style={{ scrollbarWidth: 'thin', scrollbarColor: theme === 'dark' ? '#30363d #0d1117' : '#d1d5db #ffffff' }}
-            >
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: theme === 'dark' ? '#30363d #0d1117' : '#d1d5db #ffffff' }}>
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center px-6">
                   <div className="max-w-lg w-full text-center space-y-4">
-                    <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg mb-6">
-                      <Sparkles className="text-white" size={24} />
+                    <div className="w-14 h-14 mx-auto rounded-3xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg mb-4">
+                      <Sparkles className="text-white" size={28} />
                     </div>
-                    <h1 className={`text-2xl md:text-3xl font-bold ${
-                      theme === 'dark' ? 'text-white' : 'text-gray-900'
-                    }`}>
-                      Apa yang ingin kita buat hari ini, Andi?
-                    </h1>
+                    <h1 className={`text-2xl md:text-3xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Siap membantu Anda, Andi.</h1>
                     <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      Tanya apa saja, unggah file, atau ketik / untuk perintah cepat.
+                      {isExamMode ? "Mulai belajar untuk JLPT N2 atau Sertifikasi Kebersihan? Unggah modul PDF Anda." : "Ketik instruksi, unggah file, atau gunakan / untuk perintah cepat."}
                     </p>
-                    {activeProject && (
-                      <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
-                        theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-orange-50 text-orange-600 border border-orange-200'
-                      }`}>
-                        <Folder size={12} /> {activeProject.name}
-                      </div>
-                    )}
+                    
+                    <div className="flex flex-wrap justify-center gap-2 mt-4">
+                      {activeProject && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-200'}`}><Folder size={12} /> {activeProject.name}</div>}
+                      {isCodingMode && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200'}`}><Code size={12} /> Claude Logic ON</div>}
+                      {dirHandle && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}><FolderSync size={12} /> {dirHandle.name} Terhubung</div>}
+                    </div>
                   </div>
                 </div>
               ) : (
                 <div className={`divide-y ${theme === 'dark' ? 'divide-[#30363d]/50' : 'divide-gray-100'}`}>
                   {messages.map((chat, idx) => (
-                    <MessageBubble
-                      key={idx}
-                      chat={chat}
-                      idx={idx}
-                      isLast={idx === messages.length - 1}
-                      isStreaming={isStreaming}
-                      theme={theme}
-                      setActiveCanvasTab={setActiveCanvasTab}
-                      setIsPreviewOpen={setIsPreviewOpen}
-                      setPreviewCode={setPreviewCode}
-                    />
+                    <MessageBubble key={idx} chat={chat} idx={idx} isLast={idx === messages.length - 1} isStreaming={isStreaming} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />
                   ))}
                   <div ref={chatEndRef} className="h-1" />
                 </div>
@@ -1536,141 +1109,64 @@ export default function App() {
             </div>
 
             {/* ===== INPUT BAR ===== */}
-            <div className={`shrink-0 px-3 md:px-4 pb-4 pt-2 ${
-              theme === 'dark' ? 'bg-[#0d1117]' : 'bg-white'
-            }`}>
+            <div className={`shrink-0 px-3 md:px-4 pb-4 pt-2 ${theme === 'dark' ? 'bg-[#0d1117]' : 'bg-white'}`}>
               <div className="max-w-3xl mx-auto relative">
 
-                {/* Slash Commands Popup */}
+                {/* Slash Commands */}
                 <AnimatePresence>
                   {showSlashCommands && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      className={`absolute bottom-full mb-2 left-0 w-full md:w-80 rounded-xl border shadow-xl overflow-hidden z-50 ${
-                        theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <div className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider border-b flex items-center gap-1.5 ${
-                        theme === 'dark' ? 'text-gray-500 border-[#30363d] bg-[#0d1117]' : 'text-gray-400 border-gray-100 bg-gray-50'
-                      }`}>
-                        <Zap size={12} className="text-yellow-500" /> Perintah Cepat
-                      </div>
-                      <div className="max-h-48 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-                        {allPrompts
-                          .filter(c => c.command.toLowerCase().includes(commandFilter))
-                          .map((cmd, i) => (
-                            <button
-                              key={i}
-                              onClick={() => applySlashCommand(cmd.prompt)}
-                              className={`w-full text-left px-3 py-2.5 transition-colors border-b last:border-0 ${
-                                theme === 'dark'
-                                  ? 'hover:bg-[#1c2128] border-[#30363d]/50'
-                                  : 'hover:bg-gray-50 border-gray-50'
-                              }`}
-                            >
-                              <span className="font-semibold text-sm text-blue-400">{cmd.command}</span>
-                              <span className={`block text-xs mt-0.5 truncate ${
-                                theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-                              }`}>{cmd.description}</span>
-                            </button>
-                          ))}
-                        {allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).length === 0 && (
-                          <div className={`p-4 text-center text-xs ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>
-                            Tidak ada perintah cocok
-                          </div>
-                        )}
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className={`absolute bottom-full mb-2 left-0 w-full md:w-80 rounded-2xl border shadow-2xl overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+                      <div className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider border-b flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-500 border-[#30363d] bg-[#0d1117]' : 'text-gray-400 border-gray-100 bg-gray-50'}`}><Zap size={14} className="text-yellow-500" /> Perintah Cepat</div>
+                      <div className="max-h-56 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                        {allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).map((cmd, i) => (
+                          <button key={i} onClick={() => applySlashCommand(cmd.prompt)} className={`w-full text-left px-4 py-3 transition-colors border-b last:border-0 ${theme === 'dark' ? 'hover:bg-[#1c2128] border-[#30363d]/50' : 'hover:bg-gray-50 border-gray-100'}`}>
+                            <span className="font-semibold text-sm text-blue-500">{cmd.command}</span>
+                            <span className={`block text-xs mt-1 truncate ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{cmd.description}</span>
+                          </button>
+                        ))}
                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Attachments Preview */}
+                {/* Attachments */}
                 {attachments.length > 0 && (
-                  <div className="mb-2 flex flex-wrap gap-1.5">
+                  <div className="mb-2 flex flex-wrap gap-2">
                     {attachments.map((file, idx) => (
-                      <div key={idx} className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs border ${
-                        theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-700'
-                      }`}>
-                        <Paperclip size={11} className="opacity-50" />
-                        <span className="truncate max-w-[100px]">{file.name}</span>
-                        <button onClick={() => hapusAttachment(idx)} className="hover:text-red-400 ml-0.5">
-                          <X size={11} />
-                        </button>
+                      <div key={idx} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border shadow-sm ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                        <Paperclip size={12} className="opacity-50" />
+                        <span className="truncate max-w-[120px]">{file.name}</span>
+                        <button onClick={() => hapusAttachment(idx)} className="hover:text-red-500 ml-1"><X size={12} /></button>
                       </div>
                     ))}
                   </div>
                 )}
 
                 {/* Input Container */}
-                <div className={`rounded-2xl border transition-colors ${
-                  theme === 'dark'
-                    ? 'bg-[#161b22] border-[#30363d] focus-within:border-[#58a6ff]'
-                    : 'bg-gray-50 border-gray-200 focus-within:border-blue-400'
-                }`}>
-                  <textarea
-                    ref={textareaRef}
-                    className={`w-full bg-transparent text-sm outline-none resize-none px-4 pt-3.5 pb-1 leading-6 ${
-                      theme === 'dark'
-                        ? 'text-[#e6edf3] placeholder-gray-600'
-                        : 'text-gray-900 placeholder-gray-400'
-                    }`}
-                    placeholder={`Pesan AI Studio${activeProject ? ` (${activeProject.name})` : ''}… Ketik / untuk jalan pintas`}
-                    rows="1"
-                    style={{ maxHeight: '200px' }}
-                    value={input}
-                    onChange={handleInputChange}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        kirimPesan();
-                      }
-                    }}
-                    disabled={isStreaming}
-                  />
+                <div className={`rounded-2xl border shadow-sm transition-colors ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] focus-within:border-blue-500/50' : 'bg-white border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'}`}>
+                  <textarea ref={textareaRef} className={`w-full bg-transparent text-[15px] outline-none resize-none px-4 pt-4 pb-2 leading-relaxed ${theme === 'dark' ? 'text-[#e6edf3] placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`} placeholder={`Ketik pesan Anda di sini...`} rows="1" style={{ maxHeight: '200px' }} value={input} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} disabled={isStreaming} />
 
-                  <div className="flex items-center justify-between px-3 pb-2.5">
-                    <div className="flex items-center gap-0.5">
+                  <div className="flex items-center justify-between px-3 pb-3 pt-1">
+                    <div className="flex items-center gap-1">
                       <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-                      <button
-                        onClick={() => fileInputRef.current?.click()}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          theme === 'dark' ? 'text-gray-500 hover:text-gray-300 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-black/5'
-                        }`}
-                        title="Lampirkan File"
-                      >
-                        <Paperclip size={16} />
-                      </button>
+                      <button onClick={() => fileInputRef.current?.click()} className={`p-2 rounded-xl transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-[#30363d]' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} title="Lampirkan File"><Paperclip size={18} /></button>
+                      
+                      {!dirHandle && (
+                        <button onClick={linkFolder} className={`p-2 rounded-xl transition-colors hidden md:block ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-[#30363d]' : 'text-gray-500 hover:text-green-600 hover:bg-green-50'}`} title="Tautkan Folder VS Code Lokal"><FolderSync size={18} /></button>
+                      )}
                     </div>
 
-                    <div className="flex items-center gap-2">
-                      {activeRoute && (
-                        <span className={`text-[10px] font-mono hidden md:block ${
-                          theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
-                        }`}>
-                          {activeRoute}
-                        </span>
-                      )}
-                      <button
-                        onClick={kirimPesan}
-                        disabled={isStreaming || (!input.trim() && attachments.length === 0)}
-                        className={`p-2 rounded-xl transition-all active:scale-90 ${
-                          isStreaming || (!input.trim() && attachments.length === 0)
-                            ? (theme === 'dark' ? 'bg-[#30363d] text-gray-600' : 'bg-gray-200 text-gray-400')
-                            : 'bg-blue-600 text-white hover:bg-blue-500 shadow-sm'
-                        }`}
-                      >
-                        {isStreaming ? <StopCircle size={16} /> : <Send size={16} />}
+                    <div className="flex items-center gap-3">
+                      {activeRoute && <span className={`text-[10px] font-bold uppercase tracking-widest hidden md:block ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{activeRoute}</span>}
+                      <button onClick={kirimPesan} disabled={isStreaming || (!input.trim() && attachments.length === 0)} className={`p-2.5 rounded-xl transition-all active:scale-95 flex items-center gap-2 ${isStreaming || (!input.trim() && attachments.length === 0) ? (theme === 'dark' ? 'bg-[#30363d] text-gray-500' : 'bg-gray-100 text-gray-400') : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md'}`}>
+                        {isStreaming ? <StopCircle size={18} /> : <Send size={18} className="ml-0.5" />}
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <p className={`text-center text-[10px] mt-2 ${
-                  theme === 'dark' ? 'text-gray-700' : 'text-gray-300'
-                }`}>
-                  AI dapat membuat kesalahan. Harap verifikasi informasi penting secara mandiri.
+                <p className={`text-center text-[10px] mt-3 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>
+                  AI dapat berhalusinasi. Mohon periksa kembali informasi penting yang dihasilkan.
                 </p>
               </div>
             </div>
@@ -1679,68 +1175,26 @@ export default function App() {
           {/* ===== CANVAS / PREVIEW PANEL ===== */}
           <AnimatePresence>
             {isPreviewOpen && (
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: isMobile ? '100%' : '50%', opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                transition={{ type: "spring", bounce: 0, duration: 0.35 }}
-                className={`flex flex-col overflow-hidden shrink-0 ${
-                  isMobile ? 'absolute inset-0 z-40' : ''
-                } ${theme === 'dark' ? 'bg-[#0d1117]' : 'bg-white'}`}
-              >
-                {/* Panel Header */}
-                <div className={`flex items-center justify-between h-10 px-2 border-b shrink-0 ${
-                  theme === 'dark' ? 'border-[#30363d] bg-[#010409]' : 'border-gray-200 bg-gray-50'
-                }`}>
-                  <div className="flex items-center">
+              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: isMobile ? '100%' : '50%', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.35 }} className={`flex flex-col overflow-hidden shrink-0 ${isMobile ? 'absolute inset-0 z-40' : ''} ${theme === 'dark' ? 'bg-[#0d1117] border-l border-[#30363d]' : 'bg-white border-l border-gray-200'}`}>
+                <div className={`flex items-center justify-between h-12 px-3 border-b shrink-0 ${theme === 'dark' ? 'border-[#30363d] bg-[#010409]' : 'border-gray-200 bg-gray-50'}`}>
+                  <div className="flex items-center gap-1">
                     {["preview", "code", "terminal"].map(tab => (
-                      <button
-                        key={tab}
-                        onClick={() => setActiveCanvasTab(tab)}
-                        className={`px-3 py-1.5 text-xs font-medium capitalize transition-colors rounded-md ${
-                          activeCanvasTab === tab
-                            ? (theme === 'dark' ? 'bg-[#161b22] text-white' : 'bg-white text-gray-900 shadow-sm')
-                            : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-700')
-                        }`}
-                      >
-                        {tab === 'preview' && <Play size={12} className="inline mr-1" />}
-                        {tab === 'code' && <Code size={12} className="inline mr-1" />}
-                        {tab === 'terminal' && <TerminalSquare size={12} className="inline mr-1" />}
-                        {tab}
+                      <button key={tab} onClick={() => setActiveCanvasTab(tab)} className={`px-4 py-2 text-xs font-bold capitalize transition-all rounded-lg flex items-center gap-1.5 ${activeCanvasTab === tab ? (theme === 'dark' ? 'bg-[#161b22] text-white border border-[#30363d]' : 'bg-white text-blue-600 shadow-sm border border-gray-200') : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}>
+                        {tab === 'preview' && <Play size={14} />} {tab === 'code' && <Code size={14} />} {tab === 'terminal' && <TerminalSquare size={14} />} {tab}
                       </button>
                     ))}
                   </div>
-                  <button
-                    onClick={() => setIsPreviewOpen(false)}
-                    className={`p-1 rounded transition-colors ${
-                      theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-[#161b22]' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'
-                    }`}
-                  >
-                    <X size={16} />
-                  </button>
+                  <button onClick={() => setIsPreviewOpen(false)} className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-[#161b22]' : 'text-gray-500 hover:text-red-500 hover:bg-red-50'}`}><X size={18} /></button>
                 </div>
 
-                {/* Panel Content */}
                 <div className="flex-1 relative overflow-hidden">
                   {activeCanvasTab === "code" && (
-                    <textarea
-                      value={previewCode}
-                      onChange={(e) => setPreviewCode(e.target.value)}
-                      className={`absolute inset-0 w-full h-full bg-transparent font-mono text-[13px] p-4 outline-none resize-none leading-6 ${
-                        theme === 'dark' ? 'text-[#c9d1d9]' : 'text-gray-800'
-                      }`}
-                      spellCheck="false"
-                    />
+                    <textarea value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} className={`absolute inset-0 w-full h-full bg-transparent font-mono text-[13px] p-6 outline-none resize-none leading-relaxed ${theme === 'dark' ? 'text-[#c9d1d9]' : 'text-gray-800'}`} spellCheck="false" />
                   )}
 
                   {activeCanvasTab === "preview" && (
                     <div className="absolute inset-0 bg-white">
-                      <iframe
-                        title="Preview"
-                        srcDoc={previewCode}
-                        className="w-full h-full border-none"
-                        sandbox="allow-scripts allow-modals allow-same-origin"
-                      />
+                      <iframe title="Preview" srcDoc={previewCode} className="w-full h-full border-none" sandbox="allow-scripts allow-modals allow-same-origin" />
                     </div>
                   )}
 
@@ -1748,52 +1202,26 @@ export default function App() {
                     <div className="absolute inset-0 flex flex-col bg-[#0d1117]">
                       {sshStatus === "disconnected" ? (
                         <div className="flex-1 flex items-center justify-center p-4">
-                          <form onSubmit={connectSSH} className={`w-full max-w-xs space-y-3 p-5 rounded-2xl border ${
-                            theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'
-                          }`}>
-                            <div className="text-center mb-4">
-                              <Server size={28} className="mx-auto text-green-500 mb-2" />
-                              <h3 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>SSH Terminal</h3>
+                          <form onSubmit={connectSSH} className={`w-full max-w-xs space-y-4 p-6 rounded-2xl border shadow-xl ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+                            <div className="text-center mb-6">
+                              <div className="w-12 h-12 mx-auto rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-3"><Server size={24} className="text-green-500" /></div>
+                              <h3 className={`font-bold text-base ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>SSH Terminal Remote</h3>
                             </div>
-                            <input required type="text" placeholder="Host (misal: 192.168.1.5)"
-                              className={`w-full text-sm p-2.5 rounded-lg border outline-none ${
-                                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900'
-                              }`}
-                              value={sshCreds.host} onChange={e => setSshCreds({...sshCreds, host: e.target.value})} />
-                            <input required type="text" placeholder="Username"
-                              className={`w-full text-sm p-2.5 rounded-lg border outline-none ${
-                                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900'
-                              }`}
-                              value={sshCreds.username} onChange={e => setSshCreds({...sshCreds, username: e.target.value})} />
-                            <input required type="password" placeholder="Password"
-                              className={`w-full text-sm p-2.5 rounded-lg border outline-none ${
-                                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900'
-                              }`}
-                              value={sshCreds.password} onChange={e => setSshCreds({...sshCreds, password: e.target.value})} />
-                            <button type="submit"
-                              className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-colors ${
-                                sshStatus === "connecting"
-                                  ? 'bg-yellow-600 text-white'
-                                  : 'bg-green-600 hover:bg-green-500 text-white'
-                              }`}>
-                              {sshStatus === "connecting" ? "Menghubungi…" : "Hubungkan"}
+                            <input required type="text" placeholder="IP Host (misal: 192.168.1.5)" className={`w-full text-sm p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-green-500'}`} value={sshCreds.host} onChange={e => setSshCreds({...sshCreds, host: e.target.value})} />
+                            <input required type="text" placeholder="Username" className={`w-full text-sm p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-green-500'}`} value={sshCreds.username} onChange={e => setSshCreds({...sshCreds, username: e.target.value})} />
+                            <input required type="password" placeholder="Password" className={`w-full text-sm p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-green-500'}`} value={sshCreds.password} onChange={e => setSshCreds({...sshCreds, password: e.target.value})} />
+                            <button type="submit" className={`w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${sshStatus === "connecting" ? 'bg-yellow-600 text-white' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg'}`}>
+                              {sshStatus === "connecting" ? "Menghubungi..." : "Hubungkan"}
                             </button>
                           </form>
                         </div>
                       ) : (
                         <div className="flex flex-col h-full">
-                          <div className={`text-[11px] px-3 py-1.5 border-b flex justify-between items-center ${
-                            theme === 'dark' ? 'bg-[#010409] border-[#30363d] text-gray-500' : 'bg-gray-50 border-gray-200 text-gray-500'
-                          }`}>
-                            <span>
-                              <span className="inline-block w-2 h-2 rounded-full bg-green-500 mr-2" />
-                              {sshCreds.username}@{sshCreds.host}
-                            </span>
-                            <button onClick={disconnectSSH} className="text-red-400 hover:text-red-300 text-xs font-medium">
-                              Putuskan
-                            </button>
+                          <div className={`text-xs px-4 py-2.5 border-b flex justify-between items-center ${theme === 'dark' ? 'bg-[#010409] border-[#30363d] text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                            <span className="font-mono flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> {sshCreds.username}@{sshCreds.host}</span>
+                            <button onClick={disconnectSSH} className="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-500/10 transition-colors">Putuskan</button>
                           </div>
-                          <div ref={terminalRef} className="flex-1 p-1 overflow-hidden" />
+                          <div ref={terminalRef} className="flex-1 p-2 overflow-hidden" />
                         </div>
                       )}
                     </div>
@@ -1806,164 +1234,58 @@ export default function App() {
       </div>
 
       {/* ========== MODALS ========== */}
-
-      {/* Projects Modal */}
       <Modal isOpen={isProjectsOpen} onClose={() => setIsProjectsOpen(false)} theme={theme} maxWidth="max-w-2xl">
-        <div className={`p-5 border-b flex justify-between items-center ${
-          theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            <Layers size={18} className="text-orange-500" />
-            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Proyek Workspace</h2>
-          </div>
-          <button onClick={() => setIsProjectsOpen(false)} className={`p-1.5 rounded-lg ${
-            theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'
-          }`}><X size={18} /></button>
+        <div className={`p-5 border-b flex justify-between items-center ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
+          <div className="flex items-center gap-3"><Layers size={20} className="text-orange-500" /><h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Manajemen Proyek</h2></div>
+          <button onClick={() => setIsProjectsOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'}`}><X size={18} /></button>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-5" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
           <div className="space-y-3">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${
-              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Buat Baru</h3>
-            <input id="projName" placeholder="Nama Proyek (misal: Robot AI)"
-              className={`w-full p-3 rounded-xl text-sm border outline-none ${
-                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'
-              }`} />
-            <textarea id="projCtx" placeholder="Instruksi khusus proyek ini (misal: Selalu gunakan Python 3.10...)" rows="3"
-              className={`w-full p-3 rounded-xl text-sm border outline-none resize-none ${
-                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'
-              }`} />
-            <button onClick={() => {
-              const n = document.getElementById('projName')?.value;
-              const c = document.getElementById('projCtx')?.value;
-              if (n) {
-                setProjectsList([...projectsList, { id: Date.now(), name: n, context: c || '' }]);
-                const el1 = document.getElementById('projName'); if (el1) el1.value = '';
-                const el2 = document.getElementById('projCtx'); if (el2) el2.value = '';
-              }
-            }} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
-              Simpan Proyek
-            </button>
+            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Buat Proyek Baru</h3>
+            <input id="projName" placeholder="Nama Proyek (misal: Robot AI Kartos)" className={`w-full p-3.5 rounded-xl text-sm border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'}`} />
+            <textarea id="projCtx" placeholder="Instruksi khusus proyek (misal: Selalu gunakan Python 3.10...)" rows="3" className={`w-full p-3.5 rounded-xl text-sm border outline-none resize-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'}`} />
+            <button onClick={() => { const n = document.getElementById('projName')?.value; const c = document.getElementById('projCtx')?.value; if (n) { setProjectsList([...projectsList, { id: Date.now(), name: n, context: c || '' }]); document.getElementById('projName').value = ''; document.getElementById('projCtx').value = ''; } }} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors">Buat Proyek</button>
           </div>
-
-          <div className="space-y-2">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${
-              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Daftar Proyek</h3>
-
-            <div
-              onClick={() => setActiveProject(null)}
-              className={`p-3 rounded-xl border cursor-pointer transition-colors ${
-                !activeProject
-                  ? 'ring-1 ring-blue-500 border-blue-500/30 bg-blue-500/5'
-                  : (theme === 'dark' ? 'border-[#30363d] hover:bg-[#161b22]' : 'border-gray-200 hover:bg-gray-50')
-              }`}
-            >
-              <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                Tanpa Proyek (Obrolan Umum)
-              </div>
+          <div className="space-y-3">
+            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Pilih Proyek Aktif</h3>
+            <div onClick={() => setActiveProject(null)} className={`p-4 rounded-xl border cursor-pointer transition-all ${!activeProject ? 'ring-2 ring-blue-500 border-transparent bg-blue-500/10' : (theme === 'dark' ? 'border-[#30363d] hover:bg-[#161b22]' : 'border-gray-200 hover:bg-gray-50')}`}>
+              <div className={`font-bold text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Tanpa Proyek (Chat Umum)</div>
             </div>
-
             {projectsList.map(proj => (
-              <div
-                key={proj.id}
-                onClick={() => setActiveProject(proj)}
-                className={`group p-3 rounded-xl border cursor-pointer transition-colors relative ${
-                  activeProject?.id === proj.id
-                    ? 'ring-1 ring-orange-500 border-orange-500/30 bg-orange-500/5'
-                    : (theme === 'dark' ? 'border-[#30363d] hover:bg-[#161b22]' : 'border-gray-200 hover:bg-gray-50')
-                }`}
-              >
-                <div className="text-sm font-semibold text-orange-500">{proj.name}</div>
-                {proj.context && (
-                  <div className={`text-xs mt-1 truncate ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                    {proj.context}
-                  </div>
-                )}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setProjectsList(projectsList.filter(p => p.id !== proj.id));
-                    if (activeProject?.id === proj.id) setActiveProject(null);
-                  }}
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-all"
-                >
-                  <Trash2 size={13} />
-                </button>
+              <div key={proj.id} onClick={() => setActiveProject(proj)} className={`group p-4 rounded-xl border cursor-pointer transition-all relative ${activeProject?.id === proj.id ? 'ring-2 ring-orange-500 border-transparent bg-orange-500/10' : (theme === 'dark' ? 'border-[#30363d] hover:bg-[#161b22]' : 'border-gray-200 hover:bg-gray-50')}`}>
+                <div className="font-bold text-base text-orange-500 mb-1">{proj.name}</div>
+                {proj.context && <div className={`text-sm line-clamp-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{proj.context}</div>}
+                <button onClick={(e) => { e.stopPropagation(); setProjectsList(projectsList.filter(p => p.id !== proj.id)); if (activeProject?.id === proj.id) setActiveProject(null); }} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-all"><Trash2 size={16} /></button>
               </div>
             ))}
           </div>
         </div>
       </Modal>
 
-      {/* Gallery Modal */}
       <Modal isOpen={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} theme={theme} maxWidth="max-w-5xl">
-        <div className={`p-5 border-b flex justify-between items-center shrink-0 ${
-          theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            <ImageIcon size={18} className="text-purple-500" />
-            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Galeri Media</h2>
-          </div>
-          <button onClick={() => setIsGalleryOpen(false)} className={`p-1.5 rounded-lg ${
-            theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'
-          }`}><X size={18} /></button>
+        <div className={`p-5 border-b flex justify-between items-center shrink-0 ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
+          <div className="flex items-center gap-3"><ImageIcon size={20} className="text-purple-500" /><h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Galeri Media</h2></div>
+          <button onClick={() => setIsGalleryOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'}`}><X size={18} /></button>
         </div>
-
-        <div className={`flex gap-1.5 px-5 py-3 border-b overflow-x-auto shrink-0 ${
-          theme === 'dark' ? 'border-[#30363d] bg-[#010409]' : 'border-gray-100 bg-gray-50'
-        }`} style={{ scrollbarWidth: 'none' }}>
-          {[
-            { val: 'all', icon: LayoutGrid, label: 'Semua' },
-            { val: 'image', icon: ImageIcon, label: 'Gambar' },
-            { val: 'video', icon: Video, label: 'Video' },
-            { val: 'audio', icon: Volume2, label: 'Audio' },
-          ].map(f => (
-            <button key={f.val} onClick={() => setGalleryFilter(f.val)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
-                galleryFilter === f.val
-                  ? (theme === 'dark' ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600')
-                  : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-400 hover:text-gray-700')
-              }`}>
-              <f.icon size={13} /> {f.label}
-            </button>
+        <div className={`flex gap-2 p-4 border-b overflow-x-auto shrink-0 ${theme === 'dark' ? 'border-[#30363d] bg-[#010409]' : 'border-gray-100 bg-gray-50'}`} style={{ scrollbarWidth: 'none' }}>
+          {[{ val: 'all', icon: LayoutGrid, label: 'Semua Media' }, { val: 'image', icon: ImageIcon, label: 'Gambar' }, { val: 'video', icon: Video, label: 'Video' }, { val: 'audio', icon: Volume2, label: 'Audio' }].map(f => (
+            <button key={f.val} onClick={() => setGalleryFilter(f.val)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${galleryFilter === f.val ? (theme === 'dark' ? 'bg-purple-500 text-white' : 'bg-purple-600 text-white shadow-md') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-200')}`}><f.icon size={16} /> {f.label}</button>
           ))}
         </div>
-
-        <div className={`flex-1 overflow-y-auto p-5 ${theme === 'dark' ? 'bg-[#010409]' : 'bg-gray-50'}`}
-          style={{ scrollbarWidth: 'none' }}>
+        <div className={`flex-1 overflow-y-auto p-6 ${theme === 'dark' ? 'bg-[#0d1117]' : 'bg-gray-50'}`} style={{ scrollbarWidth: 'none' }}>
           {filteredMedia.length === 0 ? (
-            <div className="h-48 flex flex-col items-center justify-center text-gray-500 space-y-3">
-              <LayoutGrid size={36} className="opacity-20" />
-              <p className="text-sm">Belum ada media buatan AI.</p>
-            </div>
+            <div className="h-64 flex flex-col items-center justify-center text-gray-500 space-y-4"><LayoutGrid size={48} className="opacity-20" /><p className="text-base font-medium">Belum ada media yang di-generate</p></div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredMedia.map((media, i) => (
-                <div key={i} className={`group relative rounded-xl overflow-hidden border transition-all ${
-                  media.type === 'audio' ? 'p-3' : 'aspect-square'
-                } ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
-                  {media.type === 'image' && (
-                    <img src={media.url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                  )}
-                  {media.type === 'video' && (
-                    <video src={media.url} className="absolute inset-0 w-full h-full object-cover bg-black" controls muted />
-                  )}
-                  {media.type === 'audio' && (
-                    <div className="w-full flex flex-col items-center py-2">
-                      <Music size={24} className="text-purple-500/40 mb-2" />
-                      <CustomAudioPlayer src={media.url} theme={theme} />
-                    </div>
-                  )}
+                <div key={i} className={`group relative rounded-2xl overflow-hidden border shadow-sm hover:shadow-md transition-all ${media.type === 'audio' ? 'p-4 flex flex-col' : 'aspect-square'} ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+                  {media.type === 'image' && <img src={media.url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
+                  {media.type === 'video' && <video src={media.url} className="absolute inset-0 w-full h-full object-cover bg-black" controls muted />}
+                  {media.type === 'audio' && <><div className="flex-1 flex items-center justify-center"><Music size={40} className="text-purple-500/30" /></div><CustomAudioPlayer src={media.url} theme={theme} /></>}
                   {media.type !== 'audio' && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3 z-10">
-                      <span className="text-[10px] text-white/80 truncate pr-2 font-medium">{media.title}</span>
-                      <button onClick={() => unduhGambar(media.url)}
-                        className="p-1.5 bg-white/20 hover:bg-blue-500 rounded-lg text-white backdrop-blur-sm transition-colors shrink-0"
-                        title="Unduh">
-                        <Download size={13} />
-                      </button>
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4 z-10">
+                      <span className="text-xs text-white font-medium truncate pr-3">{media.title}</span>
+                      <button onClick={() => unduhGambar(media.url)} className="p-2 bg-white/20 hover:bg-blue-500 rounded-xl text-white backdrop-blur-md transition-colors shrink-0 shadow-lg" title="Unduh"><Download size={16} /></button>
                     </div>
                   )}
                 </div>
@@ -1973,92 +1295,29 @@ export default function App() {
         </div>
       </Modal>
 
-      {/* Manage Prompts Modal */}
       <Modal isOpen={isManagePromptOpen} onClose={() => setIsManagePromptOpen(false)} theme={theme} maxWidth="max-w-lg">
-        <div className={`p-5 border-b flex justify-between items-center ${
-          theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'
-        }`}>
-          <div className="flex items-center gap-3">
-            <Settings size={18} className="text-blue-500" />
-            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Kelola Prompt</h2>
-          </div>
-          <button onClick={() => setIsManagePromptOpen(false)} className={`p-1.5 rounded-lg ${
-            theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'
-          }`}><X size={18} /></button>
+        <div className={`p-5 border-b flex justify-between items-center ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
+          <div className="flex items-center gap-3"><Settings size={20} className="text-blue-500" /><h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Kelola Prompt</h2></div>
+          <button onClick={() => setIsManagePromptOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'}`}><X size={18} /></button>
         </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-5" style={{ scrollbarWidth: 'none' }}>
-          {/* Create New Prompt */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
           <div className="space-y-3">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${
-              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Tambah Baru</h3>
-            <input
-              placeholder="/perintah (misal: /review)"
-              className={`w-full p-3 rounded-xl text-sm border outline-none ${
-                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'
-              }`}
-              value={newPrompt.command}
-              onChange={e => setNewPrompt({ ...newPrompt, command: e.target.value })}
-            />
-            <input
-              placeholder="Deskripsi singkat"
-              className={`w-full p-3 rounded-xl text-sm border outline-none ${
-                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'
-              }`}
-              value={newPrompt.description}
-              onChange={e => setNewPrompt({ ...newPrompt, description: e.target.value })}
-            />
-            <textarea
-              placeholder="Isi prompt lengkap…"
-              rows="3"
-              className={`w-full p-3 rounded-xl text-sm border outline-none resize-none ${
-                theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'
-              }`}
-              value={newPrompt.prompt}
-              onChange={e => setNewPrompt({ ...newPrompt, prompt: e.target.value })}
-            />
-            <button
-              onClick={savePrompt}
-              disabled={!newPrompt.command || !newPrompt.prompt}
-              className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                !newPrompt.command || !newPrompt.prompt
-                  ? (theme === 'dark' ? 'bg-[#30363d] text-gray-600' : 'bg-gray-200 text-gray-400')
-                  : 'bg-blue-600 hover:bg-blue-500 text-white'
-              }`}
-            >
-              <Save size={14} className="inline mr-1.5" /> Simpan ke Supabase
-            </button>
+            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tambah Prompt Baru</h3>
+            <input placeholder="/perintah (misal: /review)" className={`w-full p-3.5 rounded-xl text-sm border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'}`} value={newPrompt.command} onChange={e => setNewPrompt({ ...newPrompt, command: e.target.value })} />
+            <input placeholder="Deskripsi singkat" className={`w-full p-3.5 rounded-xl text-sm border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'}`} value={newPrompt.description} onChange={e => setNewPrompt({ ...newPrompt, description: e.target.value })} />
+            <textarea placeholder="Isi instruksi AI yang lengkap di sini..." rows="4" className={`w-full p-3.5 rounded-xl text-sm border outline-none resize-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'}`} value={newPrompt.prompt} onChange={e => setNewPrompt({ ...newPrompt, prompt: e.target.value })} />
+            <button onClick={savePrompt} disabled={!newPrompt.command || !newPrompt.prompt} className={`w-full py-3 rounded-xl text-sm font-bold transition-all shadow-md ${!newPrompt.command || !newPrompt.prompt ? (theme === 'dark' ? 'bg-[#30363d] text-gray-600 shadow-none' : 'bg-gray-200 text-gray-400 shadow-none') : 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'}`}><Save size={16} className="inline mr-2 -mt-0.5" /> Simpan ke Supabase</button>
           </div>
-
-          {/* Saved Prompts */}
-          <div className="space-y-2">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${
-              theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Prompt Tersimpan ({slashCommands.length})</h3>
-
-            {slashCommands.length === 0 && (
-              <div className={`text-center text-sm py-6 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>
-                Belum ada prompt tersimpan
-              </div>
-            )}
-
+          <div className="space-y-3">
+            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Prompt Tersimpan ({slashCommands.length})</h3>
+            {slashCommands.length === 0 && <div className={`text-center text-sm py-8 border-dashed border-2 rounded-xl ${theme === 'dark' ? 'border-[#30363d] text-gray-600' : 'border-gray-200 text-gray-400'}`}>Belum ada prompt tersimpan</div>}
             {slashCommands.map(cmd => (
-              <div key={cmd.id} className={`flex justify-between items-center p-3 rounded-xl border group ${
-                theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-gray-50 border-gray-200'
-              }`}>
+              <div key={cmd.id} className={`flex justify-between items-center p-4 rounded-xl border group ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-gray-50 border-gray-200'}`}>
                 <div className="min-w-0 flex-1">
-                  <div className="font-semibold text-sm text-blue-400">{cmd.command}</div>
-                  <div className={`text-xs mt-0.5 truncate ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                    {cmd.description || cmd.prompt?.substring(0, 60)}
-                  </div>
+                  <div className="font-bold text-sm text-blue-500 mb-1">{cmd.command}</div>
+                  <div className={`text-xs truncate ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>{cmd.description || cmd.prompt?.substring(0, 60)}</div>
                 </div>
-                <button
-                  onClick={() => deletePrompt(cmd.id)}
-                  className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-all shrink-0 ml-2"
-                >
-                  <Trash2 size={14} />
-                </button>
+                <button onClick={() => deletePrompt(cmd.id)} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 text-red-500 rounded-lg transition-all shrink-0 ml-3"><Trash2 size={16} /></button>
               </div>
             ))}
           </div>
