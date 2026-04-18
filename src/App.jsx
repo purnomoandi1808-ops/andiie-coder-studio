@@ -8,10 +8,9 @@ import {
   Play, Pause, Rewind, FastForward, X, Paperclip, Code, Download,
   Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server,
   LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban,
-  Layers, ChevronRight, ChevronDown, Bot, User, StopCircle,
-  PanelRightOpen, PanelRightClose, Search, Hash, Image as ImageIcon,
-  Video, Volume2, ExternalLink, MoreHorizontal, LogOut, Folder,
-  GraduationCap, FolderSync
+  Layers, ChevronRight, ChevronDown, User, StopCircle,
+  PanelRightOpen, PanelRightClose, Image as ImageIcon,
+  Video, Volume2, LogOut, Folder, GraduationCap, FolderSync
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
@@ -24,12 +23,10 @@ import 'xterm/css/xterm.css';
 // =====================================
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
-const supabase = (supabaseUrl && supabaseKey)
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
+const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
 // =====================================
-// UTILITY: Auto-resize textarea
+// UTILITY: Auto-resize textarea & Mobile
 // =====================================
 const useAutoResize = (ref, value) => {
   useEffect(() => {
@@ -40,9 +37,6 @@ const useAutoResize = (ref, value) => {
   }, [value, ref]);
 };
 
-// =====================================
-// UTILITY: Detect mobile
-// =====================================
 const useIsMobile = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   useEffect(() => {
@@ -61,16 +55,12 @@ const ekstrakMediaDariRiwayat = (sessions) => {
   sessions.forEach(sesi => {
     (sesi.messages || []).forEach(msg => {
       if (msg.role === 'ai') {
-        const imgRegex = /!\[.*?\]\((.*?)\)/g;
-        let match;
-        while ((match = imgRegex.exec(msg.text)) !== null)
-          daftarMedia.push({ type: 'image', url: match[1], title: sesi.title });
+        const imgRegex = /!\[.*?\]\((.*?)\)/g; let match;
+        while ((match = imgRegex.exec(msg.text)) !== null) daftarMedia.push({ type: 'image', url: match[1], title: sesi.title });
         const vidRegex = /\[VIDEO_PLAYER\]\((.*?)\)/g;
-        while ((match = vidRegex.exec(msg.text)) !== null)
-          daftarMedia.push({ type: 'video', url: match[1], title: sesi.title });
+        while ((match = vidRegex.exec(msg.text)) !== null) daftarMedia.push({ type: 'video', url: match[1], title: sesi.title });
         const audRegex = /\[AUDIO_PLAYER\]\((.*?)\)/g;
-        while ((match = audRegex.exec(msg.text)) !== null)
-          daftarMedia.push({ type: 'audio', url: match[1], title: sesi.title });
+        while ((match = audRegex.exec(msg.text)) !== null) daftarMedia.push({ type: 'audio', url: match[1], title: sesi.title });
       }
     });
   });
@@ -80,33 +70,23 @@ const ekstrakMediaDariRiwayat = (sessions) => {
 // =====================================
 // SMART CODE BLOCK
 // =====================================
-const SmartCodeBlock = ({
-  inline, className, children, theme,
-  setActiveCanvasTab, setIsPreviewOpen, setPreviewCode
-}) => {
+const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
   const [isCopied, setIsCopied] = useState(false);
   const codeString = String(children).replace(/\n$/, '');
   const match = /language-(\w+)/.exec(className || '');
   let language = 'text';
 
-  if (match) {
-    language = match[1].toLowerCase();
-  } else if (!inline && codeString.includes('\n')) {
-    if (codeString.includes('def ') || codeString.includes('import ') || codeString.includes('print('))
-      language = 'python';
-    else if (codeString.includes('<div') || codeString.includes('<html'))
-      language = 'html';
+  if (match) language = match[1].toLowerCase();
+  else if (!inline && codeString.includes('\n')) {
+    if (codeString.includes('def ') || codeString.includes('import ') || codeString.includes('print(')) language = 'python';
+    else if (codeString.includes('<div') || codeString.includes('<html')) language = 'html';
     else language = 'javascript';
   }
 
   const isBlock = !inline && (codeString.includes('\n') || (className && className.includes('language-')));
   const isRenderable = ['html', 'xml', 'python', 'py'].includes(language);
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(codeString).catch(() => {});
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
-  }, [codeString]);
+  const handleCopy = useCallback(() => { navigator.clipboard.writeText(codeString).catch(() => {}); setIsCopied(true); setTimeout(() => setIsCopied(false), 2000); }, [codeString]);
 
   const handlePreview = useCallback(() => {
     let codeToRender = codeString;
@@ -114,86 +94,26 @@ const SmartCodeBlock = ({
       const safeCode = JSON.stringify(codeString).replace(/<\//g, '<\\/');
       codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Memuat Mesin Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Menjalankan…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Selesai";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
     }
-    setPreviewCode(codeToRender);
-    setIsPreviewOpen(true);
-    setActiveCanvasTab("preview");
+    setPreviewCode(codeToRender); setIsPreviewOpen(true); setActiveCanvasTab("preview");
   }, [codeString, language, theme, setPreviewCode, setIsPreviewOpen, setActiveCanvasTab]);
 
   if (isBlock) {
     return (
-      <div className={`rounded-xl border my-4 overflow-hidden ${
-        theme === 'dark'
-          ? 'border-[#30363d] bg-[#0d1117]'
-          : 'border-gray-200 bg-gray-50'
-      }`}>
-        <div className={`flex items-center justify-between px-4 py-2 border-b text-xs ${
-          theme === 'dark'
-            ? 'bg-[#161b22] border-[#30363d] text-gray-400'
-            : 'bg-gray-100 border-gray-200 text-gray-500'
-        }`}>
-          <span className="font-mono font-semibold uppercase tracking-wider text-[10px]">
-            {language}
-          </span>
+      <div className={`rounded-xl border my-4 overflow-hidden ${theme === 'dark' ? 'border-[#30363d] bg-[#0d1117]' : 'border-gray-200 bg-gray-50'}`}>
+        <div className={`flex items-center justify-between px-4 py-2 border-b text-xs ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-500'}`}>
+          <span className="font-mono font-semibold uppercase tracking-wider text-[10px]">{language}</span>
           <div className="flex items-center gap-1.5">
-            {isRenderable && (
-              <button
-                onClick={handlePreview}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold
-                  bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
-              >
-                <Play size={11} fill="currentColor" /> Preview
-              </button>
-            )}
-            <button
-              onClick={handleCopy}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
-                isCopied
-                  ? 'bg-green-500/15 text-green-400'
-                  : 'hover:bg-white/10 text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              {isCopied ? <Check size={11} /> : <Copy size={11} />}
-              {isCopied ? "Tersalin" : "Salin"}
-            </button>
+            {isRenderable && <button onClick={handlePreview} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"><Play size={11} fill="currentColor" /> Preview</button>}
+            <button onClick={handleCopy} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${isCopied ? 'bg-green-500/15 text-green-400' : 'hover:bg-white/10 text-gray-400 hover:text-gray-200'}`}>{isCopied ? <Check size={11} /> : <Copy size={11} />} {isCopied ? "Tersalin" : "Salin"}</button>
           </div>
         </div>
-        <SyntaxHighlighter
-          language={language === 'text' || language === 'code' ? 'javascript' : language}
-          style={theme === 'dark' ? vscDarkPlus : oneLight}
-          customStyle={{
-            margin: 0,
-            padding: '16px',
-            fontSize: '13px',
-            lineHeight: '1.6',
-            background: 'transparent',
-          }}
-          wrapLines
-          lineProps={(lineNumber) => {
-            const line = codeString.split('\n')[lineNumber - 1] || "";
-            if (language === 'diff') {
-              if (line.startsWith('+'))
-                return { style: { backgroundColor: theme === 'dark' ? 'rgba(46,160,67,0.15)' : 'rgba(46,160,67,0.1)', display: 'block' } };
-              if (line.startsWith('-'))
-                return { style: { backgroundColor: theme === 'dark' ? 'rgba(248,81,73,0.15)' : 'rgba(248,81,73,0.1)', display: 'block' } };
-            }
-            return {};
-          }}
-        >
+        <SyntaxHighlighter language={language === 'text' || language === 'code' ? 'javascript' : language} style={theme === 'dark' ? vscDarkPlus : oneLight} customStyle={{ margin: 0, padding: '16px', fontSize: '13px', lineHeight: '1.6', background: 'transparent' }} wrapLines lineProps={(lineNumber) => { const line = codeString.split('\n')[lineNumber - 1] || ""; if (language === 'diff') { if (line.startsWith('+')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(46,160,67,0.15)' : 'rgba(46,160,67,0.1)', display: 'block' } }; if (line.startsWith('-')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(248,81,73,0.15)' : 'rgba(248,81,73,0.1)', display: 'block' } }; } return {}; }}>
           {codeString}
         </SyntaxHighlighter>
       </div>
     );
   }
-
-  return (
-    <code className={`px-1.5 py-0.5 rounded text-[13px] font-mono ${
-      theme === 'dark'
-        ? 'bg-[#1e1f20] text-[#79c0ff]'
-        : 'bg-gray-100 text-pink-600'
-    }`}>
-      {children}
-    </code>
-  );
+  return <code className={`px-1.5 py-0.5 rounded text-[13px] font-mono ${theme === 'dark' ? 'bg-[#1e1f20] text-[#79c0ff]' : 'bg-gray-100 text-pink-600'}`}>{children}</code>;
 };
 
 // =====================================
@@ -206,80 +126,22 @@ const CustomAudioPlayer = ({ src, theme }) => {
   const [currentTime, setCurrentTime] = useState("0:00");
   const [duration, setDuration] = useState("0:00");
 
-  const formatTime = (t) => {
-    if (isNaN(t)) return "0:00";
-    return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
-  };
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) audioRef.current.pause();
-    else audioRef.current.play().catch(() => {});
-    setIsPlaying(!isPlaying);
-  };
-
-  const skip = (amt) => {
-    if (audioRef.current) audioRef.current.currentTime += amt;
-  };
+  const formatTime = (t) => { if (isNaN(t)) return "0:00"; return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`; };
+  const togglePlay = () => { if (!audioRef.current) return; if (isPlaying) audioRef.current.pause(); else audioRef.current.play().catch(() => {}); setIsPlaying(!isPlaying); };
+  const skip = (amt) => { if (audioRef.current) audioRef.current.currentTime += amt; };
 
   return (
-    <div className={`w-full max-w-sm flex flex-col gap-2.5 p-3.5 rounded-2xl border my-3 transition-colors ${
-      theme === 'dark'
-        ? 'bg-[#161b22] border-[#30363d]'
-        : 'bg-white border-gray-200 shadow-sm'
-    }`}>
-      <audio
-        ref={audioRef}
-        src={src}
-        onTimeUpdate={() => {
-          const a = audioRef.current;
-          if (a && a.duration > 0) {
-            setProgress((a.currentTime / a.duration) * 100);
-            setCurrentTime(formatTime(a.currentTime));
-          }
-        }}
-        onLoadedMetadata={() => {
-          if (audioRef.current) setDuration(formatTime(audioRef.current.duration));
-        }}
-        onEnded={() => setIsPlaying(false)}
-        className="hidden"
-      />
+    <div className={`w-full max-w-sm flex flex-col gap-2.5 p-3.5 rounded-2xl border my-3 transition-colors ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200 shadow-sm'}`}>
+      <audio ref={audioRef} src={src} onTimeUpdate={() => { const a = audioRef.current; if (a && a.duration > 0) { setProgress((a.currentTime / a.duration) * 100); setCurrentTime(formatTime(a.currentTime)); } }} onLoadedMetadata={() => { if (audioRef.current) setDuration(formatTime(audioRef.current.duration)); }} onEnded={() => setIsPlaying(false)} className="hidden" />
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
-          <button onClick={() => skip(-10)}
-            className={`p-1.5 rounded-full transition-colors ${
-              theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'
-            }`}>
-            <Rewind size={14} />
-          </button>
-          <button onClick={togglePlay}
-            className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-500 active:scale-95 transition-all shadow-md">
-            {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
-          </button>
-          <button onClick={() => skip(10)}
-            className={`p-1.5 rounded-full transition-colors ${
-              theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'
-            }`}>
-            <FastForward size={14} />
-          </button>
+          <button onClick={() => skip(-10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'}`}><Rewind size={14} /></button>
+          <button onClick={togglePlay} className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-500 active:scale-95 transition-all shadow-md">{isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}</button>
+          <button onClick={() => skip(10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'}`}><FastForward size={14} /></button>
         </div>
         <div className="flex-1 flex flex-col gap-1">
-          <input
-            type="range" min="0" max="100"
-            value={progress || 0}
-            onChange={(e) => {
-              if (audioRef.current && audioRef.current.duration) {
-                audioRef.current.currentTime = (e.target.value / 100) * audioRef.current.duration;
-                setProgress(e.target.value);
-              }
-            }}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer accent-blue-500"
-            style={{ background: `linear-gradient(to right, #3b82f6 ${progress}%, ${theme === 'dark' ? '#30363d' : '#e5e7eb'} ${progress}%)` }}
-          />
-          <div className="flex justify-between">
-            <span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{currentTime}</span>
-            <span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{duration}</span>
-          </div>
+          <input type="range" min="0" max="100" value={progress || 0} onChange={(e) => { if (audioRef.current && audioRef.current.duration) { audioRef.current.currentTime = (e.target.value / 100) * audioRef.current.duration; setProgress(e.target.value); } }} className="w-full h-1 rounded-full appearance-none cursor-pointer accent-blue-500" style={{ background: `linear-gradient(to right, #3b82f6 ${progress}%, ${theme === 'dark' ? '#30363d' : '#e5e7eb'} ${progress}%)` }} />
+          <div className="flex justify-between"><span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{currentTime}</span><span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{duration}</span></div>
         </div>
       </div>
     </div>
@@ -287,31 +149,14 @@ const CustomAudioPlayer = ({ src, theme }) => {
 };
 
 // =====================================
-// MODAL WRAPPER (Reusable)
+// MODAL WRAPPER
 // =====================================
 const Modal = ({ isOpen, onClose, children, theme, maxWidth = "max-w-2xl" }) => (
   <AnimatePresence>
     {isOpen && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-        onClick={onClose}
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-          onClick={(e) => e.stopPropagation()}
-          className={`relative w-full ${maxWidth} max-h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border ${
-            theme === 'dark'
-              ? 'bg-[#0d1117] border-[#30363d]'
-              : 'bg-white border-gray-200'
-          }`}
-        >
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: "spring", bounce: 0.15, duration: 0.4 }} onClick={(e) => e.stopPropagation()} className={`relative w-full ${maxWidth} max-h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d]' : 'bg-white border-gray-200'}`}>
           {children}
         </motion.div>
       </motion.div>
@@ -322,116 +167,47 @@ const Modal = ({ isOpen, onClose, children, theme, maxWidth = "max-w-2xl" }) => 
 // =====================================
 // MESSAGE BUBBLE COMPONENT
 // =====================================
-const MessageBubble = React.memo(({
-  chat, idx, isLast, isStreaming, theme,
-  setActiveCanvasTab, setIsPreviewOpen, setPreviewCode
-}) => {
-  const isUser = chat.role === 'user';
+const MessageBubble = React.memo(({ chat, idx, isLast, isStreaming, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
   const isAI = chat.role === 'ai';
-
   return (
     <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors`}>
       <div className="max-w-3xl mx-auto flex gap-3 md:gap-4">
-        {/* Avatar */}
         <div className="shrink-0 pt-0.5">
           {isAI ? (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              theme === 'dark'
-                ? 'bg-gradient-to-br from-blue-600 to-violet-600'
-                : 'bg-gradient-to-br from-blue-500 to-violet-500'
-            }`}>
-              {isStreaming && isLast
-                ? <Loader2 className="animate-spin text-white" size={14} />
-                : <Sparkles className="text-white" size={14} />
-              }
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-gradient-to-br from-blue-600 to-violet-600' : 'bg-gradient-to-br from-blue-500 to-violet-500'}`}>
+              {isStreaming && isLast ? <Loader2 className="animate-spin text-white" size={14} /> : <Sparkles className="text-white" size={14} />}
             </div>
           ) : (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              theme === 'dark'
-                ? 'bg-[#1e1f20] border border-[#30363d]'
-                : 'bg-gray-100 border border-gray-200'
-            }`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-[#1e1f20] border border-[#30363d]' : 'bg-gray-100 border border-gray-200'}`}>
               <User size={14} className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} />
             </div>
           )}
         </div>
-
-        {/* Content */}
         <div className="flex-1 min-w-0 overflow-hidden">
-          <div className={`text-xs font-semibold mb-1.5 ${
-            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-          }`}>
-            {isAI ? 'AI Studio' : 'Anda'}
-          </div>
-
+          <div className={`text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{isAI ? 'AI Studio' : 'Anda'}</div>
           {isAI ? (
-            <div className={`prose prose-sm max-w-none break-words leading-relaxed ${
-              theme === 'dark' ? 'prose-invert' : 'prose-gray'
-            }`}
-              style={{
-                '--tw-prose-body': theme === 'dark' ? '#c9d1d9' : '#374151',
-                '--tw-prose-headings': theme === 'dark' ? '#f0f6fc' : '#111827',
-                '--tw-prose-links': '#58a6ff',
-              }}
-            >
+            <div className={`prose prose-sm max-w-none break-words leading-relaxed ${theme === 'dark' ? 'prose-invert' : 'prose-gray'}`} style={{ '--tw-prose-body': theme === 'dark' ? '#c9d1d9' : '#374151', '--tw-prose-headings': theme === 'dark' ? '#f0f6fc' : '#111827', '--tw-prose-links': '#58a6ff' }}>
               <ReactMarkdown
                 urlTransform={(value) => value}
                 components={{
-                  code(props) {
-                    return (
-                      <SmartCodeBlock
-                        {...props}
-                        theme={theme}
-                        setActiveCanvasTab={setActiveCanvasTab}
-                        setIsPreviewOpen={setIsPreviewOpen}
-                        setPreviewCode={setPreviewCode}
-                      />
-                    );
-                  },
+                  code(props) { return <SmartCodeBlock {...props} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />; },
                   a(props) {
-                    if (props.children && props.children[0] === 'AUDIO_PLAYER') {
-                      return <CustomAudioPlayer src={props.href} theme={theme} />;
-                    }
-                    return (
-                      <a
-                        {...props}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-400/60 transition-colors"
-                      >
-                        {props.children}
-                      </a>
-                    );
+                    if (props.children && props.children[0] === 'AUDIO_PLAYER') { return <CustomAudioPlayer src={props.href} theme={theme} />; }
+                    return <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-400/60 transition-colors">{props.children}</a>;
                   },
-                  p({ children }) {
-                    return <p className="mb-3 last:mb-0 leading-7">{children}</p>;
-                  },
-                  ul({ children }) {
-                    return <ul className="mb-3 space-y-1.5 list-disc list-outside ml-4">{children}</ul>;
-                  },
-                  ol({ children }) {
-                    return <ol className="mb-3 space-y-1.5 list-decimal list-outside ml-4">{children}</ol>;
-                  },
+                  p({ children }) { return <p className="mb-3 last:mb-0 leading-7">{children}</p>; },
+                  ul({ children }) { return <ul className="mb-3 space-y-1.5 list-disc list-outside ml-4">{children}</ul>; },
+                  ol({ children }) { return <ol className="mb-3 space-y-1.5 list-decimal list-outside ml-4">{children}</ol>; },
                 }}
               >
                 {chat.text || (isStreaming && isLast ? '' : '')}
               </ReactMarkdown>
-
-              {/* Streaming cursor */}
               {isStreaming && isLast && !chat.text && (
-                <div className="flex gap-1 py-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
-                </div>
+                <div className="flex gap-1 py-2"><span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} /><span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} /></div>
               )}
             </div>
           ) : (
-            <div className={`whitespace-pre-wrap leading-7 ${
-              theme === 'dark' ? 'text-[#e6edf3]' : 'text-gray-800'
-            }`}>
-              {chat.text}
-            </div>
+            <div className={`whitespace-pre-wrap leading-7 ${theme === 'dark' ? 'text-[#e6edf3]' : 'text-gray-800'}`}>{chat.text}</div>
           )}
         </div>
       </div>
@@ -444,19 +220,15 @@ const MessageBubble = React.memo(({
 // =====================================
 export default function App() {
   const isMobile = useIsMobile();
-
-  // Auth
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginData, setLoginData] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
 
-  // Chat
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeRoute, setActiveRoute] = useState(null);
 
-  // UI States
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
   const [selectedModel, setSelectedModel] = useState("google/gemma-4-31b-it");
   const [selectedPersona, setSelectedPersona] = useState("default");
@@ -471,15 +243,11 @@ export default function App() {
   const chatContainerRef = useRef(null);
   const chatEndRef = useRef(null);
 
-  // Canvas / Preview
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview");
-
-  // Theme
   const [theme, setTheme] = useState(() => localStorage.getItem("andiie_theme") || "dark");
 
-  // Terminal SSH
   const terminalRef = useRef(null);
   const xtermInstance = useRef(null);
   const wsInstance = useRef(null);
@@ -487,116 +255,47 @@ export default function App() {
   const [sshStatus, setSshStatus] = useState("disconnected");
   const [sshCreds, setSshCreds] = useState({ host: "", port: "22", username: "", password: "" });
 
-  // Slash Commands
   const [showSlashCommands, setShowSlashCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState("");
   const [slashCommands, setSlashCommands] = useState([]);
   const [isManagePromptOpen, setIsManagePromptOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState({ command: "", description: "", prompt: "" });
 
-  // Gallery
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState('all');
 
-  // Projects
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
-  const [projectsList, setProjectsList] = useState(() => {
-    try { const saved = localStorage.getItem("andiie_projects"); return saved ? JSON.parse(saved) : []; }
-    catch { return []; }
-  });
-
-  // Sessions
-  const [sessions, setSessions] = useState(() => {
-    try { const saved = localStorage.getItem("andiie_chat_history"); return saved ? JSON.parse(saved) : []; }
-    catch { return []; }
-  });
+  const [projectsList, setProjectsList] = useState(() => { try { const saved = localStorage.getItem("andiie_projects"); return saved ? JSON.parse(saved) : []; } catch { return []; } });
+  const [sessions, setSessions] = useState(() => { try { const saved = localStorage.getItem("andiie_chat_history"); return saved ? JSON.parse(saved) : []; } catch { return []; } });
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
 
   const modelGroups = [
-    {
-      label: "🧠 Deep Thinking & Research",
-      models: [
-        { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" },
-        { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" },
-        { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini (Math/Logic)" },
-      ]
-    },
-    {
-      label: "📝 Text & General",
-      models: [
-        { value: "auto", label: "✨ Auto Smart Manager" },
-        { value: "google/gemma-4-31b-it", label: "🔵 Google: Gemma 4 31B (Free)" },
-      ]
-    },
-    {
-      label: "💻 Coding & Logic",
-      models: [
-        { value: "auto_coding", label: "⚡ Auto Coding (Lokal/Cloud)" },
-        { value: "anthropic/claude-opus-4.6", label: "🧠 Claude Opus 4.6" },
-        { value: "anthropic/claude-sonnet-4.6", label: "⚡ Claude Sonnet 4.6" },
-        { value: "openai/gpt-5.3-codex", label: "🚀 GPT-5.3 Codex" },
-        { value: "qwen/qwen3-coder-next", label: "☁️ Qwen3 Coder Next" },
-        { value: "lokal", label: "💻 Qwen 30B (Lokal Ollama)" },
-      ]
-    },
-    {
-      label: "🎨 Gambar (Images)",
-      models: [
-        { value: "sourceful/riverflow-v2-pro", label: "🌊 Riverflow V2 Pro" },
-        { value: "google/gemini-3.1-flash-image-preview", label: "🖼️ Gemini 3.1 Flash" },
-        { value: "openai/dall-e-3", label: "🎨 DALL-E 3" },
-      ]
-    },
-    {
-      label: "🎬 Video Generation",
-      models: [
-        { value: "bytedance/seedance-2.0", label: "💃 ByteDance: Seedance 2.0" },
-        { value: "alibaba/wan-2.7", label: "🎥 Alibaba: Wan 2.7" },
-        { value: "openai/sora-2-pro", label: "🌌 OpenAI: Sora 2 Pro" },
-        { value: "google/veo-3.1", label: "📽️ Google: Veo 3.1" },
-      ]
-    },
-    {
-      label: "🎵 Lagu & Audio",
-      models: [
-        { value: "google/lyria-3-clip-preview", label: "🎼 Google: Lyria 3" },
-        { value: "suno-api-custom", label: "🎸 Suno API" },
-      ]
-    },
+    { label: "🧠 Deep Thinking & Research", models: [ { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" }, { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" }, { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini (Math/Logic)" } ] },
+    { label: "📝 Text & General", models: [ { value: "auto", label: "✨ Auto Smart Manager" }, { value: "google/gemma-4-31b-it", label: "🔵 Google: Gemma 4 31B (Free)" } ] },
+    { label: "💻 Coding & Logic", models: [ { value: "auto_coding", label: "⚡ Auto Coding (Lokal/Cloud)" }, { value: "anthropic/claude-opus-4.6", label: "🧠 Claude Opus 4.6" }, { value: "anthropic/claude-sonnet-4.6", label: "⚡ Claude Sonnet 4.6" }, { value: "openai/gpt-5.3-codex", label: "🚀 GPT-5.3 Codex" }, { value: "qwen/qwen3-coder-next", label: "☁️ Qwen3 Coder Next" }, { value: "lokal", label: "💻 Qwen 30B (Lokal Ollama)" } ] },
+    { label: "🎨 Gambar (Images)", models: [ { value: "sourceful/riverflow-v2-pro", label: "🌊 Riverflow V2 Pro" }, { value: "google/gemini-3.1-flash-image-preview", label: "🖼️ Gemini 3.1 Flash" }, { value: "openai/dall-e-3", label: "🎨 DALL-E 3" } ] },
+    { label: "🎬 Video Generation", models: [ { value: "bytedance/seedance-2.0", label: "💃 ByteDance: Seedance 2.0" }, { value: "alibaba/wan-2.7", label: "🎥 Alibaba: Wan 2.7" }, { value: "openai/sora-2-pro", label: "🌌 OpenAI: Sora 2 Pro" }, { value: "google/veo-3.1", label: "📽️ Google: Veo 3.1" } ] },
+    { label: "🎵 Lagu & Audio", models: [ { value: "google/lyria-3-clip-preview", label: "🎼 Google: Lyria 3" }, { value: "suno-api-custom", label: "🎸 Suno API" } ] },
   ];
-
-  const currentModelLabel = modelGroups
-    .flatMap(g => g.models)
-    .find(m => m.value === selectedModel)?.label || selectedModel;
-
+  const currentModelLabel = modelGroups.flatMap(g => g.models).find(m => m.value === selectedModel)?.label || selectedModel;
 
   useAutoResize(textareaRef, input);
-
   const generatedMedia = useMemo(() => ekstrakMediaDariRiwayat(sessions), [sessions]);
   const filteredMedia = generatedMedia.filter(m => galleryFilter === 'all' || m.type === galleryFilter);
-
   const slashCommandsList = useMemo(() => [
-    { command: "/fix-diff", description: "Perbaiki bug (Visual Diff)", prompt: "Tolong perbaiki kode ini. Tampilkan perubahannya menggunakan blok kode berformat 'diff' (awali baris yang dihapus dengan '-' dan baris baru dengan '+')." },
+    { command: "/fix-diff", description: "Perbaiki bug (Visual Diff)", prompt: "Tolong perbaiki kode ini. Tampilkan perubahannya menggunakan blok kode berformat 'diff'." },
     { command: "/review", description: "Cari bug & error", prompt: "Tolong review baris kode ini, cari bug atau potensi error, dan berikan solusinya." },
     { command: "/refactor", description: "Bersihkan kode", prompt: "Tolong tulis ulang kode ini agar lebih bersih, efisien, rapi, dan tambahkan komentar." },
     { command: "/explain", description: "Jelaskan kode", prompt: "Tolong jelaskan cara kerja kode ini baris demi baris." },
   ], []);
-
   const allPrompts = useMemo(() => [...slashCommandsList, ...slashCommands], [slashCommandsList, slashCommands]);
 
   useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); localStorage.setItem("andiie_theme", theme); }, [theme]);
   useEffect(() => { if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true); }, []);
-  useEffect(() => {
-    if (!supabase) return;
-    (async () => {
-      const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false });
-      if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); }
-    })();
-  }, []);
+  useEffect(() => { if (!supabase) return; (async () => { const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false }); if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); } })(); }, []);
   useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
-  
   useEffect(() => {
     if (isStreaming || !currentSessionId || messages.length === 0) return;
     const timer = setTimeout(() => {
@@ -616,55 +315,25 @@ export default function App() {
   useEffect(() => { if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" }); }, [messages, isStreaming]);
   useEffect(() => { if (!isMobile) setIsSidebarOpen(true); else setIsSidebarOpen(false); }, [isMobile]);
 
-  const fetchPrompts = useCallback(async () => {
-    if (!supabase) return;
-    const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true });
-    if (!error && data) setSlashCommands(data);
-  }, []);
-
+  const fetchPrompts = useCallback(async () => { if (!supabase) return; const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true }); if (!error && data) setSlashCommands(data); }, []);
   useEffect(() => { fetchPrompts(); }, [fetchPrompts]);
   useEffect(() => { if (activeCanvasTab !== "terminal" && xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; } }, [activeCanvasTab]);
-  useEffect(() => {
-    if (!showModelDropdown) return;
-    const handler = () => setShowModelDropdown(false);
-    window.addEventListener('click', handler); return () => window.removeEventListener('click', handler);
-  }, [showModelDropdown]);
+  useEffect(() => { if (!showModelDropdown) return; const handler = () => setShowModelDropdown(false); window.addEventListener('click', handler); return () => window.removeEventListener('click', handler); }, [showModelDropdown]);
 
   const toggleTheme = () => setTheme(p => p === "dark" ? "light" : "dark");
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (loginData.username === "andiie" && loginData.password === "Arsyad160216") { setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true"); setLoginError(""); }
-    else setLoginError("Kredensial tidak valid.");
-  };
+  const handleLogin = (e) => { e.preventDefault(); if (loginData.username === "andiie" && loginData.password === "Arsyad160216") { setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true"); setLoginError(""); } else setLoginError("Kredensial tidak valid."); };
   const handleLogout = () => { localStorage.removeItem("andiie_auth"); setIsLoggedIn(false); };
   const buatChatBaru = () => { setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]); if (isMobile) setIsSidebarOpen(false); };
   const muatChatLama = (id) => { if (isStreaming) return; const sesi = sessions.find(s => s.id === id); if (sesi) { setCurrentSessionId(id); setMessages(sesi.messages || []); setActiveRoute(null); setAttachments([]); if (isMobile) setIsSidebarOpen(false); } };
   const hapusChat = async (e, id) => { e.stopPropagation(); const updated = sessions.filter(s => s.id !== id); setSessions(updated); localStorage.setItem("andiie_chat_history", JSON.stringify(updated)); if (currentSessionId === id) buatChatBaru(); if (supabase) await supabase.from('andiie_chats').delete().eq('id', id); };
-  const handleFileChange = (e) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file }));
-      setAttachments(prev => [...prev, ...filesArray]);
-    }
-    e.target.value = null;
-  };
+  const handleFileChange = (e) => { if (e.target.files) { const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file })); setAttachments(prev => [...prev, ...filesArray]); } e.target.value = null; };
   const hapusAttachment = (idx) => setAttachments(prev => prev.filter((_, i) => i !== idx));
   const handleInputChange = (e) => { const val = e.target.value; setInput(val); if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); } else setShowSlashCommands(false); };
   const applySlashCommand = (promptText) => { setInput(promptText); setShowSlashCommands(false); textareaRef.current?.focus(); };
-
-  const savePrompt = async () => {
-    if (!newPrompt.command || !newPrompt.prompt) return;
-    if (supabase) {
-      const cmd = newPrompt.command.startsWith('/') ? newPrompt.command : '/' + newPrompt.command;
-      const { error } = await supabase.from('andiie_prompts').upsert({ ...newPrompt, command: cmd });
-      if (!error) { fetchPrompts(); setNewPrompt({ command: "", description: "", prompt: "" }); }
-    }
-  };
+  const savePrompt = async () => { if (!newPrompt.command || !newPrompt.prompt) return; if (supabase) { const cmd = newPrompt.command.startsWith('/') ? newPrompt.command : '/' + newPrompt.command; const { error } = await supabase.from('andiie_prompts').upsert({ ...newPrompt, command: cmd }); if (!error) { fetchPrompts(); setNewPrompt({ command: "", description: "", prompt: "" }); } } };
   const deletePrompt = async (id) => { if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); } };
 
-  const linkFolder = async () => {
-    try { const handle = await window.showDirectoryPicker({ mode: 'readwrite' }); setDirHandle(handle); alert("Folder lokal berhasil ditautkan!"); } catch (e) { console.error("Gagal", e); }
-  };
-
+  const linkFolder = async () => { try { const handle = await window.showDirectoryPicker({ mode: 'readwrite' }); setDirHandle(handle); alert("Folder lokal berhasil ditautkan!"); } catch (e) { console.error("Gagal", e); } };
   const saveToLocal = async () => {
     if (!dirHandle) return alert("Silakan tautkan folder terlebih dahulu!");
     let savedCount = 0;
@@ -673,13 +342,7 @@ export default function App() {
         const codeRegex = /```(\w+)?\n([\s\S]*?)```/g; let match;
         while ((match = codeRegex.exec(msg.text)) !== null) {
           const code = match[2]; const fnMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._/-]+)/i);
-          if (fnMatch) {
-            try {
-               const fileHandle = await dirHandle.getFileHandle(fnMatch[1], { create: true });
-               const writable = await fileHandle.createWritable();
-               await writable.write(code); await writable.close(); savedCount++;
-            } catch(e) { console.error(e); }
-          }
+          if (fnMatch) { try { const fileHandle = await dirHandle.getFileHandle(fnMatch[1], { create: true }); const writable = await fileHandle.createWritable(); await writable.write(code); await writable.close(); savedCount++; } catch(e) { console.error(e); } }
         }
       }
     }
@@ -693,30 +356,22 @@ export default function App() {
         const codeRegex = /```(\w+)?\n([\s\S]*?)```/g; let match;
         while ((match = codeRegex.exec(msg.text)) !== null) {
           const lang = match[1] || 'txt'; const code = match[2];
-          const fnMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._/-]+)/i);
-          const fileName = fnMatch ? fnMatch[1] : `generated_${idx}_${fileCount}.${lang}`;
-          zip.file(fileName, code); fileCount++;
+          const fnMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._/-]+)/i); const fileName = fnMatch ? fnMatch[1] : `generated_${idx}_${fileCount}.${lang}`; zip.file(fileName, code); fileCount++;
         }
       }
     });
     if (fileCount > 0) { const content = await zip.generateAsync({ type: "blob" }); const url = URL.createObjectURL(content); const a = document.createElement('a'); a.href = url; a.download = `AI_Studio_${Date.now()}.zip`; a.click(); URL.revokeObjectURL(url); } else alert("Tidak ada kode.");
   };
-
   const generateGitCommit = () => { setInput("Tolong buatkan pesan Git Commit yang profesional berdasarkan seluruh perubahan kode yang kamu berikan."); textareaRef.current?.focus(); };
 
   const bacaFile = async (file) => {
     if (file.name.endsWith('.zip') || file.type.includes('zip')) {
       try {
         const zip = new JSZip(); const loadedZip = await zip.loadAsync(file); let extractedText = ""; const MAX_CHARS = 150000; let isLimitReached = false;
-        const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/'];
-        const binaryExt = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i;
+        const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/']; const binaryExt = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i;
         for (const relativePath of Object.keys(loadedZip.files)) {
-          if (isLimitReached) break;
-          const entry = loadedZip.files[relativePath];
-          if (entry.dir || badFolders.some(f => relativePath.includes(f)) || binaryExt.test(relativePath)) continue;
-          const content = await entry.async('string');
-          extractedText += `\n\n--- [FILE: ${relativePath}] ---\n${content}\n`;
-          if (extractedText.length > MAX_CHARS) { extractedText += `\n\n[ZIP terpotong otomatis.]`; isLimitReached = true; }
+          if (isLimitReached) break; const entry = loadedZip.files[relativePath]; if (entry.dir || badFolders.some(f => relativePath.includes(f)) || binaryExt.test(relativePath)) continue;
+          const content = await entry.async('string'); extractedText += `\n\n--- [FILE: ${relativePath}] ---\n${content}\n`; if (extractedText.length > MAX_CHARS) { extractedText += `\n\n[ZIP terpotong otomatis.]`; isLimitReached = true; }
         }
         return { type: 'text', name: file.name + " (Extracted)", content: extractedText };
       } catch (error) { return { type: 'text', name: file.name, content: `[Gagal ZIP: ${error.message}]` }; }
@@ -729,18 +384,13 @@ export default function App() {
     });
   };
 
-  const unduhGambar = async (url) => {
-    try { const res = await fetch(url); if (!res.ok) throw new Error("CORS"); const blob = await res.blob(); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "ai-media." + (blob.type.split('/')[1] || 'png'); document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch { window.open(url, '_blank'); }
-  };
+  const unduhGambar = async (url) => { try { const res = await fetch(url); if (!res.ok) throw new Error("CORS"); const blob = await res.blob(); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "ai-media." + (blob.type.split('/')[1] || 'png'); document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch { window.open(url, '_blank'); } };
 
   const initTerminal = useCallback(() => {
-    if (!terminalRef.current) return;
-    if (xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; }
+    if (!terminalRef.current) return; if (xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; }
     const term = new Terminal({ cursorBlink: true, theme: { background: '#0d1117', foreground: '#c9d1d9', cursor: '#58a6ff' }, fontFamily: '"Fira Code", monospace', fontSize: 13, lineHeight: 1.4 });
-    const fitAddon = new FitAddon(); term.loadAddon(fitAddon); term.open(terminalRef.current);
-    setTimeout(() => fitAddon.fit(), 50); xtermInstance.current = term; fitAddonRef.current = fitAddon;
-    const resizeHandler = () => { if (fitAddonRef.current) fitAddonRef.current.fit(); };
-    window.addEventListener('resize', resizeHandler); return () => window.removeEventListener('resize', resizeHandler);
+    const fitAddon = new FitAddon(); term.loadAddon(fitAddon); term.open(terminalRef.current); setTimeout(() => fitAddon.fit(), 50); xtermInstance.current = term; fitAddonRef.current = fitAddon;
+    const resizeHandler = () => { if (fitAddonRef.current) fitAddonRef.current.fit(); }; window.addEventListener('resize', resizeHandler); return () => window.removeEventListener('resize', resizeHandler);
   }, []);
 
   const connectSSH = async (e) => {
@@ -755,7 +405,9 @@ export default function App() {
   };
   const disconnectSSH = () => { if (wsInstance.current) wsInstance.current.close(); setSshStatus("disconnected"); };
 
-  // ⚡ PENGELOLA PESAN (API OPENAI RESMI + FALLBACK REGEX)
+  // ==============================================
+  // ⚡ PENGELOLA PESAN (API OPENAI RESMI + REGEX CADANGAN)
+  // ==============================================
   const kirimPesan = async () => {
     const trimmed = input.trim();
     if (!trimmed && attachments.length === 0) return;
@@ -777,12 +429,13 @@ export default function App() {
     const teksTampilan = attachments.length > 0 ? `📎 ${attachments.map(a => a.name).join(', ')}\n\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    // ⚡ MENGGUNAKAN API OPENAI RESMI (BUKAN OPENROUTER)
+    // Mengambil key API resmi OpenAI (bukan OpenRouter!)
     const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
     let finalModel = selectedModel;
     let instruksiKeBackend = instruksiUser;
     const lowerInput = instruksiUser.toLowerCase();
 
+    // ⚡ STEP 1: DETEKSI NIAT (SMART MANAGER)
     let detectedIntent = "GENERAL";
 
     // 1A. Prioritas Tombol UI
@@ -793,8 +446,9 @@ export default function App() {
     } else if (attachments.some(a => a.type === 'image') && /(apa ini|kegunaan|jelaskan|fungsi)/i.test(lowerInput)) {
       detectedIntent = "VISION";
     } 
-    // 1B. Niat Manusiawi via API RESMI OPENAI
+    // 1B. Deteksi via API OpenAI Asli
     else {
+      let apiSukses = false;
       try {
         if (OPENAI_API_KEY) {
           const intentRes = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -806,14 +460,18 @@ export default function App() {
             })
           });
           if (intentRes.ok) {
-             const intentData = await intentRes.json(); const apiIntent = intentData.choices?.[0]?.message?.content?.trim().toUpperCase();
-             if (["IMAGE", "AUDIO", "RESEARCH", "TRANSLATE"].includes(apiIntent)) detectedIntent = apiIntent;
+             const intentData = await intentRes.json(); 
+             const apiIntent = intentData.choices?.[0]?.message?.content?.trim().toUpperCase();
+             if (["IMAGE", "AUDIO", "RESEARCH", "TRANSLATE"].includes(apiIntent)) {
+                 detectedIntent = apiIntent;
+                 apiSukses = true;
+             }
           }
         }
-      } catch (e) { console.warn("API Router timeout"); }
+      } catch (e) { console.warn("API Manager timeout, berpindah ke sistem mandiri (Regex)"); }
 
-      // 1C. Fallback Super Regex
-      if (detectedIntent === "GENERAL") {
+      // 1C. Regex Mandiri jika API gagal / key tidak dipasang
+      if (!apiSukses && detectedIntent === "GENERAL") {
          if (/(buat|bikin|generate|lukis|cipta|tolong gambarkan).*(gambar|foto|logo|ilustrasi|karakter|lukisan)/i.test(lowerInput) || lowerInput === "buat gambar" || lowerInput === "bikin gambar") {
            detectedIntent = "IMAGE";
          } else if (/(buat|bikin|generate|cipta|nyanyi).*(lagu|musik|nada|audio|mp3|nyanyian)/i.test(lowerInput)) {
@@ -826,53 +484,86 @@ export default function App() {
       }
     }
 
-    // ⚡ STEP 2: TERAPKAN NIAT
+    // ⚡ STEP 2: TERAPKAN MODEL DAN DIRECTIVE
     if (detectedIntent === "IMAGE") {
       finalModel = "openai/dall-e-3"; instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Hasilkan prompt gambar berbahasa Inggris detail untuk DALL-E 3.]`;
     } else if (detectedIntent === "AUDIO") {
       finalModel = "suno-api-custom"; instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Buatkan lirik lagu yang bagus berdasarkan permintaan ini.]`;
     } else if (detectedIntent === "RESEARCH") {
-      finalModel = "SEARCH_MODE"; instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Lakukan Deep Research ke web terpercaya. Rangkum menjadi format bacaan jurnal.]`;
+      finalModel = "SEARCH_MODE"; instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Lakukan Deep Research ke web terpercaya. Rangkum menjadi format jurnal.]`;
     } else if (detectedIntent === "TRANSLATE") {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Terjemahkan teks dengan akurat, natural, sekelas native speaker.]`;
     } else if (detectedIntent === "VISION") {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Analisis spesifikasi, kegunaan gambar ini secara presisi layaknya Google Lens AI.]`;
     } else if (detectedIntent === "CODE") {
+      // ⚡ PRIORITAS LOKAL JIKA AUTO CODING
+      if (finalModel === "auto_coding" || finalModel === "auto") finalModel = "lokal";
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Koding AKTIF. Bertindaklah sebagai Senior AI Architect. JANGAN memberikan kode mentah. WAJIB: 1) Jelaskan arsitektur. 2) Panduan instalasi. 3) Pastikan kode produksi.]`;
     } else if (detectedIntent === "EXAM") {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Ujian AKTIF. Bertindaklah sebagai Sensei penguji. Berikan 1 soal pilihan ganda interaktif. JANGAN berikan jawaban sebelum dijawab.]`;
     } else {
-      if (finalModel === "auto_coding") finalModel = "google/gemma-4-31b-it";
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Jawablah secara RINGKAS dan to the point untuk menghemat token.]`;
+      if (finalModel === "auto_coding" || finalModel === "auto") finalModel = "google/gemma-4-31b-it";
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Chat Biasa. Anda cerdas seperti ChatGPT. Jawablah secara RINGKAS dan to the point untuk menghemat token.]`;
     }
 
-    if (activeProject) instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}.]`;
+    if (activeProject) instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}. Selalu ikuti aturan ini.]`;
 
-    // ⚡ STEP 3: EKSEKUSI KE BACKEND LOKAL/CLOUD ANDA
+    // ⚡ STEP 3: FETCH KE CLOUD RUN BACKEND ANDA
     try {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-      const controller = new AbortController();
-      const isMultimedia = ["dall-e", "suno", "sora", "veo", "wan", "seedance", "riverflow", "lyria"].some(m => finalModel.includes(m));
-      const timeoutId = setTimeout(() => controller.abort(), isMultimedia ? 600000 : 60000);
-
-      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, {
+      
+      let respon = await fetch(`${BACKEND_URL}/api/chat/stream`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: finalModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses }),
-        signal: controller.signal
+        body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: finalModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses })
       });
-      clearTimeout(timeoutId); if (!respon.ok) throw new Error("Server Lokal Menolak");
-
-      const reader = respon.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
+      
+      let bufferText = "";
+      let isLocalDead = false;
+      const reader = respon.body.getReader(); 
+      const decoder = new TextDecoder("utf-8");
+      
       while (true) {
-        const { done, value } = await reader.read(); if (done) break;
+        const { done, value } = await reader.read(); 
+        if (done) break;
         const chunk = decoder.decode(value, { stream: true });
+        
+        // ⚡ TANGKAP ERROR LOKAL SECARA MANDIRI
+        if (finalModel === "lokal" && (chunk.includes("Error sistem lokal") || chunk.includes("Failed to fetch") || chunk.includes("Connection refused"))) {
+            isLocalDead = true;
+            break; // Stop proses ini
+        }
+        
         if (chunk.includes("RUTE_AKTIF:")) {
           const ruteMatch = chunk.match(/RUTE_AKTIF:(.*?)\n\n/); if (ruteMatch) setActiveRoute(ruteMatch[1]); bufferText += chunk.replace(/RUTE_AKTIF:.*\n\n/, "");
-        } else bufferText += chunk;
+        } else {
+          bufferText += chunk;
+        }
         setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: bufferText }; return n; });
       }
+
+      // ⚡ FALLBACK KE CLOUD (QWEN) JIKA LOKAL MATI
+      if (isLocalDead && (selectedModel === "auto_coding" || detectedIntent === "CODE")) {
+         setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: "🔄 *[Mesin Lokal Offline. Mengalihkan ke Cloud AI (Qwen Coder)...]*\n\n" }; return n; });
+         
+         finalModel = "qwen/qwen3-coder-next";
+         const respon2 = await fetch(`${BACKEND_URL}/api/chat/stream`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: finalModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses })
+         });
+         
+         let bufferCloud = "🔄 *[Mesin Lokal Offline. Mengalihkan ke Cloud AI (Qwen Coder)...]*\n\n";
+         const reader2 = respon2.body.getReader();
+         
+         while (true) {
+             const { done, value } = await reader2.read(); 
+             if (done) break;
+             bufferCloud += decoder.decode(value, { stream: true });
+             setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: bufferCloud }; return n; });
+         }
+      }
+
     } catch (error) {
-      setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: `⚠️ **Koneksi Backend Gagal**\n\nServer Cloud Run Anda tidak merespons.\n\n\`Error: ${error.message}\`` }; return n; });
+      setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: `⚠️ **Koneksi Backend Gagal**\n\nServer Google Cloud Run Anda tidak merespons.\n\n\`Error: ${error.message}\`` }; return n; });
     } finally { setIsStreaming(false); setAttachments([]); }
   };
 
