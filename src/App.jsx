@@ -3,8 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-// ⚡ IMPORT BARU: Menambahkan ikon FolderKanban, Layers, ChevronRight untuk Workspace
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban, Layers, ChevronRight } from 'lucide-react';
+// ⚡ IMPORT: Menambahkan FolderKanban, Layers, ChevronRight, Pause, Rewind, FastForward
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, Pause, Rewind, FastForward, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban, Layers, ChevronRight } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -103,6 +103,70 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
 };
 
 // =====================================
+// ⚡ CUSTOM AUDIO PLAYER COMPONENT
+// =====================================
+const CustomAudioPlayer = ({ src, theme }) => {
+  const audioRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [currentTime, setCurrentTime] = useState("0:00");
+
+  const formatTime = (time) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  };
+
+  const togglePlay = () => {
+    if (isPlaying) audioRef.current.pause(); 
+    else audioRef.current.play();
+    setIsPlaying(!isPlaying);
+  };
+
+  const skip = (amount) => {
+    if(audioRef.current) audioRef.current.currentTime += amount;
+  };
+
+  const handleTimeUpdate = () => {
+    const current = audioRef.current.currentTime;
+    const dur = audioRef.current.duration;
+    if (dur > 0) setProgress((current / dur) * 100);
+    setCurrentTime(formatTime(current));
+  };
+
+  const handleProgressChange = (e) => {
+    const newTime = (e.target.value / 100) * audioRef.current.duration;
+    audioRef.current.currentTime = newTime;
+    setProgress(e.target.value);
+  };
+
+  return (
+    <div className={`w-full max-w-sm flex flex-col gap-3 p-4 rounded-2xl border shadow-lg transition-all my-3 ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+      <audio ref={audioRef} src={src} onTimeUpdate={handleTimeUpdate} onEnded={() => setIsPlaying(false)} className="hidden" />
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <button onClick={() => skip(-10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-blue-400 hover:bg-white/5' : 'text-gray-500 hover:text-blue-600 hover:bg-black/5'}`}><Rewind size={16}/></button>
+          <button onClick={togglePlay} className="p-3 bg-blue-600 text-white rounded-full shadow-md hover:bg-blue-500 active:scale-95 transition-all">
+            {isPlaying ? <Pause size={16} fill="currentColor"/> : <Play size={16} fill="currentColor" className="ml-0.5"/>}
+          </button>
+          <button onClick={() => skip(10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-blue-400 hover:bg-white/5' : 'text-gray-500 hover:text-blue-600 hover:bg-black/5'}`}><FastForward size={16}/></button>
+        </div>
+        
+        {/* FAKE SPECTRUM */}
+        <div className="flex items-end gap-[3px] h-8 flex-1 mx-4 justify-center overflow-hidden">
+          {[...Array(12)].map((_, i) => (
+            <motion.div key={i} animate={{ height: isPlaying ? ['20%', '100%', '30%', '80%', '40%'] : '10%' }} transition={{ repeat: Infinity, duration: 0.5 + (i % 3) * 0.2, ease: "easeInOut", delay: i * 0.05 }} className={`w-1.5 rounded-full ${theme === 'dark' ? 'bg-blue-500/80' : 'bg-blue-600/80'}`} />
+          ))}
+        </div>
+        <div className={`text-xs font-mono font-medium min-w-[35px] text-right ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{currentTime}</div>
+      </div>
+      <input type="range" min="0" max="100" value={progress || 0} onChange={handleProgressChange} className={`w-full h-1.5 rounded-lg appearance-none cursor-pointer outline-none accent-blue-500 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-300'}`} />
+    </div>
+  );
+};
+
+// =====================================
 // APLIKASI UTAMA
 // =====================================
 export default function App() {
@@ -139,10 +203,12 @@ export default function App() {
   const [isManagePromptOpen, setIsManagePromptOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState({ command: "", description: "", prompt: "" });
 
-  // ⚡ STATE UNTUK PROJECT WORKSPACE (OPSI C BARU)
+  // ⚡ STATE UNTUK PROJECT WORKSPACE
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
   const [projectsList, setProjectsList] = useState(() => { const saved = localStorage.getItem("andiie_projects"); return saved ? JSON.parse(saved) : []; });
+
+  useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
 
   const slashCommandsList = [
     { command: "/fix-diff", description: "Perbaiki bug (Visual Warna Diff)", prompt: "Tolong perbaiki kode ini. Tampilkan perubahannya menggunakan blok kode berformat 'diff' (awali baris yang dihapus dengan '-' dan baris baru dengan '+')." },
@@ -181,9 +247,6 @@ export default function App() {
     if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); }
   };
   useEffect(() => { fetchPrompts(); }, []);
-
-  // Simpan Projects ke LocalStorage
-  useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
 
   const exportChatToZip = async () => {
     const zip = new JSZip();
@@ -322,24 +385,12 @@ export default function App() {
     const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    // ⚡ INJEKSI CLAUDE-STYLE (Reasoning & Mentoring)
-    let instruksiKeBackend = instruksiUser;
-    const isCodingRequest = instruksiUser.toLowerCase().includes('kode') || instruksiUser.toLowerCase().includes('code') || instruksiUser.toLowerCase().includes('script') || instruksiUser.toLowerCase().includes('buatkan');
-    if (isCodingRequest) {
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Bertindaklah sebagai Senior AI Architect (sekelas Claude Opus). Jika Anda memberikan kode pemrograman, ANDA DILARANG KERAS hanya memberikan kode mentah. ANDA WAJIB: 1) Menjelaskan arsitektur dan logika kode tersebut. 2) Memberikan panduan Step-by-Step cara deploy, install, atau menjalankannya. 3) Memastikan kode siap produksi.]`;
-    }
-    
-    // ⚡ INJEKSI KONTEKS PROYEK WORKSPACE
-    if (activeProject) {
-       instruksiKeBackend += `\n\n[PROJECT CONTEXT: Pengguna saat ini sedang bekerja pada proyek "${activeProject.name}". Aturan khusus proyek ini: ${activeProject.context}. Selalu ikuti aturan ini dalam setiap jawaban Anda.]`;
-    }
-
     const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || ""; 
     try {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"; const controller = new AbortController();
       const isMultimediaModel = ["openai/dall-e-3", "suno-api-custom", "sora", "veo", "wan", "seedance", "riverflow"].some(m => selectedModel.includes(m));
-      const timeoutId = setTimeout(() => controller.abort(), isMultimediaModel ? 180000 : 8000); 
-      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: selectedModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses }), signal: controller.signal });
+      const timeoutId = setTimeout(() => controller.abort(), isMultimediaModel ? 600000 : 60000); 
+      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instruksi: instruksiUser, history: historyKirim, paksa_model: selectedModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses }), signal: controller.signal });
       clearTimeout(timeoutId); if (!respon.ok) throw new Error("Server Lokal Menolak");
       const reader = respon.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
       while (true) {
@@ -351,7 +402,7 @@ export default function App() {
       setActiveRoute("OPENROUTER DARURAT (LAPTOP MATI)");
       try {
         if(!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diisi di Vercel!");
-        const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text })); openRouterMessages.push({ role: "user", content: instruksiKeBackend });
+        const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text })); openRouterMessages.push({ role: "user", content: instruksiUser });
         const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen3-coder:30b";
         const responOpenRouter = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: fallbackModel, messages: openRouterMessages, stream: true }) });
         const reader = responOpenRouter.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
@@ -446,19 +497,52 @@ export default function App() {
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
             
-            {/* Model Select (Semua Model Aman) */}
+            {/* Model Select - SAMA PERSIS SEPERTI MILIK ANDA */}
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-[10px] md:text-xs font-semibold rounded-full px-2 md:px-3 py-1.5 outline-none w-[90px] sm:w-[110px] md:w-auto md:max-w-xs truncate border shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
-              <optgroup label="🧠 Deep Thinking & Research"><option value="SEARCH_MODE">🌐 Deep Web Research</option><option value="deepseek/deepseek-r1">💭 DeepSeek R1</option><option value="openai/o3-mini">🧠 OpenAI o3-mini</option></optgroup>
-              <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B</option></optgroup>
-              <optgroup label="💻 Coding & Logic"><option value="auto_coding">⚡ Auto Coding</option><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option><option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Next</option><option value="lokal">💻 Qwen 30B Lokal</option></optgroup>
-              <optgroup label="🎨 Gambar (Images)"><option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option><option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option><option value="openai/dall-e-3">🎨 DALL-E 3</option></optgroup>
-              <optgroup label="🎬 Video Generation"><option value="bytedance/seedance-2.0">💃 Seedance 2.0</option><option value="alibaba/wan-2.7">🎥 Wan 2.7</option><option value="openai/sora-2-pro">🌌 Sora 2 Pro</option><option value="google/veo-3.1">📽️ Veo 3.1</option></optgroup>
-              <optgroup label="🎵 Lagu & Audio"><option value="google/lyria-3-clip-preview">🎼 Lyria 3</option><option value="suno-api-custom">🎸 Suno API</option></optgroup>
+              
+              <optgroup label="🧠 Deep Thinking & Research">
+                <option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option>
+                <option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option>
+                <option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option>
+              </optgroup>
+
+              <optgroup label="📝 Text & General">
+                <option value="auto">✨ Auto Smart Manager</option>
+                <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
+              </optgroup>
+
+              <optgroup label="💻 Coding & Logic">
+                <option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option>
+                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
+                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option>
+                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
+                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
+                <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
+              </optgroup>
+
+              <optgroup label="🎨 Gambar (Images)">
+                <option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option>
+                <option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option>
+                <option value="openai/dall-e-3">🎨 DALL-E 3</option>
+              </optgroup>
+
+              <optgroup label="🎬 Video Generation">
+                <option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option>
+                <option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option>
+                <option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option>
+                <option value="google/veo-3.1">📽️ Google: Veo 3.1</option>
+              </optgroup>
+
+              <optgroup label="🎵 Lagu & Audio">
+                <option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option>
+                <option value="suno-api-custom">🎸 Suno API</option>
+              </optgroup>
+
             </select>
           </div>
         </header>
 
-        {/* ⚡ MODAL PROJECT WORKSPACE (BARU) */}
+        {/* ⚡ MODAL PROJECT WORKSPACE */}
         <AnimatePresence>
           {isProjectsOpen && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
@@ -469,7 +553,7 @@ export default function App() {
                   <div className="space-y-4">
                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest">Buat Project Baru</h3>
                     <input id="projName" placeholder="Nama Project (misal: Aplikasi Hotel)" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} />
-                    <textarea id="projCtx" placeholder="Instruksi Khusus (misal: Gunakan framework React Tailwind. Jangan gunakan class components...)" rows="5" className={`w-full p-3 rounded-xl border outline-none resize-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} />
+                    <textarea id="projCtx" placeholder="Instruksi Khusus (misal: Gunakan framework React Tailwind...)" rows="5" className={`w-full p-3 rounded-xl border outline-none resize-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-800'}`} />
                     <button onClick={() => {
                         const n = document.getElementById('projName').value; const c = document.getElementById('projCtx').value;
                         if(n) { setProjectsList([...projectsList, { id: Date.now(), name: n, context: c }]); document.getElementById('projName').value=''; document.getElementById('projCtx').value=''; }
@@ -495,7 +579,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* MODAL GALERI "ITEM BUATAN SAYA" */}
+        {/* ⚡ MODAL GALERI DENGAN CUSTOM AUDIO PLAYER */}
         <AnimatePresence>
           {isGalleryOpen && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
@@ -521,15 +605,23 @@ export default function App() {
                          <p>Belum ada media yang di-generate.</p>
                       </div>
                    ) : (
-                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                          {filteredMedia.map((media, i) => (
-                            <div key={i} className={`relative group rounded-2xl overflow-hidden border shadow-sm aspect-square flex items-center justify-center transition-all hover:ring-2 hover:ring-purple-500 ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
-                               {media.type === 'image' && <img src={media.url} alt="Gen" className="w-full h-full object-cover" />}
-                               {media.type === 'video' && <video src={media.url} className="w-full h-full object-cover bg-black" controls muted />}
-                               {media.type === 'audio' && <div className="text-center w-full p-4"><Music size={32} className="mx-auto text-purple-500 mb-3"/><audio src={media.url} controls className="w-full h-8" /></div>}
-                               <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/90 via-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between">
-                                  <span className="text-[10px] text-white/90 font-medium truncate pr-2" title={media.title}>{media.title}</span>
-                                  <button onClick={() => unduhGambar(media.url)} className="p-1.5 bg-white/20 hover:bg-blue-500 rounded-lg text-white backdrop-blur-sm transition-colors shrink-0" title="Download"><Download size={14}/></button>
+                            <div key={i} className={`relative group rounded-3xl overflow-hidden border shadow-md flex flex-col items-center justify-center transition-all ${media.type === 'audio' ? 'p-4' : 'aspect-square'} ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+                               {media.type === 'image' && <img src={media.url} alt="Gen" className="absolute inset-0 w-full h-full object-cover" />}
+                               {media.type === 'video' && <video src={media.url} className="absolute inset-0 w-full h-full object-cover bg-black" controls muted />}
+                               
+                               {/* RENDER CUSTOM AUDIO PLAYER DI GALERI */}
+                               {media.type === 'audio' && (
+                                  <div className="w-full flex flex-col items-center">
+                                    <Music size={32} className="text-purple-500 opacity-50 mb-2" />
+                                    <CustomAudioPlayer src={media.url} theme={theme} />
+                                  </div>
+                               )}
+                               
+                               <div className="absolute inset-x-0 top-0 p-3 bg-gradient-to-b from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-start justify-between z-20 pointer-events-none">
+                                  <span className="text-[10px] text-white/90 font-medium truncate pr-2 pt-1.5">{media.title}</span>
+                                  <button onClick={() => unduhGambar(media.url)} className="p-1.5 bg-white/20 hover:bg-blue-500 rounded-lg text-white backdrop-blur-sm transition-colors shrink-0 pointer-events-auto" title="Download"><Download size={14}/></button>
                                </div>
                             </div>
                          ))}
@@ -591,12 +683,26 @@ export default function App() {
                         {isStreaming && idx === messages.length - 1 ? <Loader2 className="animate-spin text-blue-500" size={22} /> : <Sparkles className="text-blue-500" size={22} />}
                       </div>
                     )}
-                    <div className={`max-w-[90%] md:max-w-[85%] ${chat.role === 'user' ? (theme === 'dark' ? 'bg-[#282a2c] text-[#e3e3e3] shadow-md' : 'bg-blue-600 text-white shadow-md') + ' px-5 py-3 md:px-6 md:py-4 rounded-[28px] rounded-br-sm text-[15px]' : 'text-[15px] leading-relaxed w-full'}`}>
+                    <div className={`max-w-[90%] md:max-w-[85%] ${chat.role === 'user' ? (theme === 'dark' ? 'bg-[#282a2c] text-[#e3e3e3] shadow-md' : 'bg-blue-600 text-white shadow-md') + ' px-5 py-3 md:px-6 md:py-4 rounded-[28px] rounded-br-sm text-[15px]' : 'text-[15px] leading-relaxed w-full overflow-hidden'}`}>
                       {chat.role === 'ai' ? (
-                        <div className={`prose prose-sm md:prose-base max-w-none ${theme === 'dark' ? 'prose-invert' : 'prose-gray'}`}>
-                          <ReactMarkdown urlTransform={(value) => value} components={{ code(props) { return <SmartCodeBlock {...props} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />; } }}>
+                        <div className={`prose prose-sm md:prose-base max-w-none break-words ${theme === 'dark' ? 'prose-invert' : 'prose-gray'}`}>
+                          
+                          {/* ⚡ RENDER AUDIO PLAYER DI CHAT MARKDOWN */}
+                          <ReactMarkdown 
+                            urlTransform={(value) => value} 
+                            components={{ 
+                              code(props) { return <SmartCodeBlock {...props} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />; },
+                              a(props) {
+                                if (props.children && props.children[0] === 'AUDIO_PLAYER') {
+                                  return <CustomAudioPlayer src={props.href} theme={theme} />;
+                                }
+                                return <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">{props.children}</a>;
+                              }
+                            }}
+                          >
                             {chat.text}
                           </ReactMarkdown>
+
                         </div>
                       ) : <div className="whitespace-pre-wrap">{chat.text}</div>}
                     </div>
@@ -609,7 +715,7 @@ export default function App() {
 
           <AnimatePresence>
             {isPreviewOpen && (
-              <motion.div initial={{ x: "100%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "100%", opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className={`flex flex-col shadow-2xl z-40 ${window.innerWidth <= 768 ? 'absolute inset-0 w-full' : 'w-1/2 relative border-l'} ${theme === 'dark' ? 'bg-[#1e1f20]/95 backdrop-blur-xl border-white/10' : 'bg-white/95 backdrop-blur-xl border-gray-200'}`}>
+              <motion.div initial={{ x: "100%", opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: "100%", opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.4 }} className={`flex flex-col shadow-2xl z-40 ${window.innerWidth <= 768 ? 'absolute inset-0 w-full' : 'w-1/2 relative border-l'} ${theme === 'dark' ? 'bg-[#1e1f20]/95 backdrop-blur-xl border-white/10' : 'bg-gray-50/95 backdrop-blur-xl border-gray-200'}`}>
                 
                 {/* ⚡ HEADER TAB PANEL KANAN */}
                 <div className={`p-2 flex justify-between items-center shrink-0 border-b ${theme === 'dark' ? 'bg-[#131314]/50 border-white/5' : 'bg-white/50 border-gray-200'}`}>
