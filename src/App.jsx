@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid } from 'lucide-react';
+// ⚡ IMPORT BARU: Menambahkan ikon Settings, Save, Archive, Github
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, Github } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -24,18 +25,15 @@ const ekstrakMediaDariRiwayat = (sessions) => {
   sessions.forEach(sesi => {
     sesi.messages.forEach(msg => {
       if (msg.role === 'ai') {
-        // Cari Gambar Markdown: ![Alt Text](URL)
         const imgRegex = /!\[.*?\]\((.*?)\)/g;
         let match;
         while ((match = imgRegex.exec(msg.text)) !== null) {
           daftarMedia.push({ type: 'image', url: match[1], title: sesi.title });
         }
-        // Cari Video: [VIDEO_PLAYER](URL)
         const vidRegex = /\[VIDEO_PLAYER\]\((.*?)\)/g;
         while ((match = vidRegex.exec(msg.text)) !== null) {
           daftarMedia.push({ type: 'video', url: match[1], title: sesi.title });
         }
-        // Cari Audio: [AUDIO_PLAYER](URL)
         const audRegex = /\[AUDIO_PLAYER\]\((.*?)\)/g;
         while ((match = audRegex.exec(msg.text)) !== null) {
           daftarMedia.push({ type: 'audio', url: match[1], title: sesi.title });
@@ -43,7 +41,7 @@ const ekstrakMediaDariRiwayat = (sessions) => {
       }
     });
   });
-  return daftarMedia.reverse(); // Balik urutan agar yang terbaru ada di atas
+  return daftarMedia.reverse(); 
 };
 
 // =====================================
@@ -134,9 +132,13 @@ export default function App() {
   const [showSlashCommands, setShowSlashCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState("");
   
-  // ⚡ STATE UNTUK GALERI MEDIA
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
-  const [galleryFilter, setGalleryFilter] = useState('all'); // all, image, video, audio
+  const [galleryFilter, setGalleryFilter] = useState('all');
+
+  // ⚡ STATE BARU UNTUK PROMPT DINAMIS SUPABASE (Opsi B)
+  const [slashCommands, setSlashCommands] = useState([]);
+  const [isManagePromptOpen, setIsManagePromptOpen] = useState(false);
+  const [newPrompt, setNewPrompt] = useState({ command: "", description: "", prompt: "" });
 
   const slashCommandsList = [
     { command: "/fix-diff", description: "Perbaiki bug (Visual Warna Diff)", prompt: "Tolong perbaiki kode ini. Tampilkan perubahannya menggunakan blok kode berformat 'diff' (awali baris yang dihapus dengan '-' dan baris baru dengan '+')." },
@@ -145,6 +147,9 @@ export default function App() {
     { command: "/explain", description: "Jelaskan kode", prompt: "Tolong jelaskan cara kerja kode ini baris demi baris." },
   ];
 
+  // ⚡ GABUNGAN PROMPT LOKAL & SUPABASE
+  const allPrompts = [...slashCommandsList, ...slashCommands];
+
   const handleInputChange = (e) => { const val = e.target.value; setInput(val); if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); } else { setShowSlashCommands(false); } };
   const applySlashCommand = (promptText) => { setInput(promptText); setShowSlashCommands(false); };
 
@@ -152,9 +157,59 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const chatEndRef = useRef(null);
 
-  // ⚡ MENGEKSTRAK MEDIA SECARA OTOMATIS SETIAP KALI SESSIONS BERUBAH
   const generatedMedia = useMemo(() => ekstrakMediaDariRiwayat(sessions), [sessions]);
   const filteredMedia = generatedMedia.filter(m => galleryFilter === 'all' || m.type === galleryFilter);
+
+  // ⚡ FUNGSI SUPABASE UNTUK PROMPT DINAMIS (Opsi B)
+  const fetchPrompts = async () => {
+    if (supabase) {
+      const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true });
+      if (!error && data) setSlashCommands(data);
+    }
+  };
+  const savePrompt = async () => {
+    if (!newPrompt.command || !newPrompt.prompt) return;
+    if (supabase) {
+      const cmd = newPrompt.command.startsWith('/') ? newPrompt.command : '/' + newPrompt.command;
+      const { error } = await supabase.from('andiie_prompts').upsert({ ...newPrompt, command: cmd });
+      if (!error) { fetchPrompts(); setNewPrompt({ command: "", description: "", prompt: "" }); }
+    }
+  };
+  const deletePrompt = async (id) => {
+    if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); }
+  };
+  useEffect(() => { fetchPrompts(); }, []);
+
+  // ⚡ FUNGSI EXPORT ZIP & GIT (Opsi C)
+  const exportChatToZip = async () => {
+    const zip = new JSZip();
+    let fileCount = 0;
+    messages.forEach((msg, idx) => {
+      if (msg.role === 'ai') {
+        const codeRegex = /```(\w+)?\n([\s\S]*?)```/g;
+        let match;
+        while ((match = codeRegex.exec(msg.text)) !== null) {
+          const lang = match[1] || 'txt';
+          const code = match[2];
+          const fileNameMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._-]+)/i);
+          const fileName = fileNameMatch ? fileNameMatch[1] : `ai_generated_${idx}_${fileCount}.${lang}`;
+          zip.file(fileName, code);
+          fileCount++;
+        }
+      }
+    });
+    if (fileCount > 0) {
+      const content = await zip.generateAsync({ type: "blob" });
+      const url = window.URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url; a.download = `Project_Andiie_${Date.now()}.zip`;
+      a.click(); window.URL.revokeObjectURL(url);
+    } else { alert("Tidak ada blok kode yang ditemukan di obrolan ini."); }
+  };
+
+  const generateGitCommit = () => {
+    setInput("Tolong buatkan pesan Git Commit yang profesional (Conventional Commits) berdasarkan seluruh perubahan kode yang kamu berikan di obrolan ini.");
+  };
 
   useEffect(() => {
     if (theme === "dark") document.documentElement.classList.add("dark");
@@ -307,8 +362,13 @@ export default function App() {
               <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1 scrollbar-hide">
                 
                 {/* ⚡ TOMBOL ITEM BUATAN SAYA (MENIRU GEMINI) */}
-                <button onClick={() => setIsGalleryOpen(true)} className={`w-full flex items-center gap-3 px-4 py-3 mb-4 rounded-2xl text-sm font-bold transition-all shadow-sm border ${theme === 'dark' ? 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20' : 'bg-gradient-to-r from-purple-50 to-blue-50 text-purple-600 border-purple-200 hover:bg-purple-100'}`}>
+                <button onClick={() => setIsGalleryOpen(true)} className={`w-full flex items-center gap-3 px-4 py-3 mb-2 rounded-2xl text-sm font-bold transition-all shadow-sm border ${theme === 'dark' ? 'bg-gradient-to-r from-purple-500/10 to-blue-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500/20' : 'bg-gradient-to-r from-purple-50 to-blue-50 text-purple-600 border-purple-200 hover:bg-purple-100'}`}>
                   <Sparkles size={18} /> Item Buatan Saya ({generatedMedia.length})
+                </button>
+
+                {/* ⚡ TOMBOL KELOLA PROMPT DINAMIS (OPSI B) */}
+                <button onClick={() => setIsManagePromptOpen(true)} className={`w-full flex items-center gap-3 px-4 py-3 mb-4 rounded-2xl text-sm font-bold transition-all shadow-sm border ${theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100'}`}>
+                  <Settings size={18} /> Kelola Prompt Dinamis
                 </button>
 
                 <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat Percakapan</div>
@@ -339,6 +399,15 @@ export default function App() {
           </div>
           
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+            
+            {/* ⚡ TOMBOL EXPORT ZIP & GIT COMMIT (OPSI C) */}
+            {messages.length > 0 && (
+              <>
+                <button onClick={exportChatToZip} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`} title="Export Kode ke ZIP"><Archive size={16} className="md:w-[18px] md:h-[18px]" /></button>
+                <button onClick={generateGitCommit} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-gray-700/50 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`} title="Buat Git Commit Message"><Github size={16} className="md:w-[18px] md:h-[18px]" /></button>
+              </>
+            )}
+
             <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
               {theme === 'dark' ? <Sun size={16} className="md:w-[18px] md:h-[18px]" /> : <Moon size={16} className="md:w-[18px] md:h-[18px]" />}
             </button>
@@ -357,7 +426,6 @@ export default function App() {
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
             
-            {/* Model Select (Sangat dikompres di Mobile, tapi Isinya Super Lengkap) */}
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-[10px] md:text-xs font-semibold rounded-full px-2 md:px-3 py-1.5 outline-none w-[90px] sm:w-[110px] md:w-auto md:max-w-xs truncate border shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
               
               <optgroup label="🧠 Deep Thinking & Research">
@@ -548,10 +616,10 @@ export default function App() {
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className={`absolute bottom-[calc(100%+10px)] left-0 w-full md:w-2/3 rounded-2xl shadow-2xl border overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700' : 'bg-white border-gray-200'}`}>
                   <div className={`px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest border-b flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-400 border-gray-800' : 'text-gray-500 border-gray-100'}`}><Zap size={14} className="text-yellow-500" /> Prompt Cepat</div>
                   <div className="max-h-60 overflow-y-auto">
-                    {slashCommandsList.filter(c => c.command.toLowerCase().includes(commandFilter)).length === 0 ? (
+                    {allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).length === 0 ? (
                       <div className={`p-4 text-center text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Perintah tidak ditemukan</div>
                     ) : (
-                      slashCommandsList.filter(c => c.command.toLowerCase().includes(commandFilter)).map((cmd, i) => (
+                      allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).map((cmd, i) => (
                         <button key={i} onClick={() => applySlashCommand(cmd.prompt)} className={`w-full text-left px-4 py-3 flex flex-col transition-colors border-b last:border-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] border-white/5 text-gray-200' : 'hover:bg-gray-50 border-gray-50 text-gray-800'}`}>
                           <span className="font-bold text-sm text-blue-500">{cmd.command}</span><span className={`text-xs mt-0.5 truncate w-full ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{cmd.description}</span>
                         </button>
@@ -578,6 +646,39 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* ⚡ MODAL KELOLA PROMPT DINAMIS (OPSI B) */}
+      <AnimatePresence>
+        {isManagePromptOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-xl rounded-3xl p-6 shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white'}`}>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>Kelola Prompt Dinamis</h2>
+                <button onClick={() => setIsManagePromptOpen(false)} className="text-gray-400 hover:text-gray-200"><X/></button>
+              </div>
+              <div className="space-y-4 mb-8">
+                <input placeholder="/perintah (misal: /review)" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500'}`} value={newPrompt.command} onChange={e => setNewPrompt({...newPrompt, command: e.target.value})} />
+                <input placeholder="Deskripsi singkat" className={`w-full p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500'}`} value={newPrompt.description} onChange={e => setNewPrompt({...newPrompt, description: e.target.value})} />
+                <textarea placeholder="Isi Prompt panjang..." rows="3" className={`w-full p-3 rounded-xl border outline-none resize-none ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-800 focus:border-blue-500'}`} value={newPrompt.prompt} onChange={e => setNewPrompt({...newPrompt, prompt: e.target.value})} />
+                <button onClick={savePrompt} className="w-full bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors"><Save size={18}/> Simpan ke Supabase</button>
+              </div>
+              <div className="max-h-60 overflow-y-auto space-y-2 scrollbar-hide">
+                {slashCommands.map(cmd => (
+                  <div key={cmd.id} className={`flex justify-between items-center p-3 rounded-xl border ${theme === 'dark' ? 'bg-white/5 border-white/5' : 'bg-gray-50 border-gray-200'}`}>
+                    <div>
+                      <div className="font-bold text-blue-500">{cmd.command}</div>
+                      <div className="text-xs text-gray-500">{cmd.description}</div>
+                    </div>
+                    <button onClick={() => deletePrompt(cmd.id)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                  </div>
+                ))}
+                {slashCommands.length === 0 && <div className="text-center text-sm text-gray-500 italic py-4">Belum ada prompt tersimpan.</div>}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
