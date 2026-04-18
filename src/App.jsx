@@ -111,7 +111,7 @@ const SmartCodeBlock = ({
     let codeToRender = codeString;
     if (language === 'python' || language === 'py') {
       const safeCode = JSON.stringify(codeString).replace(/<\//g, '<\\/');
-      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Memuat Mesin Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Menjalankan…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Selesai";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
+      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Loading Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Running…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Done";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
     }
     setPreviewCode(codeToRender);
     setIsPreviewOpen(true);
@@ -140,7 +140,7 @@ const SmartCodeBlock = ({
                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold
                   bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
               >
-                <Play size={11} fill="currentColor" /> Preview
+                <Play size={11} fill="currentColor" /> Run
               </button>
             )}
             <button
@@ -152,7 +152,7 @@ const SmartCodeBlock = ({
               }`}
             >
               {isCopied ? <Check size={11} /> : <Copy size={11} />}
-              {isCopied ? "Tersalin" : "Salin"}
+              {isCopied ? "Copied" : "Copy"}
             </button>
           </div>
         </div>
@@ -329,7 +329,11 @@ const MessageBubble = React.memo(({
   const isAI = chat.role === 'ai';
 
   return (
-    <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors`}>
+    <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors ${
+      isAI
+        ? (theme === 'dark' ? '' : '')
+        : ''
+    }`}>
       <div className="max-w-3xl mx-auto flex gap-3 md:gap-4">
         {/* Avatar */}
         <div className="shrink-0 pt-0.5">
@@ -360,7 +364,7 @@ const MessageBubble = React.memo(({
           <div className={`text-xs font-semibold mb-1.5 ${
             theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
           }`}>
-            {isAI ? 'AI Studio' : 'Andiie'}
+            {isAI ? 'AI Studio' : 'Anda'}
           </div>
 
           {isAI ? (
@@ -457,9 +461,11 @@ export default function App() {
 
   // UI
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
-  const [selectedModel, setSelectedModel] = useState("auto");
+  const [selectedModel, setSelectedModel] = useState("google/gemma-4-31b-it");
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [attachments, setAttachments] = useState([]);
+  const [isCodingMode, setIsCodingMode] = useState(false);
+  
   const fileInputRef = useRef(null);
   const textareaRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -636,7 +642,7 @@ export default function App() {
       localStorage.setItem("andiie_auth", "true");
       setLoginError("");
     } else {
-      setLoginError("Nama pengguna atau sandi salah.");
+      setLoginError("Nama pengguna atau kata sandi salah.");
     }
   };
 
@@ -862,7 +868,7 @@ export default function App() {
     setSshStatus("disconnected");
   };
 
-  // ========== SEND MESSAGE ==========
+  // ========== PENGELOLA PESAN (SMART ROUTER) ==========
   const kirimPesan = async () => {
     const trimmed = input.trim();
     if (!trimmed && attachments.length === 0) return;
@@ -891,18 +897,40 @@ export default function App() {
 
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    // ⚡ INJEKSI CLAUDE-STYLE REASONING (Hanya Aktif di Mode Koding)
+    // ⚡ SMART ROUTER (Auto Prompt & Override Model)
+    let finalModel = selectedModel;
     let instruksiKeBackend = instruksiUser;
-    const modelKoding = ["auto_coding", "anthropic/claude-opus-4.6", "anthropic/claude-sonnet-4.6", "openai/gpt-5.3-codex", "qwen/qwen3-coder-next", "lokal"];
-    const isCodingMode = modelKoding.includes(selectedModel);
+    const lowerInput = instruksiUser.toLowerCase();
 
-    if (isCodingMode) {
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Anda sedang beroperasi dalam "Koding Mode". Bertindaklah sebagai Senior AI Architect. JANGAN hanya memberikan kode mentah. ANDA WAJIB: 1) Menjelaskan arsitektur dan logika kode. 2) Memberikan panduan Step-by-Step cara deploy/menjalankan. 3) Memastikan kode siap produksi. Gunakan bahasa Indonesia yang profesional.]`;
+    // 1. DETEKSI DALL-E GAMBAR
+    if (lowerInput.includes("buatkan gambar")) {
+      finalModel = "openai/dall-e-3";
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Hasilkan prompt gambar berbahasa Inggris yang kaya detail untuk DALL-E 3 berdasarkan instruksi user.]`;
+    } 
+    // 2. DETEKSI DEEP RESEARCH / JURNAL
+    else if (lowerInput.includes("tolong riset") || lowerInput.includes("deep riset")) {
+      finalModel = "SEARCH_MODE";
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Lakukan pencarian internet mendalam (Deep Research) ke berbagai sumber web terpercaya di dunia. Susun hasilnya menjadi format bacaan jurnal atau artikel ilmiah yang terstruktur dan mendetail.]`;
+    } 
+    // 3. DETEKSI TERJEMAHAN
+    else if (lowerInput.includes("artikan ke") || lowerInput.includes("terjemahkan")) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Anda adalah penerjemah profesional sekelas native speaker. Terjemahkan teks dengan akurat, natural, dan perhatikan konteks budaya sasaran.]`;
+    } 
+    // 4. DETEKSI ANALISIS GAMBAR (LENS)
+    else if (attachments.some(a => a.type === 'image') && (lowerInput.includes("apa ini") || lowerInput.includes("apa kegunaan") || lowerInput.includes("jelaskan gambar"))) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Analisis gambar dengan teliti. Identifikasi objek/tempat, jelaskan spesifikasinya, fungsinya, atau kegunaannya secara detail layaknya Google Lens AI.]`;
+    } 
+    // 5. DETEKSI KODING (CLAUDE STYLE)
+    else if (isCodingMode) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Koding AKTIF. Bertindaklah sebagai Senior AI Architect (Claude Opus). JANGAN memberikan kode mentah. WAJIB: 1) Jelaskan arsitektur & logika kode. 2) Beri panduan Step-by-Step cara instalasi/deploy. 3) Pastikan kode siap produksi. Gunakan bahasa Indonesia profesional.]`;
+    } 
+    // 6. DEFAULT (MODE CHAT BIASA)
+    else {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Ini adalah Mode Chat Biasa. Anda adalah AI yang pintar. Jawablah secara RINGKAS dan to the point untuk menghemat token, kecuali user meminta penjelasan panjang.]`;
     }
-    
-    // Konteks Project Aktif
+
     if (activeProject) {
-      instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}. Selalu ikuti aturan ini dalam setiap jawaban Anda.]`;
+      instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}. Selalu ikuti aturan ini.]`;
     }
 
     const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || "";
@@ -911,7 +939,7 @@ export default function App() {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const controller = new AbortController();
       const isMultimedia = ["dall-e", "suno", "sora", "veo", "wan", "seedance", "riverflow", "lyria"]
-        .some(m => selectedModel.includes(m));
+        .some(m => finalModel.includes(m));
       const timeoutId = setTimeout(() => controller.abort(), isMultimedia ? 600000 : 60000);
 
       const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, {
@@ -920,7 +948,7 @@ export default function App() {
         body: JSON.stringify({
           instruksi: instruksiKeBackend,
           history: historyKirim,
-          paksa_model: selectedModel,
+          paksa_model: finalModel, // MENGIRIM MODEL HASIL ROUTER
           kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026",
           persona: selectedPersona,
           attachments: fileYangDiproses
@@ -959,7 +987,7 @@ export default function App() {
           content: msg.text
         }));
         openRouterMessages.push({ role: "user", content: instruksiKeBackend });
-        const fallbackModel = selectedModel === "google/gemma-4-31b-it"
+        const fallbackModel = finalModel === "google/gemma-4-31b-it" || finalModel === "auto"
           ? "google/gemma-4-31b-it"
           : "qwen/qwen3-coder:30b";
 
@@ -1014,7 +1042,7 @@ export default function App() {
   // ========== MODEL CONFIG ==========
   const modelGroups = [
     {
-      label: "🧠 Deep Thinking",
+      label: "🧠 Deep Thinking & Research",
       models: [
         { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" },
         { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" },
@@ -1331,6 +1359,15 @@ export default function App() {
                     }`}
                   >
                     <div className="max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
+                      <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="hidden">
+                        <optgroup label="🧠 Deep Thinking & Research"><option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option><option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option><option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option></optgroup>
+                        <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
+                        <optgroup label="💻 Coding & Logic"><option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option><option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option><option value="lokal">💻 Qwen 30B (Lokal Ollama)</option></optgroup>
+                        <optgroup label="🎨 Gambar (Images)"><option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option><option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option><option value="openai/dall-e-3">🎨 DALL-E 3</option></optgroup>
+                        <optgroup label="🎬 Video Generation"><option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option><option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option><option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option><option value="google/veo-3.1">📽️ Google: Veo 3.1</option></optgroup>
+                        <optgroup label="🎵 Lagu & Audio"><option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option><option value="suno-api-custom">🎸 Suno API</option></optgroup>
+                      </select>
+
                       {modelGroups.map((group, gi) => (
                         <div key={gi}>
                           <div className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider sticky top-0 ${
@@ -1359,6 +1396,28 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-1">
+            
+            {/* ⚡ TOMBOL CODING MODE */}
+            <button
+              onClick={() => {
+                const modeBaru = !isCodingMode;
+                setIsCodingMode(modeBaru);
+                if (modeBaru) {
+                  setSelectedModel("auto_coding"); // Otomatis pindah ke model koding saat dihidupkan
+                } else {
+                  setSelectedModel("google/gemma-4-31b-it"); // Otomatis ke Gemma 4 saat dimatikan
+                }
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${
+                isCodingMode
+                  ? (theme === 'dark' ? 'bg-blue-600/20 border-blue-500/50 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700 shadow-sm')
+                  : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')
+              }`}
+            >
+              <Code size={14} />
+              <span className="hidden md:inline">Mode Koding</span>
+            </button>
+
             {messages.length > 0 && (
               <>
                 <button onClick={exportChatToZip} title="Export ZIP"
@@ -1383,13 +1442,13 @@ export default function App() {
             </button>
 
             {isPreviewOpen ? (
-              <button onClick={() => setIsPreviewOpen(false)} title="Close Panel"
+              <button onClick={() => setIsPreviewOpen(false)} title="Tutup Panel"
                 className={`p-1.5 rounded-lg transition-colors ${
                   theme === 'dark' ? 'text-blue-400 hover:bg-blue-500/10' : 'text-blue-500 hover:bg-blue-50'
                 }`}><PanelRightClose size={16} /></button>
             ) : (
               previewCode && (
-                <button onClick={() => setIsPreviewOpen(true)} title="Open Panel"
+                <button onClick={() => setIsPreviewOpen(true)} title="Buka Panel"
                   className={`p-1.5 rounded-lg transition-colors ${
                     theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-500 hover:bg-gray-100'
                   }`}><PanelRightOpen size={16} /></button>
@@ -1403,7 +1462,6 @@ export default function App() {
               {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
             </button>
 
-            {/* Persona select - desktop only */}
             <select
               value={selectedPersona}
               onChange={(e) => setSelectedPersona(e.target.value)}
@@ -1446,7 +1504,7 @@ export default function App() {
                       Apa yang ingin kita buat hari ini, Andi?
                     </h1>
                     <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      Tanya apa saja, unggah file, atau ketik / untuk perintah cepat
+                      Tanya apa saja, unggah file, atau ketik / untuk perintah cepat.
                     </p>
                     {activeProject && (
                       <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
@@ -1520,7 +1578,7 @@ export default function App() {
                           ))}
                         {allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).length === 0 && (
                           <div className={`p-4 text-center text-xs ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>
-                            Tidak ada perintah yang cocok
+                            Tidak ada perintah cocok
                           </div>
                         )}
                       </div>
@@ -1558,7 +1616,7 @@ export default function App() {
                         ? 'text-[#e6edf3] placeholder-gray-600'
                         : 'text-gray-900 placeholder-gray-400'
                     }`}
-                    placeholder={`Ketik pesan...${activeProject ? ` (${activeProject.name})` : ''} Ketik / untuk perintah cepat`}
+                    placeholder={`Pesan AI Studio${activeProject ? ` (${activeProject.name})` : ''}… Ketik / untuk jalan pintas`}
                     rows="1"
                     style={{ maxHeight: '200px' }}
                     value={input}
@@ -1580,7 +1638,7 @@ export default function App() {
                         className={`p-1.5 rounded-lg transition-colors ${
                           theme === 'dark' ? 'text-gray-500 hover:text-gray-300 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-black/5'
                         }`}
-                        title="Unggah file"
+                        title="Lampirkan File"
                       >
                         <Paperclip size={16} />
                       </button>
@@ -1612,7 +1670,7 @@ export default function App() {
                 <p className={`text-center text-[10px] mt-2 ${
                   theme === 'dark' ? 'text-gray-700' : 'text-gray-300'
                 }`}>
-                  AI dapat membuat kesalahan. Harap verifikasi informasi penting.
+                  AI dapat membuat kesalahan. Harap verifikasi informasi penting secara mandiri.
                 </p>
               </div>
             </div>
@@ -1697,7 +1755,7 @@ export default function App() {
                               <Server size={28} className="mx-auto text-green-500 mb-2" />
                               <h3 className={`font-bold text-sm ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>SSH Terminal</h3>
                             </div>
-                            <input required type="text" placeholder="Host (e.g. 192.168.1.5)"
+                            <input required type="text" placeholder="Host (misal: 192.168.1.5)"
                               className={`w-full text-sm p-2.5 rounded-lg border outline-none ${
                                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900'
                               }`}
@@ -1756,7 +1814,7 @@ export default function App() {
         }`}>
           <div className="flex items-center gap-3">
             <Layers size={18} className="text-orange-500" />
-            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Manajemen Proyek</h2>
+            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Proyek Workspace</h2>
           </div>
           <button onClick={() => setIsProjectsOpen(false)} className={`p-1.5 rounded-lg ${
             theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'
@@ -1764,16 +1822,15 @@ export default function App() {
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5" style={{ scrollbarWidth: 'none' }}>
-          {/* Create */}
           <div className="space-y-3">
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
             }`}>Buat Baru</h3>
-            <input id="projName" placeholder="Nama Proyek (misal: Aplikasi Hotel)"
+            <input id="projName" placeholder="Nama Proyek (misal: Robot AI)"
               className={`w-full p-3 rounded-xl text-sm border outline-none ${
                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'
               }`} />
-            <textarea id="projCtx" placeholder="Instruksi khusus untuk proyek ini…" rows="3"
+            <textarea id="projCtx" placeholder="Instruksi khusus proyek ini (misal: Selalu gunakan Python 3.10...)" rows="3"
               className={`w-full p-3 rounded-xl text-sm border outline-none resize-none ${
                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'
               }`} />
@@ -1786,15 +1843,14 @@ export default function App() {
                 const el2 = document.getElementById('projCtx'); if (el2) el2.value = '';
               }
             }} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
-              Buat Proyek
+              Simpan Proyek
             </button>
           </div>
 
-          {/* List */}
           <div className="space-y-2">
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Semua Proyek</h3>
+            }`}>Daftar Proyek</h3>
 
             <div
               onClick={() => setActiveProject(null)}
@@ -1805,7 +1861,7 @@ export default function App() {
               }`}
             >
               <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                Tanpa Proyek (Chat Umum)
+                Tanpa Proyek (Obrolan Umum)
               </div>
             </div>
 
@@ -1880,7 +1936,7 @@ export default function App() {
           {filteredMedia.length === 0 ? (
             <div className="h-48 flex flex-col items-center justify-center text-gray-500 space-y-3">
               <LayoutGrid size={36} className="opacity-20" />
-              <p className="text-sm">Belum ada media yang di-generate</p>
+              <p className="text-sm">Belum ada media buatan AI.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1936,7 +1992,7 @@ export default function App() {
           <div className="space-y-3">
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Tambah Prompt Baru</h3>
+            }`}>Tambah Baru</h3>
             <input
               placeholder="/perintah (misal: /review)"
               className={`w-full p-3 rounded-xl text-sm border outline-none ${
