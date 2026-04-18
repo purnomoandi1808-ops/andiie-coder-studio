@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
-// ⚡ IMPORT: Menambahkan FolderKanban, Layers, ChevronRight, Pause, Rewind, FastForward
+// ⚡ IMPORT BARU: Menambahkan ikon Pause, Rewind, FastForward
 import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, Pause, Rewind, FastForward, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban, Layers, ChevronRight } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
@@ -203,7 +203,7 @@ export default function App() {
   const [isManagePromptOpen, setIsManagePromptOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState({ command: "", description: "", prompt: "" });
 
-  // ⚡ STATE UNTUK PROJECT WORKSPACE
+  // ⚡ STATE UNTUK PROJECT WORKSPACE (OPSI C BARU)
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
   const [projectsList, setProjectsList] = useState(() => { const saved = localStorage.getItem("andiie_projects"); return saved ? JSON.parse(saved) : []; });
@@ -385,12 +385,24 @@ export default function App() {
     const teksTampilan = attachments.length > 0 ? `📎 [MENGIRIM ${attachments.length} FILE]\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
+    // ⚡ INJEKSI CLAUDE-STYLE (Reasoning & Mentoring)
+    let instruksiKeBackend = instruksiUser;
+    const isCodingRequest = instruksiUser.toLowerCase().includes('kode') || instruksiUser.toLowerCase().includes('code') || instruksiUser.toLowerCase().includes('script') || instruksiUser.toLowerCase().includes('buatkan');
+    if (isCodingRequest) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Bertindaklah sebagai Senior AI Architect (sekelas Claude Opus). Jika Anda memberikan kode pemrograman, ANDA DILARANG KERAS hanya memberikan kode mentah. ANDA WAJIB: 1) Menjelaskan arsitektur dan logika kode tersebut. 2) Memberikan panduan Step-by-Step cara deploy, install, atau menjalankannya. 3) Memastikan kode siap produksi.]`;
+    }
+    
+    // ⚡ INJEKSI KONTEKS PROYEK WORKSPACE
+    if (activeProject) {
+       instruksiKeBackend += `\n\n[PROJECT CONTEXT: Pengguna saat ini sedang bekerja pada proyek "${activeProject.name}". Aturan khusus proyek ini: ${activeProject.context}. Selalu ikuti aturan ini dalam setiap jawaban Anda.]`;
+    }
+
     const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || ""; 
     try {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"; const controller = new AbortController();
       const isMultimediaModel = ["openai/dall-e-3", "suno-api-custom", "sora", "veo", "wan", "seedance", "riverflow"].some(m => selectedModel.includes(m));
       const timeoutId = setTimeout(() => controller.abort(), isMultimediaModel ? 600000 : 60000); 
-      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instruksi: instruksiUser, history: historyKirim, paksa_model: selectedModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses }), signal: controller.signal });
+      const respon = await fetch(`${BACKEND_URL}/api/chat/stream`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: selectedModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses }), signal: controller.signal });
       clearTimeout(timeoutId); if (!respon.ok) throw new Error("Server Lokal Menolak");
       const reader = respon.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
       while (true) {
@@ -402,7 +414,7 @@ export default function App() {
       setActiveRoute("OPENROUTER DARURAT (LAPTOP MATI)");
       try {
         if(!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diisi di Vercel!");
-        const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text })); openRouterMessages.push({ role: "user", content: instruksiUser });
+        const openRouterMessages = historyKirim.map(msg => ({ role: msg.role === 'ai' ? 'assistant' : 'user', content: msg.text })); openRouterMessages.push({ role: "user", content: instruksiKeBackend });
         const fallbackModel = selectedModel === "google/gemma-4-31b-it" ? "google/gemma-4-31b-it" : "qwen/qwen3-coder:30b";
         const responOpenRouter = await fetch("https://openrouter.ai/api/v1/chat/completions", { method: "POST", headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ model: fallbackModel, messages: openRouterMessages, stream: true }) });
         const reader = responOpenRouter.body.getReader(); const decoder = new TextDecoder("utf-8"); let bufferText = "";
@@ -414,17 +426,17 @@ export default function App() {
     } finally { setIsStreaming(false); setAttachments([]); }
   };
 
-  if (!isLoggedIn) { return ( <div className={`h-screen flex items-center justify-center p-4 transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f0f4f9]'}`}> <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-[32px] w-full max-w-md shadow-2xl transition-colors ${theme === 'dark' ? 'bg-[#1e1f20]/80 backdrop-blur-xl border border-white/5' : 'bg-white/80 backdrop-blur-xl border border-gray-200'}`}> <div className="flex justify-center mb-6"> <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20"><Lock className="text-white" size={28} /></div> </div> <h2 className={`text-2xl font-semibold text-center mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>AI Studio Pro</h2> <p className="text-gray-400 text-center text-sm mb-8">Secure Login (Andiie)</p> <form onSubmit={handleLogin} className="space-y-4"> <input type="text" placeholder="Username" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, username: e.target.value})} /> <input type="password" placeholder="Sandi" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, password: e.target.value})} /> <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button> </form> </motion.div> </div> ); }
+  if (!isLoggedIn) { return ( <div className={`h-screen flex items-center justify-center p-4 transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f0f4f9]'}`}> <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-3xl w-full max-w-md shadow-2xl transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border border-white/5' : 'bg-white border border-gray-200'}`}> <div className="flex justify-center mb-6"> <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20"><Lock className="text-white" size={28} /></div> </div> <h2 className={`text-2xl font-semibold text-center mb-2 ${theme === 'dark' ? 'text-white' : 'text-gray-800'}`}>AI Coder Studio</h2> <p className="text-gray-400 text-center text-sm mb-8">Hanya untuk Andiie & Project ABAPE</p> <form onSubmit={handleLogin} className="space-y-4"> <input type="text" placeholder="Username" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, username: e.target.value})} /> <input type="password" placeholder="Sandi" className={`w-full rounded-xl p-3.5 outline-none transition-colors border ${theme === 'dark' ? 'bg-[#131314] border-gray-700 text-white focus:border-blue-500' : 'bg-[#f0f4f9] border-gray-200 text-gray-800 focus:border-blue-500'}`} onChange={(e) => setLoginData({...loginData, password: e.target.value})} /> <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3.5 rounded-xl transition-all shadow-lg active:scale-95">Masuk</button> </form> </motion.div> </div> ); }
 
   return (
-    <div className={`flex h-screen font-sans overflow-hidden transition-colors selection:bg-blue-500/30 relative ${theme === 'dark' ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-[#f8f9fa] text-gray-800'}`}>
+    <div className={`flex h-screen font-sans overflow-hidden transition-colors selection:bg-blue-500/30 relative ${theme === 'dark' ? 'bg-[#131314] text-[#e3e3e3]' : 'bg-white text-gray-800'}`}>
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
-            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`fixed md:relative inset-y-0 left-0 w-72 flex flex-col shadow-2xl z-50 shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20]/95 backdrop-blur-xl border-r border-white/5' : 'bg-white/95 backdrop-blur-xl border-r border-gray-200'}`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="md:hidden fixed inset-0 bg-black/60 z-40" />
+            <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`fixed md:relative inset-y-0 left-0 w-72 flex flex-col shadow-2xl z-50 shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-r border-white/5' : 'bg-[#f0f4f9] border-r border-gray-200'}`}>
               <div className="p-4 flex justify-between items-center">
-                <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-gray-50 hover:bg-gray-100 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
+                <button onClick={buatChatBaru} className={`flex-1 flex items-center gap-3 px-4 py-3 rounded-full text-sm font-medium transition-colors shadow-sm ${theme === 'dark' ? 'bg-[#131314] hover:bg-[#282a2c] text-white border border-gray-700/50' : 'bg-white hover:bg-gray-50 text-gray-800 border border-gray-200'}`}><Plus size={18} className="text-blue-500" /> Chat baru</button>
                 <button onClick={() => setIsSidebarOpen(false)} className="md:hidden ml-2 p-2 text-gray-400 hover:text-blue-500"><X size={20}/></button>
               </div>
               
@@ -444,9 +456,9 @@ export default function App() {
                   <Settings size={18} /> Kelola Prompt Dinamis
                 </button>
 
-                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest mt-4 mb-2">Riwayat Percakapan</div>
+                <div className="text-xs text-gray-500 font-bold px-2 py-2 uppercase tracking-widest">Riwayat Percakapan</div>
                 {sessions.map(sesi => (
-                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-100 text-gray-600')}`}>
+                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center justify-between px-3 py-2.5 rounded-full cursor-pointer transition-all ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#282a2c] text-blue-300' : 'bg-blue-100 text-blue-800') : (theme === 'dark' ? 'hover:bg-white/5 text-gray-400' : 'hover:bg-gray-200 text-gray-600')}`}>
                     <div className="flex items-center gap-3 overflow-hidden"><MessageSquare size={16} className="shrink-0" /><span className="truncate text-sm font-medium">{sesi.title}</span></div>
                     <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"><Trash2 size={14} /></button>
                   </div>
@@ -458,20 +470,22 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-[#f8f9fa]'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 relative transition-colors ${theme === 'dark' ? 'bg-[#131314]' : 'bg-white'}`}>
         
-        {/* ⚡ HEADER NATIVE STYLE (Glassmorphism) */}
-        <header className={`sticky top-0 z-30 flex items-center justify-between p-2 md:p-3 w-full overflow-hidden transition-all ${theme === 'dark' ? 'bg-[#131314]/70 backdrop-blur-xl border-b border-white/5' : 'bg-white/70 backdrop-blur-xl border-b border-gray-200 shadow-sm'}`}>
+        {/* HEADER APLIKASI UTAMA */}
+        <header className="flex items-center justify-between p-2 md:p-4 z-10 shrink-0 w-full overflow-hidden">
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-1.5 md:p-2 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Menu">
+            <button onClick={() => setIsSidebarOpen(prev => !prev)} className={`p-1.5 md:p-2 rounded-full transition-colors shrink-0 ${theme === 'dark' ? 'hover:bg-[#282a2c] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`} title="Buka/Tutup Riwayat">
               <Menu size={20} />
             </button>
-            <span className="font-semibold text-base md:text-lg tracking-tight hidden sm:block truncate">
-              AI Studio <span className="text-blue-500 text-[10px] md:text-xs font-bold bg-blue-500/10 px-1.5 py-0.5 rounded-md ml-1">PRO</span>
+            <span className="font-medium text-base md:text-lg tracking-tight hidden sm:block truncate">
+              AI Studio <span className="text-blue-500 text-[10px] md:text-xs font-bold">PRO</span>
             </span>
           </div>
           
           <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+            
+            {/* ⚡ TOMBOL EXPORT ZIP & GIT COMMIT (OPSI C) */}
             {messages.length > 0 && (
               <>
                 <button onClick={exportChatToZip} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`} title="Export Kode ke ZIP"><Archive size={16} className="md:w-[18px] md:h-[18px]" /></button>
@@ -479,16 +493,16 @@ export default function App() {
               </>
             )}
 
-            <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+            <button onClick={toggleTheme} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] text-yellow-400 hover:bg-[#282a2c]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`} title="Ganti Tema">
               {theme === 'dark' ? <Sun size={16} className="md:w-[18px] md:h-[18px]" /> : <Moon size={16} className="md:w-[18px] md:h-[18px]" />}
             </button>
 
-            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-white border-gray-300 text-green-600 hover:bg-gray-50'}`} title="Buka SSH Terminal">
+            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-green-400 hover:bg-[#282a2c]' : 'bg-gray-100 border-gray-300 text-green-600 hover:bg-gray-200'}`} title="Buka SSH Terminal">
               <TerminalSquare size={16} className="md:w-[14px] md:h-[14px]" /> 
               <span className="hidden md:inline">SSH Terminal</span>
             </button>
 
-            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`}>
+            <button onClick={() => setSelectedModel(prev => prev === "auto_coding" ? "auto" : "auto_coding")} className={`flex items-center justify-center gap-1.5 px-2 md:px-3 py-1.5 rounded-full text-xs font-bold transition-all border shrink-0 ${selectedModel === "auto_coding" ? (theme === 'dark' ? "bg-blue-600/20 border-blue-500 text-blue-400" : "bg-blue-100 border-blue-500 text-blue-700") : (theme === 'dark' ? "bg-[#1e1f20] border-gray-700 text-gray-400 hover:text-white" : "bg-white border-gray-300 text-gray-600 hover:text-gray-900")}`} title="Prioritas: Qwen Lokal -> Qwen Cloud">
               <Code size={16} className="md:w-[14px] md:h-[14px]" /> 
               <span className="hidden md:inline">Mode Coding</span>
             </button>
@@ -497,47 +511,13 @@ export default function App() {
               <option value="default">👤 Asisten Umum</option><option value="kartos">🤖 Ahli Robotika</option><option value="seiso">🏨 IT Hotel</option>
             </select>
             
-            {/* Model Select - SAMA PERSIS SEPERTI MILIK ANDA */}
             <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className={`text-[10px] md:text-xs font-semibold rounded-full px-2 md:px-3 py-1.5 outline-none w-[90px] sm:w-[110px] md:w-auto md:max-w-xs truncate border shrink-0 transition-colors ${theme === 'dark' ? 'bg-[#1e1f20] border-gray-700 text-[#a8c7fa]' : 'bg-white border-gray-300 text-blue-700'}`}>
-              
-              <optgroup label="🧠 Deep Thinking & Research">
-                <option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option>
-                <option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option>
-                <option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option>
-              </optgroup>
-
-              <optgroup label="📝 Text & General">
-                <option value="auto">✨ Auto Smart Manager</option>
-                <option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option>
-              </optgroup>
-
-              <optgroup label="💻 Coding & Logic">
-                <option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option>
-                <option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option>
-                <option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option>
-                <option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option>
-                <option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option>
-                <option value="lokal">💻 Qwen 30B (Lokal Ollama)</option>
-              </optgroup>
-
-              <optgroup label="🎨 Gambar (Images)">
-                <option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option>
-                <option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option>
-                <option value="openai/dall-e-3">🎨 DALL-E 3</option>
-              </optgroup>
-
-              <optgroup label="🎬 Video Generation">
-                <option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option>
-                <option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option>
-                <option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option>
-                <option value="google/veo-3.1">📽️ Google: Veo 3.1</option>
-              </optgroup>
-
-              <optgroup label="🎵 Lagu & Audio">
-                <option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option>
-                <option value="suno-api-custom">🎸 Suno API</option>
-              </optgroup>
-
+              <optgroup label="🧠 Deep Thinking & Research"><option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option><option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option><option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option></optgroup>
+              <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
+              <optgroup label="💻 Coding & Logic"><option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option><option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option><option value="lokal">💻 Qwen 30B (Lokal Ollama)</option></optgroup>
+              <optgroup label="🎨 Gambar (Images)"><option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option><option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option><option value="openai/dall-e-3">🎨 DALL-E 3</option></optgroup>
+              <optgroup label="🎬 Video Generation"><option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option><option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option><option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option><option value="google/veo-3.1">📽️ Google: Veo 3.1</option></optgroup>
+              <optgroup label="🎵 Lagu & Audio"><option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option><option value="suno-api-custom">🎸 Suno API</option></optgroup>
             </select>
           </div>
         </header>
@@ -579,11 +559,11 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        {/* ⚡ MODAL GALERI DENGAN CUSTOM AUDIO PLAYER */}
+        {/* MODAL GALERI "ITEM BUATAN SAYA" */}
         <AnimatePresence>
           {isGalleryOpen && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 sm:p-6">
-              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-5xl h-full max-h-[85vh] rounded-[32px] flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6">
+              <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }} className={`w-full max-w-5xl h-full max-h-[85vh] rounded-3xl flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
                 <div className={`p-4 md:p-5 border-b flex justify-between items-center shrink-0 ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'}`}>
                   <div className="flex items-center gap-3">
                     <div className="p-2 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl shadow-lg"><Sparkles className="text-white" size={20}/></div>
@@ -607,7 +587,7 @@ export default function App() {
                    ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                          {filteredMedia.map((media, i) => (
-                            <div key={i} className={`relative group rounded-3xl overflow-hidden border shadow-md flex flex-col items-center justify-center transition-all ${media.type === 'audio' ? 'p-4' : 'aspect-square'} ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
+                            <div key={i} className={`relative group rounded-3xl overflow-hidden border shadow-md flex flex-col items-center justify-center transition-all ${media.type === 'audio' ? 'p-4 aspect-auto' : 'aspect-square'} ${theme === 'dark' ? 'bg-[#1e1f20] border-white/10' : 'bg-white border-gray-200'}`}>
                                {media.type === 'image' && <img src={media.url} alt="Gen" className="absolute inset-0 w-full h-full object-cover" />}
                                {media.type === 'video' && <video src={media.url} className="absolute inset-0 w-full h-full object-cover bg-black" controls muted />}
                                
