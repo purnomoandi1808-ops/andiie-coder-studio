@@ -111,7 +111,7 @@ const SmartCodeBlock = ({
     let codeToRender = codeString;
     if (language === 'python' || language === 'py') {
       const safeCode = JSON.stringify(codeString).replace(/<\//g, '<\\/');
-      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Loading Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Running…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Done";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
+      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Memuat Mesin Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Menjalankan…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Selesai";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
     }
     setPreviewCode(codeToRender);
     setIsPreviewOpen(true);
@@ -140,7 +140,7 @@ const SmartCodeBlock = ({
                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold
                   bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
               >
-                <Play size={11} fill="currentColor" /> Run
+                <Play size={11} fill="currentColor" /> Preview
               </button>
             )}
             <button
@@ -152,7 +152,7 @@ const SmartCodeBlock = ({
               }`}
             >
               {isCopied ? <Check size={11} /> : <Copy size={11} />}
-              {isCopied ? "Copied" : "Copy"}
+              {isCopied ? "Tersalin" : "Salin"}
             </button>
           </div>
         </div>
@@ -329,11 +329,7 @@ const MessageBubble = React.memo(({
   const isAI = chat.role === 'ai';
 
   return (
-    <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors ${
-      isAI
-        ? (theme === 'dark' ? '' : '')
-        : ''
-    }`}>
+    <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors`}>
       <div className="max-w-3xl mx-auto flex gap-3 md:gap-4">
         {/* Avatar */}
         <div className="shrink-0 pt-0.5">
@@ -364,7 +360,7 @@ const MessageBubble = React.memo(({
           <div className={`text-xs font-semibold mb-1.5 ${
             theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
           }`}>
-            {isAI ? 'AI Studio' : 'Anda'}
+            {isAI ? 'AI Studio' : 'Andiie'}
           </div>
 
           {isAI ? (
@@ -640,7 +636,7 @@ export default function App() {
       localStorage.setItem("andiie_auth", "true");
       setLoginError("");
     } else {
-      setLoginError("Username atau password salah.");
+      setLoginError("Nama pengguna atau sandi salah.");
     }
   };
 
@@ -853,7 +849,7 @@ export default function App() {
     ws.onmessage = (event) => { if (xtermInstance.current) xtermInstance.current.write(event.data); };
     ws.onclose = () => {
       setSshStatus("disconnected");
-      if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Connection Closed]\x1b[0m\r\n');
+      if (xtermInstance.current) xtermInstance.current.write('\r\n\x1b[31m[Koneksi Ditutup]\x1b[0m\r\n');
     };
     ws.onerror = () => { setSshStatus("disconnected"); };
     if (xtermInstance.current) {
@@ -895,13 +891,18 @@ export default function App() {
 
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
+    // ⚡ INJEKSI CLAUDE-STYLE REASONING (Hanya Aktif di Mode Koding)
     let instruksiKeBackend = instruksiUser;
-    const isCoding = /kode|code|script|buatkan|buat|program/i.test(instruksiUser);
-    if (isCoding) {
-      instruksiKeBackend += `\n\n[SYSTEM: Act as Senior AI Architect. When providing code: 1) Explain architecture and logic. 2) Provide step-by-step deployment guide. 3) Ensure production-ready quality.]`;
+    const modelKoding = ["auto_coding", "anthropic/claude-opus-4.6", "anthropic/claude-sonnet-4.6", "openai/gpt-5.3-codex", "qwen/qwen3-coder-next", "lokal"];
+    const isCodingMode = modelKoding.includes(selectedModel);
+
+    if (isCodingMode) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Anda sedang beroperasi dalam "Koding Mode". Bertindaklah sebagai Senior AI Architect. JANGAN hanya memberikan kode mentah. ANDA WAJIB: 1) Menjelaskan arsitektur dan logika kode. 2) Memberikan panduan Step-by-Step cara deploy/menjalankan. 3) Memastikan kode siap produksi. Gunakan bahasa Indonesia yang profesional.]`;
     }
+    
+    // Konteks Project Aktif
     if (activeProject) {
-      instruksiKeBackend += `\n\n[PROJECT CONTEXT: "${activeProject.name}". Rules: ${activeProject.context}]`;
+      instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}. Selalu ikuti aturan ini dalam setiap jawaban Anda.]`;
     }
 
     const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_KEY || "";
@@ -952,7 +953,7 @@ export default function App() {
     } catch (error) {
       setActiveRoute("FALLBACK: OpenRouter");
       try {
-        if (!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY not configured");
+        if (!OPENROUTER_API_KEY) throw new Error("VITE_OPENROUTER_KEY belum diatur");
         const openRouterMessages = historyKirim.map(msg => ({
           role: msg.role === 'ai' ? 'assistant' : 'user',
           content: msg.text
@@ -999,7 +1000,7 @@ export default function App() {
           const n = [...prev];
           n[n.length - 1] = {
             ...n[n.length - 1],
-            text: `⚠️ **Connection Failed**\n\nLocal server offline and fallback API unavailable.\n\n\`Error: ${fatalError.message}\``
+            text: `⚠️ **Koneksi Gagal**\n\nServer lokal mati dan API cadangan tidak tersedia.\n\n\`Error: ${fatalError.message}\``
           };
           return n;
         });
@@ -1015,50 +1016,50 @@ export default function App() {
     {
       label: "🧠 Deep Thinking",
       models: [
-        { value: "SEARCH_MODE", label: "🌐 Deep Web Research" },
-        { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1" },
-        { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini" },
+        { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" },
+        { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" },
+        { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini (Math/Logic)" },
       ]
     },
     {
-      label: "📝 General",
+      label: "📝 Text & General",
       models: [
-        { value: "auto", label: "✨ Auto Smart" },
-        { value: "google/gemma-4-31b-it", label: "🔵 Gemma 4 31B" },
+        { value: "auto", label: "✨ Auto Smart Manager" },
+        { value: "google/gemma-4-31b-it", label: "🔵 Google: Gemma 4 31B (Free)" },
       ]
     },
     {
-      label: "💻 Coding",
+      label: "💻 Coding & Logic",
       models: [
-        { value: "auto_coding", label: "⚡ Auto Coding" },
+        { value: "auto_coding", label: "⚡ Auto Coding (Lokal/Cloud)" },
         { value: "anthropic/claude-opus-4.6", label: "🧠 Claude Opus 4.6" },
         { value: "anthropic/claude-sonnet-4.6", label: "⚡ Claude Sonnet 4.6" },
         { value: "openai/gpt-5.3-codex", label: "🚀 GPT-5.3 Codex" },
-        { value: "qwen/qwen3-coder-next", label: "☁️ Qwen3 Coder" },
-        { value: "lokal", label: "💻 Qwen 30B Lokal" },
+        { value: "qwen/qwen3-coder-next", label: "☁️ Qwen3 Coder Next" },
+        { value: "lokal", label: "💻 Qwen 30B (Lokal Ollama)" },
       ]
     },
     {
-      label: "🎨 Image",
+      label: "🎨 Gambar (Images)",
       models: [
-        { value: "sourceful/riverflow-v2-pro", label: "🌊 Riverflow V2" },
-        { value: "google/gemini-3.1-flash-image-preview", label: "🖼️ Gemini 3.1" },
+        { value: "sourceful/riverflow-v2-pro", label: "🌊 Riverflow V2 Pro" },
+        { value: "google/gemini-3.1-flash-image-preview", label: "🖼️ Gemini 3.1 Flash" },
         { value: "openai/dall-e-3", label: "🎨 DALL-E 3" },
       ]
     },
     {
-      label: "🎬 Video",
+      label: "🎬 Video Generation",
       models: [
-        { value: "bytedance/seedance-2.0", label: "💃 Seedance 2.0" },
-        { value: "alibaba/wan-2.7", label: "🎥 Wan 2.7" },
-        { value: "openai/sora-2-pro", label: "🌌 Sora 2 Pro" },
-        { value: "google/veo-3.1", label: "📽️ Veo 3.1" },
+        { value: "bytedance/seedance-2.0", label: "💃 ByteDance: Seedance 2.0" },
+        { value: "alibaba/wan-2.7", label: "🎥 Alibaba: Wan 2.7" },
+        { value: "openai/sora-2-pro", label: "🌌 OpenAI: Sora 2 Pro" },
+        { value: "google/veo-3.1", label: "📽️ Google: Veo 3.1" },
       ]
     },
     {
-      label: "🎵 Audio",
+      label: "🎵 Lagu & Audio",
       models: [
-        { value: "google/lyria-3-clip-preview", label: "🎼 Lyria 3" },
+        { value: "google/lyria-3-clip-preview", label: "🎼 Google: Lyria 3" },
         { value: "suno-api-custom", label: "🎸 Suno API" },
       ]
     },
@@ -1093,12 +1094,12 @@ export default function App() {
           }`}>AI Studio Pro</h2>
           <p className={`text-center text-sm mb-6 ${
             theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-          }`}>Sign in to continue</p>
+          }`}>Masuk untuk melanjutkan</p>
 
           <form onSubmit={handleLogin} className="space-y-3">
             <input
               type="text"
-              placeholder="Username"
+              placeholder="Nama Pengguna"
               autoComplete="username"
               className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${
                 theme === 'dark'
@@ -1109,7 +1110,7 @@ export default function App() {
             />
             <input
               type="password"
-              placeholder="Password"
+              placeholder="Sandi"
               autoComplete="current-password"
               className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${
                 theme === 'dark'
@@ -1122,7 +1123,7 @@ export default function App() {
               <p className="text-red-500 text-xs text-center">{loginError}</p>
             )}
             <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all active:scale-[0.98]">
-              Sign in
+              Masuk
             </button>
           </form>
         </motion.div>
@@ -1175,7 +1176,7 @@ export default function App() {
                       : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-100 shadow-sm'
                   }`}
                 >
-                  <Plus size={16} /> New chat
+                  <Plus size={16} /> Chat Baru
                 </button>
                 {isMobile && (
                   <button onClick={() => setIsSidebarOpen(false)}
@@ -1201,7 +1202,7 @@ export default function App() {
                   >
                     <span className="flex items-center gap-2.5">
                       <Folder size={16} />
-                      {activeProject ? activeProject.name : "Projects"}
+                      {activeProject ? activeProject.name : "Proyek"}
                     </span>
                     <ChevronRight size={14} className="opacity-40" />
                   </button>
@@ -1213,7 +1214,7 @@ export default function App() {
                     }`}
                   >
                     <ImageIcon size={16} />
-                    Media Gallery
+                    Galeri Media
                     {generatedMedia.length > 0 && (
                       <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
                         theme === 'dark' ? 'bg-[#161b22] text-gray-500' : 'bg-gray-200 text-gray-500'
@@ -1228,7 +1229,7 @@ export default function App() {
                     }`}
                   >
                     <Settings size={16} />
-                    Manage Prompts
+                    Kelola Prompt
                   </button>
                 </div>
 
@@ -1236,14 +1237,14 @@ export default function App() {
                 <div className={`text-[10px] font-semibold uppercase tracking-wider px-3 py-2 ${
                   theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
                 }`}>
-                  Chat History
+                  Riwayat Percakapan
                 </div>
 
                 {sessions.length === 0 && (
                   <div className={`text-center text-xs py-8 ${
                     theme === 'dark' ? 'text-gray-600' : 'text-gray-400'
                   }`}>
-                    No conversations yet
+                    Belum ada percakapan
                   </div>
                 )}
 
@@ -1277,7 +1278,7 @@ export default function App() {
                     theme === 'dark' ? 'text-gray-500 hover:text-red-400 hover:bg-red-500/5' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
                   }`}
                 >
-                  <LogOut size={14} /> Sign out
+                  <LogOut size={14} /> Keluar
                 </button>
               </div>
             </motion.aside>
@@ -1412,8 +1413,8 @@ export default function App() {
                   : 'bg-gray-50 border-gray-200 text-gray-700'
               }`}
             >
-              <option value="default">👤 General</option>
-              <option value="kartos">🤖 Robotics</option>
+              <option value="default">👤 Umum</option>
+              <option value="kartos">🤖 Robotika</option>
               <option value="seiso">🏨 Hotel IT</option>
             </select>
           </div>
@@ -1442,10 +1443,10 @@ export default function App() {
                     <h1 className={`text-2xl md:text-3xl font-bold ${
                       theme === 'dark' ? 'text-white' : 'text-gray-900'
                     }`}>
-                      How can I help you today?
+                      Apa yang ingin kita buat hari ini, Andi?
                     </h1>
                     <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
-                      Ask me anything, upload files, or use / for quick commands
+                      Tanya apa saja, unggah file, atau ketik / untuk perintah cepat
                     </p>
                     {activeProject && (
                       <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium ${
@@ -1496,7 +1497,7 @@ export default function App() {
                       <div className={`px-3 py-2 text-[10px] font-bold uppercase tracking-wider border-b flex items-center gap-1.5 ${
                         theme === 'dark' ? 'text-gray-500 border-[#30363d] bg-[#0d1117]' : 'text-gray-400 border-gray-100 bg-gray-50'
                       }`}>
-                        <Zap size={12} className="text-yellow-500" /> Quick Commands
+                        <Zap size={12} className="text-yellow-500" /> Perintah Cepat
                       </div>
                       <div className="max-h-48 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                         {allPrompts
@@ -1519,7 +1520,7 @@ export default function App() {
                           ))}
                         {allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).length === 0 && (
                           <div className={`p-4 text-center text-xs ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>
-                            No matching commands
+                            Tidak ada perintah yang cocok
                           </div>
                         )}
                       </div>
@@ -1557,7 +1558,7 @@ export default function App() {
                         ? 'text-[#e6edf3] placeholder-gray-600'
                         : 'text-gray-900 placeholder-gray-400'
                     }`}
-                    placeholder={`Message AI Studio${activeProject ? ` (${activeProject.name})` : ''}… Type / for commands`}
+                    placeholder={`Ketik pesan...${activeProject ? ` (${activeProject.name})` : ''} Ketik / untuk perintah cepat`}
                     rows="1"
                     style={{ maxHeight: '200px' }}
                     value={input}
@@ -1579,7 +1580,7 @@ export default function App() {
                         className={`p-1.5 rounded-lg transition-colors ${
                           theme === 'dark' ? 'text-gray-500 hover:text-gray-300 hover:bg-white/5' : 'text-gray-400 hover:text-gray-600 hover:bg-black/5'
                         }`}
-                        title="Attach files"
+                        title="Unggah file"
                       >
                         <Paperclip size={16} />
                       </button>
@@ -1611,7 +1612,7 @@ export default function App() {
                 <p className={`text-center text-[10px] mt-2 ${
                   theme === 'dark' ? 'text-gray-700' : 'text-gray-300'
                 }`}>
-                  AI can make mistakes. Please verify important information.
+                  AI dapat membuat kesalahan. Harap verifikasi informasi penting.
                 </p>
               </div>
             </div>
@@ -1717,7 +1718,7 @@ export default function App() {
                                   ? 'bg-yellow-600 text-white'
                                   : 'bg-green-600 hover:bg-green-500 text-white'
                               }`}>
-                              {sshStatus === "connecting" ? "Connecting…" : "Connect"}
+                              {sshStatus === "connecting" ? "Menghubungi…" : "Hubungkan"}
                             </button>
                           </form>
                         </div>
@@ -1731,7 +1732,7 @@ export default function App() {
                               {sshCreds.username}@{sshCreds.host}
                             </span>
                             <button onClick={disconnectSSH} className="text-red-400 hover:text-red-300 text-xs font-medium">
-                              Disconnect
+                              Putuskan
                             </button>
                           </div>
                           <div ref={terminalRef} className="flex-1 p-1 overflow-hidden" />
@@ -1755,7 +1756,7 @@ export default function App() {
         }`}>
           <div className="flex items-center gap-3">
             <Layers size={18} className="text-orange-500" />
-            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Projects</h2>
+            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Manajemen Proyek</h2>
           </div>
           <button onClick={() => setIsProjectsOpen(false)} className={`p-1.5 rounded-lg ${
             theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'
@@ -1767,12 +1768,12 @@ export default function App() {
           <div className="space-y-3">
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Create New</h3>
-            <input id="projName" placeholder="Project name"
+            }`}>Buat Baru</h3>
+            <input id="projName" placeholder="Nama Proyek (misal: Aplikasi Hotel)"
               className={`w-full p-3 rounded-xl text-sm border outline-none ${
                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'
               }`} />
-            <textarea id="projCtx" placeholder="Custom instructions for this project…" rows="3"
+            <textarea id="projCtx" placeholder="Instruksi khusus untuk proyek ini…" rows="3"
               className={`w-full p-3 rounded-xl text-sm border outline-none resize-none ${
                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'
               }`} />
@@ -1785,7 +1786,7 @@ export default function App() {
                 const el2 = document.getElementById('projCtx'); if (el2) el2.value = '';
               }
             }} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-2.5 rounded-xl text-sm font-semibold transition-colors">
-              Create Project
+              Buat Proyek
             </button>
           </div>
 
@@ -1793,7 +1794,7 @@ export default function App() {
           <div className="space-y-2">
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>All Projects</h3>
+            }`}>Semua Proyek</h3>
 
             <div
               onClick={() => setActiveProject(null)}
@@ -1804,7 +1805,7 @@ export default function App() {
               }`}
             >
               <div className={`text-sm font-medium ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>
-                No Project (General Chat)
+                Tanpa Proyek (Chat Umum)
               </div>
             </div>
 
@@ -1847,7 +1848,7 @@ export default function App() {
         }`}>
           <div className="flex items-center gap-3">
             <ImageIcon size={18} className="text-purple-500" />
-            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Media Gallery</h2>
+            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Galeri Media</h2>
           </div>
           <button onClick={() => setIsGalleryOpen(false)} className={`p-1.5 rounded-lg ${
             theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'
@@ -1858,9 +1859,9 @@ export default function App() {
           theme === 'dark' ? 'border-[#30363d] bg-[#010409]' : 'border-gray-100 bg-gray-50'
         }`} style={{ scrollbarWidth: 'none' }}>
           {[
-            { val: 'all', icon: LayoutGrid, label: 'All' },
-            { val: 'image', icon: ImageIcon, label: 'Images' },
-            { val: 'video', icon: Video, label: 'Videos' },
+            { val: 'all', icon: LayoutGrid, label: 'Semua' },
+            { val: 'image', icon: ImageIcon, label: 'Gambar' },
+            { val: 'video', icon: Video, label: 'Video' },
             { val: 'audio', icon: Volume2, label: 'Audio' },
           ].map(f => (
             <button key={f.val} onClick={() => setGalleryFilter(f.val)}
@@ -1879,7 +1880,7 @@ export default function App() {
           {filteredMedia.length === 0 ? (
             <div className="h-48 flex flex-col items-center justify-center text-gray-500 space-y-3">
               <LayoutGrid size={36} className="opacity-20" />
-              <p className="text-sm">No media generated yet</p>
+              <p className="text-sm">Belum ada media yang di-generate</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -1904,7 +1905,7 @@ export default function App() {
                       <span className="text-[10px] text-white/80 truncate pr-2 font-medium">{media.title}</span>
                       <button onClick={() => unduhGambar(media.url)}
                         className="p-1.5 bg-white/20 hover:bg-blue-500 rounded-lg text-white backdrop-blur-sm transition-colors shrink-0"
-                        title="Download">
+                        title="Unduh">
                         <Download size={13} />
                       </button>
                     </div>
@@ -1923,7 +1924,7 @@ export default function App() {
         }`}>
           <div className="flex items-center gap-3">
             <Settings size={18} className="text-blue-500" />
-            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Manage Prompts</h2>
+            <h2 className={`text-lg font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Kelola Prompt</h2>
           </div>
           <button onClick={() => setIsManagePromptOpen(false)} className={`p-1.5 rounded-lg ${
             theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'
@@ -1935,9 +1936,9 @@ export default function App() {
           <div className="space-y-3">
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Add New Prompt</h3>
+            }`}>Tambah Prompt Baru</h3>
             <input
-              placeholder="/command (e.g. /review)"
+              placeholder="/perintah (misal: /review)"
               className={`w-full p-3 rounded-xl text-sm border outline-none ${
                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'
               }`}
@@ -1945,7 +1946,7 @@ export default function App() {
               onChange={e => setNewPrompt({ ...newPrompt, command: e.target.value })}
             />
             <input
-              placeholder="Short description"
+              placeholder="Deskripsi singkat"
               className={`w-full p-3 rounded-xl text-sm border outline-none ${
                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'
               }`}
@@ -1953,7 +1954,7 @@ export default function App() {
               onChange={e => setNewPrompt({ ...newPrompt, description: e.target.value })}
             />
             <textarea
-              placeholder="Full prompt content…"
+              placeholder="Isi prompt lengkap…"
               rows="3"
               className={`w-full p-3 rounded-xl text-sm border outline-none resize-none ${
                 theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'
@@ -1970,7 +1971,7 @@ export default function App() {
                   : 'bg-blue-600 hover:bg-blue-500 text-white'
               }`}
             >
-              <Save size={14} className="inline mr-1.5" /> Save to Supabase
+              <Save size={14} className="inline mr-1.5" /> Simpan ke Supabase
             </button>
           </div>
 
@@ -1978,11 +1979,11 @@ export default function App() {
           <div className="space-y-2">
             <h3 className={`text-xs font-bold uppercase tracking-wider ${
               theme === 'dark' ? 'text-gray-500' : 'text-gray-400'
-            }`}>Saved Prompts ({slashCommands.length})</h3>
+            }`}>Prompt Tersimpan ({slashCommands.length})</h3>
 
             {slashCommands.length === 0 && (
               <div className={`text-center text-sm py-6 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>
-                No custom prompts saved yet
+                Belum ada prompt tersimpan
               </div>
             )}
 
