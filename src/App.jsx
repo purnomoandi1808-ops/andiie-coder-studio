@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, coy } from 'react-syntax-highlighter/dist/esm/styles/prism';
 // ⚡ IMPORT BARU: Menambahkan ikon Settings, Save, Archive, Github
-import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, Github } from 'lucide-react';
+import { Send, Sparkles, Loader2, Menu, Plus, MessageSquare, Trash2, Lock, Play, X, Paperclip, Code, Download, Music, Sun, Moon, Zap, Copy, Check, TerminalSquare, Server, LayoutGrid, Settings, Save, Archive, GitCommit } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js'; 
 import JSZip from 'jszip'; 
 
@@ -404,7 +404,7 @@ export default function App() {
             {messages.length > 0 && (
               <>
                 <button onClick={exportChatToZip} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/40' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`} title="Export Kode ke ZIP"><Archive size={16} className="md:w-[18px] md:h-[18px]" /></button>
-                <button onClick={generateGitCommit} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-gray-700/50 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`} title="Buat Git Commit Message"><Github size={16} className="md:w-[18px] md:h-[18px]" /></button>
+                <button onClick={generateGitCommit} className={`p-1.5 md:p-2 rounded-full transition-all shrink-0 ${theme === 'dark' ? 'bg-gray-700/50 text-white hover:bg-gray-600' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'}`} title="Buat Git Commit Message"><GitCommit size={16} className="md:w-[18px] md:h-[18px]" /></button>
               </>
             )}
 
