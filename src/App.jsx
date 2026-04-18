@@ -122,36 +122,23 @@ const SmartCodeBlock = ({
   if (isBlock) {
     return (
       <div className={`rounded-xl border my-4 overflow-hidden ${
-        theme === 'dark'
-          ? 'border-[#30363d] bg-[#0d1117]'
-          : 'border-gray-200 bg-gray-50'
+        theme === 'dark' ? 'border-[#30363d] bg-[#0d1117]' : 'border-gray-200 bg-gray-50'
       }`}>
         <div className={`flex items-center justify-between px-4 py-2 border-b text-xs ${
-          theme === 'dark'
-            ? 'bg-[#161b22] border-[#30363d] text-gray-400'
-            : 'bg-gray-100 border-gray-200 text-gray-500'
+          theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-500'
         }`}>
           <span className="font-mono font-semibold uppercase tracking-wider text-[10px]">
             {language}
           </span>
           <div className="flex items-center gap-1.5">
             {isRenderable && (
-              <button
-                onClick={handlePreview}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold
-                  bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"
-              >
+              <button onClick={handlePreview} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors">
                 <Play size={11} fill="currentColor" /> Preview
               </button>
             )}
-            <button
-              onClick={handleCopy}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
-                isCopied
-                  ? 'bg-green-500/15 text-green-400'
-                  : 'hover:bg-white/10 text-gray-400 hover:text-gray-200'
-              }`}
-            >
+            <button onClick={handleCopy} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${
+                isCopied ? 'bg-green-500/15 text-green-400' : 'hover:bg-white/10 text-gray-400 hover:text-gray-200'
+              }`}>
               {isCopied ? <Check size={11} /> : <Copy size={11} />}
               {isCopied ? "Tersalin" : "Salin"}
             </button>
@@ -160,21 +147,13 @@ const SmartCodeBlock = ({
         <SyntaxHighlighter
           language={language === 'text' || language === 'code' ? 'javascript' : language}
           style={theme === 'dark' ? vscDarkPlus : oneLight}
-          customStyle={{
-            margin: 0,
-            padding: '16px',
-            fontSize: '13px',
-            lineHeight: '1.6',
-            background: 'transparent',
-          }}
+          customStyle={{ margin: 0, padding: '16px', fontSize: '13px', lineHeight: '1.6', background: 'transparent' }}
           wrapLines
           lineProps={(lineNumber) => {
             const line = codeString.split('\n')[lineNumber - 1] || "";
             if (language === 'diff') {
-              if (line.startsWith('+'))
-                return { style: { backgroundColor: theme === 'dark' ? 'rgba(46,160,67,0.15)' : 'rgba(46,160,67,0.1)', display: 'block' } };
-              if (line.startsWith('-'))
-                return { style: { backgroundColor: theme === 'dark' ? 'rgba(248,81,73,0.15)' : 'rgba(248,81,73,0.1)', display: 'block' } };
+              if (line.startsWith('+')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(46,160,67,0.15)' : 'rgba(46,160,67,0.1)', display: 'block' } };
+              if (line.startsWith('-')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(248,81,73,0.15)' : 'rgba(248,81,73,0.1)', display: 'block' } };
             }
             return {};
           }}
@@ -186,11 +165,7 @@ const SmartCodeBlock = ({
   }
 
   return (
-    <code className={`px-1.5 py-0.5 rounded text-[13px] font-mono ${
-      theme === 'dark'
-        ? 'bg-[#1e1f20] text-[#79c0ff]'
-        : 'bg-gray-100 text-pink-600'
-    }`}>
+    <code className={`px-1.5 py-0.5 rounded text-[13px] font-mono ${theme === 'dark' ? 'bg-[#1e1f20] text-[#79c0ff]' : 'bg-gray-100 text-pink-600'}`}>
       {children}
     </code>
   );
@@ -218,68 +193,24 @@ const CustomAudioPlayer = ({ src, theme }) => {
     setIsPlaying(!isPlaying);
   };
 
-  const skip = (amt) => {
-    if (audioRef.current) audioRef.current.currentTime += amt;
-  };
+  const skip = (amt) => { if (audioRef.current) audioRef.current.currentTime += amt; };
 
   return (
     <div className={`w-full max-w-sm flex flex-col gap-2.5 p-3.5 rounded-2xl border my-3 transition-colors ${
-      theme === 'dark'
-        ? 'bg-[#161b22] border-[#30363d]'
-        : 'bg-white border-gray-200 shadow-sm'
+      theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200 shadow-sm'
     }`}>
-      <audio
-        ref={audioRef}
-        src={src}
-        onTimeUpdate={() => {
-          const a = audioRef.current;
-          if (a && a.duration > 0) {
-            setProgress((a.currentTime / a.duration) * 100);
-            setCurrentTime(formatTime(a.currentTime));
-          }
-        }}
-        onLoadedMetadata={() => {
-          if (audioRef.current) setDuration(formatTime(audioRef.current.duration));
-        }}
-        onEnded={() => setIsPlaying(false)}
-        className="hidden"
-      />
+      <audio ref={audioRef} src={src} onTimeUpdate={() => { const a = audioRef.current; if (a && a.duration > 0) { setProgress((a.currentTime / a.duration) * 100); setCurrentTime(formatTime(a.currentTime)); } }} onLoadedMetadata={() => { if (audioRef.current) setDuration(formatTime(audioRef.current.duration)); }} onEnded={() => setIsPlaying(false)} className="hidden" />
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
-          <button onClick={() => skip(-10)}
-            className={`p-1.5 rounded-full transition-colors ${
-              theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'
-            }`}>
-            <Rewind size={14} />
-          </button>
-          <button onClick={togglePlay}
-            className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-500 active:scale-95 transition-all shadow-md">
+          <button onClick={() => skip(-10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'}`}><Rewind size={14} /></button>
+          <button onClick={togglePlay} className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-500 active:scale-95 transition-all shadow-md">
             {isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
           </button>
-          <button onClick={() => skip(10)}
-            className={`p-1.5 rounded-full transition-colors ${
-              theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'
-            }`}>
-            <FastForward size={14} />
-          </button>
+          <button onClick={() => skip(10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'}`}><FastForward size={14} /></button>
         </div>
         <div className="flex-1 flex flex-col gap-1">
-          <input
-            type="range" min="0" max="100"
-            value={progress || 0}
-            onChange={(e) => {
-              if (audioRef.current && audioRef.current.duration) {
-                audioRef.current.currentTime = (e.target.value / 100) * audioRef.current.duration;
-                setProgress(e.target.value);
-              }
-            }}
-            className="w-full h-1 rounded-full appearance-none cursor-pointer accent-blue-500"
-            style={{ background: `linear-gradient(to right, #3b82f6 ${progress}%, ${theme === 'dark' ? '#30363d' : '#e5e7eb'} ${progress}%)` }}
-          />
-          <div className="flex justify-between">
-            <span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{currentTime}</span>
-            <span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{duration}</span>
-          </div>
+          <input type="range" min="0" max="100" value={progress || 0} onChange={(e) => { if (audioRef.current && audioRef.current.duration) { audioRef.current.currentTime = (e.target.value / 100) * audioRef.current.duration; setProgress(e.target.value); } }} className="w-full h-1 rounded-full appearance-none cursor-pointer accent-blue-500" style={{ background: `linear-gradient(to right, #3b82f6 ${progress}%, ${theme === 'dark' ? '#30363d' : '#e5e7eb'} ${progress}%)` }} />
+          <div className="flex justify-between"><span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{currentTime}</span><span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{duration}</span></div>
         </div>
       </div>
     </div>
@@ -292,26 +223,9 @@ const CustomAudioPlayer = ({ src, theme }) => {
 const Modal = ({ isOpen, onClose, children, theme, maxWidth = "max-w-2xl" }) => (
   <AnimatePresence>
     {isOpen && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex items-center justify-center p-4"
-        onClick={onClose}
-      >
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          exit={{ scale: 0.95, opacity: 0 }}
-          transition={{ type: "spring", bounce: 0.15, duration: 0.4 }}
-          onClick={(e) => e.stopPropagation()}
-          className={`relative w-full ${maxWidth} max-h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border ${
-            theme === 'dark'
-              ? 'bg-[#0d1117] border-[#30363d]'
-              : 'bg-white border-gray-200'
-          }`}
-        >
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: "spring", bounce: 0.15, duration: 0.4 }} onClick={(e) => e.stopPropagation()} className={`relative w-full ${maxWidth} max-h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d]' : 'bg-white border-gray-200'}`}>
           {children}
         </motion.div>
       </motion.div>
@@ -322,102 +236,46 @@ const Modal = ({ isOpen, onClose, children, theme, maxWidth = "max-w-2xl" }) => 
 // =====================================
 // MESSAGE BUBBLE COMPONENT
 // =====================================
-const MessageBubble = React.memo(({
-  chat, idx, isLast, isStreaming, theme,
-  setActiveCanvasTab, setIsPreviewOpen, setPreviewCode
-}) => {
-  const isUser = chat.role === 'user';
+const MessageBubble = React.memo(({ chat, idx, isLast, isStreaming, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
   const isAI = chat.role === 'ai';
 
   return (
     <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors`}>
       <div className="max-w-3xl mx-auto flex gap-3 md:gap-4">
-        {/* Avatar */}
         <div className="shrink-0 pt-0.5">
           {isAI ? (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              theme === 'dark'
-                ? 'bg-gradient-to-br from-blue-600 to-violet-600'
-                : 'bg-gradient-to-br from-blue-500 to-violet-500'
-            }`}>
-              {isStreaming && isLast
-                ? <Loader2 className="animate-spin text-white" size={14} />
-                : <Sparkles className="text-white" size={14} />
-              }
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-gradient-to-br from-blue-600 to-violet-600' : 'bg-gradient-to-br from-blue-500 to-violet-500'}`}>
+              {isStreaming && isLast ? <Loader2 className="animate-spin text-white" size={14} /> : <Sparkles className="text-white" size={14} />}
             </div>
           ) : (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              theme === 'dark'
-                ? 'bg-[#1e1f20] border border-[#30363d]'
-                : 'bg-gray-100 border border-gray-200'
-            }`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-[#1e1f20] border border-[#30363d]' : 'bg-gray-100 border border-gray-200'}`}>
               <User size={14} className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} />
             </div>
           )}
         </div>
 
-        {/* Content */}
         <div className="flex-1 min-w-0 overflow-hidden">
-          <div className={`text-xs font-semibold mb-1.5 ${
-            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-          }`}>
+          <div className={`text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
             {isAI ? 'AI Studio' : 'Anda'}
           </div>
 
           {isAI ? (
-            <div className={`prose prose-sm max-w-none break-words leading-relaxed ${
-              theme === 'dark' ? 'prose-invert' : 'prose-gray'
-            }`}
-              style={{
-                '--tw-prose-body': theme === 'dark' ? '#c9d1d9' : '#374151',
-                '--tw-prose-headings': theme === 'dark' ? '#f0f6fc' : '#111827',
-                '--tw-prose-links': '#58a6ff',
-              }}
-            >
+            <div className={`prose prose-sm max-w-none break-words leading-relaxed ${theme === 'dark' ? 'prose-invert' : 'prose-gray'}`} style={{ '--tw-prose-body': theme === 'dark' ? '#c9d1d9' : '#374151', '--tw-prose-headings': theme === 'dark' ? '#f0f6fc' : '#111827', '--tw-prose-links': '#58a6ff' }}>
               <ReactMarkdown
                 urlTransform={(value) => value}
                 components={{
-                  code(props) {
-                    return (
-                      <SmartCodeBlock
-                        {...props}
-                        theme={theme}
-                        setActiveCanvasTab={setActiveCanvasTab}
-                        setIsPreviewOpen={setIsPreviewOpen}
-                        setPreviewCode={setPreviewCode}
-                      />
-                    );
-                  },
+                  code(props) { return <SmartCodeBlock {...props} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />; },
                   a(props) {
-                    if (props.children && props.children[0] === 'AUDIO_PLAYER') {
-                      return <CustomAudioPlayer src={props.href} theme={theme} />;
-                    }
-                    return (
-                      <a
-                        {...props}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-400/60 transition-colors"
-                      >
-                        {props.children}
-                      </a>
-                    );
+                    if (props.children && props.children[0] === 'AUDIO_PLAYER') { return <CustomAudioPlayer src={props.href} theme={theme} />; }
+                    return <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-400/60 transition-colors">{props.children}</a>;
                   },
-                  p({ children }) {
-                    return <p className="mb-3 last:mb-0 leading-7">{children}</p>;
-                  },
-                  ul({ children }) {
-                    return <ul className="mb-3 space-y-1.5 list-disc list-outside ml-4">{children}</ul>;
-                  },
-                  ol({ children }) {
-                    return <ol className="mb-3 space-y-1.5 list-decimal list-outside ml-4">{children}</ol>;
-                  },
+                  p({ children }) { return <p className="mb-3 last:mb-0 leading-7">{children}</p>; },
+                  ul({ children }) { return <ul className="mb-3 space-y-1.5 list-disc list-outside ml-4">{children}</ul>; },
+                  ol({ children }) { return <ol className="mb-3 space-y-1.5 list-decimal list-outside ml-4">{children}</ol>; },
                 }}
               >
                 {chat.text || (isStreaming && isLast ? '' : '')}
               </ReactMarkdown>
-
-              {/* Streaming cursor */}
               {isStreaming && isLast && !chat.text && (
                 <div className="flex gap-1 py-2">
                   <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
@@ -427,9 +285,7 @@ const MessageBubble = React.memo(({
               )}
             </div>
           ) : (
-            <div className={`whitespace-pre-wrap leading-7 ${
-              theme === 'dark' ? 'text-[#e6edf3]' : 'text-gray-800'
-            }`}>
+            <div className={`whitespace-pre-wrap leading-7 ${theme === 'dark' ? 'text-[#e6edf3]' : 'text-gray-800'}`}>
               {chat.text}
             </div>
           )}
@@ -445,24 +301,20 @@ const MessageBubble = React.memo(({
 export default function App() {
   const isMobile = useIsMobile();
 
-  // Auth
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loginData, setLoginData] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
 
-  // Chat
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeRoute, setActiveRoute] = useState(null);
 
-  // UI States
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
-  const [selectedModel, setSelectedModel] = useState("auto");
+  const [selectedModel, setSelectedModel] = useState("google/gemma-4-31b-it");
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [attachments, setAttachments] = useState([]);
   
-  // ⚡ STATE BARU: Coding Mode & Exam Mode & Local Directory Sync
   const [isCodingMode, setIsCodingMode] = useState(false);
   const [isExamMode, setIsExamMode] = useState(false);
   const [dirHandle, setDirHandle] = useState(null);
@@ -472,15 +324,12 @@ export default function App() {
   const chatContainerRef = useRef(null);
   const chatEndRef = useRef(null);
 
-  // Canvas / Preview
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview");
 
-  // Theme
   const [theme, setTheme] = useState(() => localStorage.getItem("andiie_theme") || "dark");
 
-  // Terminal SSH
   const terminalRef = useRef(null);
   const xtermInstance = useRef(null);
   const wsInstance = useRef(null);
@@ -488,18 +337,15 @@ export default function App() {
   const [sshStatus, setSshStatus] = useState("disconnected");
   const [sshCreds, setSshCreds] = useState({ host: "", port: "22", username: "", password: "" });
 
-  // Slash Commands
   const [showSlashCommands, setShowSlashCommands] = useState(false);
   const [commandFilter, setCommandFilter] = useState("");
   const [slashCommands, setSlashCommands] = useState([]);
   const [isManagePromptOpen, setIsManagePromptOpen] = useState(false);
   const [newPrompt, setNewPrompt] = useState({ command: "", description: "", prompt: "" });
 
-  // Gallery
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState('all');
 
-  // Projects
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
   const [projectsList, setProjectsList] = useState(() => {
@@ -507,20 +353,74 @@ export default function App() {
     catch { return []; }
   });
 
-  // Sessions
   const [sessions, setSessions] = useState(() => {
     try { const saved = localStorage.getItem("andiie_chat_history"); return saved ? JSON.parse(saved) : []; }
     catch { return []; }
   });
   const [currentSessionId, setCurrentSessionId] = useState(null);
-
-  // Model selector dropdown
   const [showModelDropdown, setShowModelDropdown] = useState(false);
 
-  // ========== AUTO RESIZE TEXTAREA ==========
+  // ⚡ PERBAIKAN: VARIABEL MODEL DIMASUKKAN KEMBALI
+  const modelGroups = [
+    {
+      label: "🧠 Deep Thinking & Research",
+      models: [
+        { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" },
+        { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" },
+        { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini (Math/Logic)" },
+      ]
+    },
+    {
+      label: "📝 Text & General",
+      models: [
+        { value: "auto", label: "✨ Auto Smart Manager" },
+        { value: "google/gemma-4-31b-it", label: "🔵 Google: Gemma 4 31B (Free)" },
+      ]
+    },
+    {
+      label: "💻 Coding & Logic",
+      models: [
+        { value: "auto_coding", label: "⚡ Auto Coding (Lokal/Cloud)" },
+        { value: "anthropic/claude-opus-4.6", label: "🧠 Claude Opus 4.6" },
+        { value: "anthropic/claude-sonnet-4.6", label: "⚡ Claude Sonnet 4.6" },
+        { value: "openai/gpt-5.3-codex", label: "🚀 GPT-5.3 Codex" },
+        { value: "qwen/qwen3-coder-next", label: "☁️ Qwen3 Coder Next" },
+        { value: "lokal", label: "💻 Qwen 30B (Lokal Ollama)" },
+      ]
+    },
+    {
+      label: "🎨 Gambar (Images)",
+      models: [
+        { value: "sourceful/riverflow-v2-pro", label: "🌊 Riverflow V2 Pro" },
+        { value: "google/gemini-3.1-flash-image-preview", label: "🖼️ Gemini 3.1 Flash" },
+        { value: "openai/dall-e-3", label: "🎨 DALL-E 3" },
+      ]
+    },
+    {
+      label: "🎬 Video Generation",
+      models: [
+        { value: "bytedance/seedance-2.0", label: "💃 ByteDance: Seedance 2.0" },
+        { value: "alibaba/wan-2.7", label: "🎥 Alibaba: Wan 2.7" },
+        { value: "openai/sora-2-pro", label: "🌌 OpenAI: Sora 2 Pro" },
+        { value: "google/veo-3.1", label: "📽️ Google: Veo 3.1" },
+      ]
+    },
+    {
+      label: "🎵 Lagu & Audio",
+      models: [
+        { value: "google/lyria-3-clip-preview", label: "🎼 Google: Lyria 3" },
+        { value: "suno-api-custom", label: "🎸 Suno API" },
+      ]
+    },
+  ];
+
+  const currentModelLabel = modelGroups
+    .flatMap(g => g.models)
+    .find(m => m.value === selectedModel)?.label || selectedModel;
+
+
   useAutoResize(textareaRef, input);
 
-  // ========== DERIVED DATA ==========
   const generatedMedia = useMemo(() => ekstrakMediaDariRiwayat(sessions), [sessions]);
   const filteredMedia = generatedMedia.filter(m => galleryFilter === 'all' || m.type === galleryFilter);
 
@@ -533,31 +433,17 @@ export default function App() {
 
   const allPrompts = useMemo(() => [...slashCommandsList, ...slashCommands], [slashCommandsList, slashCommands]);
 
-  // ========== EFFECTS ==========
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    localStorage.setItem("andiie_theme", theme);
-  }, [theme]);
-
-  useEffect(() => {
-    if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true);
-  }, []);
-
+  useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); localStorage.setItem("andiie_theme", theme); }, [theme]);
+  useEffect(() => { if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true); }, []);
   useEffect(() => {
     if (!supabase) return;
     (async () => {
       const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false });
-      if (data && data.length > 0) {
-        setSessions(data);
-        localStorage.setItem("andiie_chat_history", JSON.stringify(data));
-      }
+      if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); }
     })();
   }, []);
-
-  useEffect(() => {
-    localStorage.setItem("andiie_projects", JSON.stringify(projectsList));
-  }, [projectsList]);
-
+  useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
+  
   useEffect(() => {
     if (isStreaming || !currentSessionId || messages.length === 0) return;
     const timer = setTimeout(() => {
@@ -566,11 +452,7 @@ export default function App() {
         localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
         if (supabase) {
           const sesi = updated.find(s => s.id === currentSessionId);
-          if (sesi) {
-            supabase.from('andiie_chats').upsert({ id: currentSessionId, title: sesi.title, messages, updated_at: new Date() }).then(({ error }) => {
-              if (error) console.error("Supabase sync error:", error.message);
-            });
-          }
+          if (sesi) supabase.from('andiie_chats').upsert({ id: currentSessionId, title: sesi.title, messages, updated_at: new Date() }).then(({ error }) => { if (error) console.error("Supabase error:", error.message); });
         }
         return updated;
       });
@@ -578,95 +460,36 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [messages, currentSessionId, isStreaming]);
 
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" });
-    }
-  }, [messages, isStreaming]);
-
-  useEffect(() => {
-    if (!isMobile) setIsSidebarOpen(true);
-    else setIsSidebarOpen(false);
-  }, [isMobile]);
+  useEffect(() => { if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" }); }, [messages, isStreaming]);
+  useEffect(() => { if (!isMobile) setIsSidebarOpen(true); else setIsSidebarOpen(false); }, [isMobile]);
 
   const fetchPrompts = useCallback(async () => {
     if (!supabase) return;
     const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true });
     if (!error && data) setSlashCommands(data);
   }, []);
+
   useEffect(() => { fetchPrompts(); }, [fetchPrompts]);
-
-  useEffect(() => {
-    if (activeCanvasTab !== "terminal" && xtermInstance.current) {
-      xtermInstance.current.dispose();
-      xtermInstance.current = null;
-    }
-  }, [activeCanvasTab]);
-
+  useEffect(() => { if (activeCanvasTab !== "terminal" && xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; } }, [activeCanvasTab]);
   useEffect(() => {
     if (!showModelDropdown) return;
     const handler = () => setShowModelDropdown(false);
-    window.addEventListener('click', handler);
-    return () => window.removeEventListener('click', handler);
+    window.addEventListener('click', handler); return () => window.removeEventListener('click', handler);
   }, [showModelDropdown]);
 
-  // ========== HANDLERS ==========
-
   const toggleTheme = () => setTheme(p => p === "dark" ? "light" : "dark");
-
   const handleLogin = (e) => {
     e.preventDefault();
-    if (loginData.username === "andiie" && loginData.password === "Arsyad160216") {
-      setIsLoggedIn(true);
-      localStorage.setItem("andiie_auth", "true");
-      setLoginError("");
-    } else {
-      setLoginError("Kredensial tidak valid.");
-    }
+    if (loginData.username === "andiie" && loginData.password === "Arsyad160216") { setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true"); setLoginError(""); }
+    else setLoginError("Kredensial tidak valid.");
   };
-
-  const handleLogout = () => {
-    localStorage.removeItem("andiie_auth");
-    setIsLoggedIn(false);
-  };
-
-  const buatChatBaru = () => {
-    setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]);
-    if (isMobile) setIsSidebarOpen(false);
-  };
-
-  const muatChatLama = (id) => {
-    if (isStreaming) return;
-    const sesi = sessions.find(s => s.id === id);
-    if (sesi) {
-      setCurrentSessionId(id); setMessages(sesi.messages || []); setActiveRoute(null); setAttachments([]);
-      if (isMobile) setIsSidebarOpen(false);
-    }
-  };
-
-  const hapusChat = async (e, id) => {
-    e.stopPropagation();
-    const updated = sessions.filter(s => s.id !== id);
-    setSessions(updated);
-    localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
-    if (currentSessionId === id) buatChatBaru();
-    if (supabase) await supabase.from('andiie_chats').delete().eq('id', id);
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file }));
-      setAttachments(prev => [...prev, ...filesArray]);
-    }
-    e.target.value = null;
-  };
+  const handleLogout = () => { localStorage.removeItem("andiie_auth"); setIsLoggedIn(false); };
+  const buatChatBaru = () => { setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]); if (isMobile) setIsSidebarOpen(false); };
+  const muatChatLama = (id) => { if (isStreaming) return; const sesi = sessions.find(s => s.id === id); if (sesi) { setCurrentSessionId(id); setMessages(sesi.messages || []); setActiveRoute(null); setAttachments([]); if (isMobile) setIsSidebarOpen(false); } };
+  const hapusChat = async (e, id) => { e.stopPropagation(); const updated = sessions.filter(s => s.id !== id); setSessions(updated); localStorage.setItem("andiie_chat_history", JSON.stringify(updated)); if (currentSessionId === id) buatChatBaru(); if (supabase) await supabase.from('andiie_chats').delete().eq('id', id); };
+  const handleFileChange = (e) => { if (e.target.files) { const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file })); setAttachments(prev => [...prev, ...filesArray]); } e.target.value = null; };
   const hapusAttachment = (idx) => setAttachments(prev => prev.filter((_, i) => i !== idx));
-
-  const handleInputChange = (e) => {
-    const val = e.target.value; setInput(val);
-    if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); }
-    else setShowSlashCommands(false);
-  };
+  const handleInputChange = (e) => { const val = e.target.value; setInput(val); if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); } else setShowSlashCommands(false); };
   const applySlashCommand = (promptText) => { setInput(promptText); setShowSlashCommands(false); textareaRef.current?.focus(); };
 
   const savePrompt = async () => {
@@ -679,41 +502,29 @@ export default function App() {
   };
   const deletePrompt = async (id) => { if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); } };
 
-  // ⚡ NATIVE FILE SYSTEM SYNC LOGIC
   const linkFolder = async () => {
-    try {
-      const handle = await window.showDirectoryPicker({ mode: 'readwrite' });
-      setDirHandle(handle);
-      alert("Folder lokal berhasil ditautkan! Kode akan tersimpan otomatis saat Anda menekan 'Simpan ke Folder Lokal'.");
-    } catch (e) {
-      console.error("Gagal menautkan folder", e);
-    }
+    try { const handle = await window.showDirectoryPicker({ mode: 'readwrite' }); setDirHandle(handle); alert("Folder lokal berhasil ditautkan!"); } catch (e) { console.error("Gagal", e); }
   };
 
   const saveToLocal = async () => {
-    if (!dirHandle) return alert("Silakan 'Tautkan Folder' terlebih dahulu!");
+    if (!dirHandle) return alert("Silakan tautkan folder terlebih dahulu!");
     let savedCount = 0;
     for (const msg of messages) {
       if (msg.role === 'ai') {
-        const codeRegex = /```(\w+)?\n([\s\S]*?)```/g;
-        let match;
+        const codeRegex = /```(\w+)?\n([\s\S]*?)```/g; let match;
         while ((match = codeRegex.exec(msg.text)) !== null) {
-          const code = match[2];
-          const fnMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._/-]+)/i);
+          const code = match[2]; const fnMatch = code.match(/(?:\/\/|#)\s*FILE:\s*([a-zA-Z0-9._/-]+)/i);
           if (fnMatch) {
             try {
                const fileHandle = await dirHandle.getFileHandle(fnMatch[1], { create: true });
                const writable = await fileHandle.createWritable();
-               await writable.write(code);
-               await writable.close();
-               savedCount++;
+               await writable.write(code); await writable.close(); savedCount++;
             } catch(e) { console.error(e); }
           }
         }
       }
     }
-    if (savedCount > 0) alert(`Berhasil menyimpan/menimpa ${savedCount} file ke folder lokal Anda!`);
-    else alert("Tidak ada file dengan penanda komentar // FILE: namafile.ext ditemukan di chat ini.");
+    if (savedCount > 0) alert(`Berhasil menimpa ${savedCount} file ke lokal!`); else alert("Tidak ada file ditemukan.");
   };
 
   const exportChatToZip = async () => {
@@ -729,33 +540,24 @@ export default function App() {
         }
       }
     });
-    if (fileCount > 0) {
-      const content = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(content); const a = document.createElement('a');
-      a.href = url; a.download = `AI_Studio_${Date.now()}.zip`; a.click(); URL.revokeObjectURL(url);
-    } else alert("Tidak ada blok kode ditemukan.");
+    if (fileCount > 0) { const content = await zip.generateAsync({ type: "blob" }); const url = URL.createObjectURL(content); const a = document.createElement('a'); a.href = url; a.download = `AI_Studio_${Date.now()}.zip`; a.click(); URL.revokeObjectURL(url); } else alert("Tidak ada kode.");
   };
 
-  const generateGitCommit = () => {
-    setInput("Tolong buatkan pesan Git Commit profesional berdasarkan seluruh perubahan kode yang kamu berikan di obrolan ini.");
-    textareaRef.current?.focus();
-  };
+  const generateGitCommit = () => { setInput("Tolong buatkan pesan Git Commit yang profesional berdasarkan seluruh perubahan kode yang kamu berikan."); textareaRef.current?.focus(); };
 
   const bacaFile = async (file) => {
     if (file.name.endsWith('.zip') || file.type.includes('zip')) {
       try {
-        const zip = new JSZip(); const loadedZip = await zip.loadAsync(file);
-        let extractedText = ""; const MAX_CHARS = 150000; let isLimitReached = false;
+        const zip = new JSZip(); const loadedZip = await zip.loadAsync(file); let extractedText = ""; const MAX_CHARS = 150000; let isLimitReached = false;
         const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/'];
         const binaryExt = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i;
-
         for (const relativePath of Object.keys(loadedZip.files)) {
           if (isLimitReached) break;
           const entry = loadedZip.files[relativePath];
           if (entry.dir || badFolders.some(f => relativePath.includes(f)) || binaryExt.test(relativePath)) continue;
           const content = await entry.async('string');
           extractedText += `\n\n--- [FILE: ${relativePath}] ---\n${content}\n`;
-          if (extractedText.length > MAX_CHARS) { extractedText += `\n\n[ZIP dipotong karena terlalu besar.]`; isLimitReached = true; }
+          if (extractedText.length > MAX_CHARS) { extractedText += `\n\n[ZIP terpotong otomatis.]`; isLimitReached = true; }
         }
         return { type: 'text', name: file.name + " (Extracted)", content: extractedText };
       } catch (error) { return { type: 'text', name: file.name, content: `[Gagal ZIP: ${error.message}]` }; }
@@ -769,15 +571,9 @@ export default function App() {
   };
 
   const unduhGambar = async (url) => {
-    try {
-      const res = await fetch(url); if (!res.ok) throw new Error("CORS");
-      const blob = await res.blob(); const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob); link.download = "ai-media." + (blob.type.split('/')[1] || 'png');
-      document.body.appendChild(link); link.click(); document.body.removeChild(link);
-    } catch { window.open(url, '_blank'); }
+    try { const res = await fetch(url); if (!res.ok) throw new Error("CORS"); const blob = await res.blob(); const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "ai-media." + (blob.type.split('/')[1] || 'png'); document.body.appendChild(link); link.click(); document.body.removeChild(link); } catch { window.open(url, '_blank'); }
   };
 
-  // Terminal
   const initTerminal = useCallback(() => {
     if (!terminalRef.current) return;
     if (xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; }
@@ -790,8 +586,7 @@ export default function App() {
 
   const connectSSH = async (e) => {
     e.preventDefault(); setSshStatus("connecting"); initTerminal();
-    const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-    const wsUrl = BACKEND_URL.replace(/^http/, 'ws') + '/api/terminal/ws';
+    const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"; const wsUrl = BACKEND_URL.replace(/^http/, 'ws') + '/api/terminal/ws';
     const ws = new WebSocket(wsUrl); wsInstance.current = ws;
     ws.onopen = () => { ws.send(JSON.stringify(sshCreds)); setSshStatus("connected"); };
     ws.onmessage = (event) => { if (xtermInstance.current) xtermInstance.current.write(event.data); };
@@ -801,7 +596,6 @@ export default function App() {
   };
   const disconnectSSH = () => { if (wsInstance.current) wsInstance.current.close(); setSshStatus("disconnected"); };
 
-  // ========== SEND MESSAGE ==========
   const kirimPesan = async () => {
     const trimmed = input.trim();
     if (!trimmed && attachments.length === 0) return;
@@ -823,7 +617,6 @@ export default function App() {
     const teksTampilan = attachments.length > 0 ? `📎 ${attachments.map(a => a.name).join(', ')}\n\n${instruksiUser}` : instruksiUser;
     setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
 
-    // ⚡ SMART ROUTER 
     let finalModel = selectedModel;
     let instruksiKeBackend = instruksiUser;
     const lowerInput = instruksiUser.toLowerCase();
@@ -831,27 +624,18 @@ export default function App() {
     if (lowerInput.includes("buatkan gambar")) {
       finalModel = "openai/dall-e-3";
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Hasilkan prompt gambar berbahasa Inggris detail untuk DALL-E 3.]`;
-    } 
-    else if (lowerInput.includes("tolong riset") || lowerInput.includes("deep riset")) {
+    } else if (lowerInput.includes("tolong riset") || lowerInput.includes("deep riset")) {
       finalModel = "SEARCH_MODE";
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Lakukan Deep Research ke web terpercaya. Rangkum menjadi format jurnal.]`;
-    } 
-    else if (lowerInput.includes("artikan ke") || lowerInput.includes("terjemahkan")) {
+    } else if (lowerInput.includes("artikan ke") || lowerInput.includes("terjemahkan")) {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Terjemahkan dengan akurat, natural, sekelas native speaker.]`;
-    } 
-    else if (attachments.some(a => a.type === 'image') && (lowerInput.includes("apa ini") || lowerInput.includes("kegunaan"))) {
+    } else if (attachments.some(a => a.type === 'image') && (lowerInput.includes("apa ini") || lowerInput.includes("kegunaan"))) {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Analisis spesifikasi/fungsi gambar secara presisi layaknya Google Lens.]`;
-    } 
-    // MODE KODING (Claude Style)
-    else if (isCodingMode) {
-      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Koding AKTIF. Bertindaklah sebagai Senior AI Architect (Claude Opus). JANGAN memberikan kode mentah. WAJIB: 1) Jelaskan arsitektur/logika kode. 2) Panduan Step-by-Step deploy/install. 3) Pastikan kode siap produksi. Berbahasa Indonesia profesional.]`;
-    }
-    // MODE UJIAN (Sensei Mode)
-    else if (isExamMode) {
+    } else if (isCodingMode) {
+      instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Koding AKTIF. Bertindaklah sebagai Senior AI Architect. JANGAN memberikan kode mentah. WAJIB: 1) Jelaskan arsitektur/logika kode. 2) Panduan Step-by-Step deploy/install. 3) Pastikan kode siap produksi. Berbahasa Indonesia profesional.]`;
+    } else if (isExamMode) {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Ujian AKTIF. Bertindaklah sebagai Sensei penguji. Berikan 1 soal pilihan ganda interaktif. JANGAN berikan jawaban sebelum dijawab. Utamakan penggunaan huruf hiragana dibandingkan kanji rumit jika terkait dengan bahasa Jepang.]`;
-    }
-    // DEFAULT
-    else {
+    } else {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Jawablah secara RINGKAS dan to the point untuk menghemat token.]`;
     }
 
@@ -1008,8 +792,6 @@ export default function App() {
                 {showModelDropdown && (
                   <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} onClick={(e) => e.stopPropagation()} className={`absolute top-full left-0 mt-2 w-72 rounded-2xl border shadow-xl overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
                     <div className="max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-                      
-                      {/* PENTING: TAG SELECT DARI PENGGUNA (TIDAK BERUBAH) */}
                       <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="hidden">
                         <optgroup label="🧠 Deep Thinking & Research"><option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option><option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option><option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option></optgroup>
                         <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
@@ -1023,7 +805,7 @@ export default function App() {
                         <div key={gi}>
                           <div className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider sticky top-0 ${theme === 'dark' ? 'bg-[#0d1117] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>{group.label}</div>
                           {group.models.map(model => (
-                            <button key={model.value} onClick={() => { setSelectedModel(model.value); setShowModelDropdown(false); setIsCodingMode(model.value === "auto_coding" || model.value.includes("coder") || model.value.includes("claude")); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedModel === model.value ? (theme === 'dark' ? 'bg-blue-500/10 text-blue-400 font-semibold' : 'bg-blue-50 text-blue-600 font-semibold') : (theme === 'dark' ? 'text-gray-300 hover:bg-[#1c2128]' : 'text-gray-700 hover:bg-gray-50')}`}>
+                            <button key={model.value} onClick={() => { setSelectedModel(model.value); setShowModelDropdown(false); setIsCodingMode(model.value === "auto_coding" || model.value.includes("coder") || model.value.includes("claude")); setIsExamMode(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedModel === model.value ? (theme === 'dark' ? 'bg-blue-500/10 text-blue-400 font-semibold' : 'bg-blue-50 text-blue-600 font-semibold') : (theme === 'dark' ? 'text-gray-300 hover:bg-[#1c2128]' : 'text-gray-700 hover:bg-gray-50')}`}>
                               {model.label}
                             </button>
                           ))}
@@ -1057,12 +839,12 @@ export default function App() {
               </>
             )}
             
-            <div className="w-px h-6 bg-gray-300 dark:bg-gray-700 mx-1 hidden md:block"></div>
+            <div className="w-px h-6 bg-gray-300 dark:bg-[#30363d] mx-1 hidden md:block"></div>
 
             <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} title="Terminal" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-green-400' : 'text-gray-500 hover:bg-gray-100 hover:text-green-600'}`}><TerminalSquare size={18} /></button>
 
             {isPreviewOpen ? (
-              <button onClick={() => setIsPreviewOpen(false)} title="Tutup Panel" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-blue-400 bg-blue-500/10' : 'text-blue-600 bg-blue-50'}`}><PanelRightClose size={18} /></button>
+              <button onClick={() => setIsPreviewOpen(false)} title="Tutup Panel" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-blue-400 bg-[#161b22]' : 'text-blue-600 bg-gray-100'}`}><PanelRightClose size={18} /></button>
             ) : (
               previewCode && <button onClick={() => setIsPreviewOpen(true)} title="Buka Panel" className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-500 hover:bg-gray-100'}`}><PanelRightOpen size={18} /></button>
             )}
@@ -1093,7 +875,8 @@ export default function App() {
                     
                     <div className="flex flex-wrap justify-center gap-2 mt-4">
                       {activeProject && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-200'}`}><Folder size={12} /> {activeProject.name}</div>}
-                      {isCodingMode && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200'}`}><Code size={12} /> Claude Logic ON</div>}
+                      {isCodingMode && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200'}`}><Code size={12} /> Mode Koding ON</div>}
+                      {isExamMode && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}><GraduationCap size={12} /> Ujian ON</div>}
                       {dirHandle && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}><FolderSync size={12} /> {dirHandle.name} Terhubung</div>}
                     </div>
                   </div>
