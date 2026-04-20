@@ -10,7 +10,7 @@ import {
   LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban,
   Layers, ChevronRight, ChevronDown, User, StopCircle,
   PanelRightOpen, PanelRightClose, Image as ImageIcon,
-  Video, Volume2, LogOut, Folder, GraduationCap, FolderSync
+  Video, Volume2, LogOut, Folder, GraduationCap, FolderSync, ThumbsUp, ThumbsDown, RotateCw, Share2, MoreVertical, FileText, Mail, Flag
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
@@ -165,49 +165,201 @@ const Modal = ({ isOpen, onClose, children, theme, maxWidth = "max-w-2xl" }) => 
 );
 
 // =====================================
-// MESSAGE BUBBLE COMPONENT
+// MESSAGE BUBBLE COMPONENT (UPGRADED)
 // =====================================
-const MessageBubble = React.memo(({ chat, idx, isLast, isStreaming, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
+const MessageBubble = React.memo(({
+  chat, idx, isLast, isStreaming, theme,
+  setActiveCanvasTab, setIsPreviewOpen, setPreviewCode
+}) => {
+  const isUser = chat.role === 'user';
   const isAI = chat.role === 'ai';
+
+  // State untuk menu dropdown dan notifikasi copy
+  const [showOptions, setShowOptions] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopyText = () => {
+    if (!chat.text) return;
+    navigator.clipboard.writeText(chat.text);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  };
+
+  const handleExportTxt = () => {
+    if (!chat.text) return;
+    const element = document.createElement("a");
+    const file = new Blob([chat.text], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = "Dokumen_AI_Studio.txt";
+    document.body.appendChild(element);
+    element.click();
+    setShowOptions(false);
+  };
+
+  const handleDraftEmail = () => {
+    if (!chat.text) return;
+    const subject = encodeURIComponent("Draf dari AI Studio Pro");
+    const body = encodeURIComponent(chat.text);
+    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    setShowOptions(false);
+  };
+
   return (
     <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors`}>
       <div className="max-w-3xl mx-auto flex gap-3 md:gap-4">
+        {/* Avatar */}
         <div className="shrink-0 pt-0.5">
           {isAI ? (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-gradient-to-br from-blue-600 to-violet-600' : 'bg-gradient-to-br from-blue-500 to-violet-500'}`}>
-              {isStreaming && isLast ? <Loader2 className="animate-spin text-white" size={14} /> : <Sparkles className="text-white" size={14} />}
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              theme === 'dark'
+                ? 'bg-gradient-to-br from-blue-600 to-violet-600'
+                : 'bg-gradient-to-br from-blue-500 to-violet-500'
+            }`}>
+              {isStreaming && isLast
+                ? <Loader2 className="animate-spin text-white" size={14} />
+                : <Sparkles className="text-white" size={14} />
+              }
             </div>
           ) : (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${theme === 'dark' ? 'bg-[#1e1f20] border border-[#30363d]' : 'bg-gray-100 border border-gray-200'}`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
+              theme === 'dark'
+                ? 'bg-[#1e1f20] border border-[#30363d]'
+                : 'bg-gray-100 border border-gray-200'
+            }`}>
               <User size={14} className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} />
             </div>
           )}
         </div>
-        <div className="flex-1 min-w-0 overflow-hidden">
-          <div className={`text-xs font-semibold mb-1.5 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{isAI ? 'AI Studio' : 'Anda'}</div>
+
+        {/* Content */}
+        <div className="flex-1 min-w-0 overflow-visible relative">
+          <div className={`text-xs font-semibold mb-1.5 ${
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+          }`}>
+            {isAI ? 'AI Studio Pro' : 'Anda'}
+          </div>
+
           {isAI ? (
-            <div className={`prose prose-sm max-w-none break-words leading-relaxed ${theme === 'dark' ? 'prose-invert' : 'prose-gray'}`} style={{ '--tw-prose-body': theme === 'dark' ? '#c9d1d9' : '#374151', '--tw-prose-headings': theme === 'dark' ? '#f0f6fc' : '#111827', '--tw-prose-links': '#58a6ff' }}>
-              <ReactMarkdown
-                urlTransform={(value) => value}
-                components={{
-                  code(props) { return <SmartCodeBlock {...props} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />; },
-                  a(props) {
-                    if (props.children && props.children[0] === 'AUDIO_PLAYER') { return <CustomAudioPlayer src={props.href} theme={theme} />; }
-                    return <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-400/60 transition-colors">{props.children}</a>;
-                  },
-                  p({ children }) { return <p className="mb-3 last:mb-0 leading-7">{children}</p>; },
-                  ul({ children }) { return <ul className="mb-3 space-y-1.5 list-disc list-outside ml-4">{children}</ul>; },
-                  ol({ children }) { return <ol className="mb-3 space-y-1.5 list-decimal list-outside ml-4">{children}</ol>; },
+            <>
+              <div className={`prose prose-sm max-w-none break-words leading-relaxed mb-3 ${
+                theme === 'dark' ? 'prose-invert' : 'prose-gray'
+              }`}
+                style={{
+                  '--tw-prose-body': theme === 'dark' ? '#c9d1d9' : '#374151',
+                  '--tw-prose-headings': theme === 'dark' ? '#f0f6fc' : '#111827',
+                  '--tw-prose-links': '#58a6ff',
                 }}
               >
-                {chat.text || (isStreaming && isLast ? '' : '')}
-              </ReactMarkdown>
-              {isStreaming && isLast && !chat.text && (
-                <div className="flex gap-1 py-2"><span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} /><span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} /><span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} /></div>
+                <ReactMarkdown
+                  urlTransform={(value) => value}
+                  components={{
+                    code(props) {
+                      return (
+                        <SmartCodeBlock
+                          {...props}
+                          theme={theme}
+                          setActiveCanvasTab={setActiveCanvasTab}
+                          setIsPreviewOpen={setIsPreviewOpen}
+                          setPreviewCode={setPreviewCode}
+                        />
+                      );
+                    },
+                    a(props) {
+                      if (props.children && props.children[0] === 'AUDIO_PLAYER') {
+                        return <CustomAudioPlayer src={props.href} theme={theme} />;
+                      }
+                      return (
+                        <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-400/60 transition-colors">
+                          {props.children}
+                        </a>
+                      );
+                    },
+                    p({ children }) { return <p className="mb-3 last:mb-0 leading-7">{children}</p>; },
+                    ul({ children }) { return <ul className="mb-3 space-y-1.5 list-disc list-outside ml-4">{children}</ul>; },
+                    ol({ children }) { return <ol className="mb-3 space-y-1.5 list-decimal list-outside ml-4">{children}</ol>; },
+                  }}
+                >
+                  {chat.text || (isStreaming && isLast ? '' : '')}
+                </ReactMarkdown>
+
+                {isStreaming && isLast && !chat.text && (
+                  <div className="flex gap-1 py-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </div>
+                )}
+              </div>
+
+              {/* ⚡ ACTION BAR (LIKE, COPY, MORE MENU) */}
+              {!isStreaming && chat.text && (
+                <div className="flex items-center gap-1 mt-2 relative">
+                  <button className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Bagus">
+                    <ThumbsUp size={16} />
+                  </button>
+                  <button className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Kurang Bagus">
+                    <ThumbsDown size={16} />
+                  </button>
+                  <button className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Muat Ulang Jawaban">
+                    <RotateCw size={16} />
+                  </button>
+                  
+                  <div className="w-px h-4 bg-gray-300 dark:bg-[#30363d] mx-1"></div>
+                  
+                  <button onClick={handleCopyText} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Salin">
+                    {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                  </button>
+
+                  <div className="relative">
+                    <button onClick={() => setShowOptions(!showOptions)} className={`p-2 rounded-full transition-colors ${showOptions ? (theme === 'dark' ? 'bg-[#30363d] text-white' : 'bg-blue-100 text-blue-600') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600')}`} title="Lainnya">
+                      <MoreVertical size={16} />
+                    </button>
+
+                    {/* ⚡ DROPDOWN MENU */}
+                    <AnimatePresence>
+                      {showOptions && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)}></div>
+                          <motion.div 
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }} 
+                            animate={{ opacity: 1, y: 0, scale: 1 }} 
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }} 
+                            className={`absolute bottom-full left-0 mb-2 w-56 rounded-2xl shadow-xl border z-20 overflow-hidden ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-100'}`}
+                          >
+                            <div className="py-1">
+                              <button onClick={handleExportTxt} className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left ${theme === 'dark' ? 'hover:bg-[#1c2128] text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
+                                <FileText size={16} className="opacity-70" /> Ekspor ke Dokumen (.txt)
+                              </button>
+                              <button onClick={handleDraftEmail} className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left ${theme === 'dark' ? 'hover:bg-[#1c2128] text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
+                                <Mail size={16} className="opacity-70" /> Jadikan draf di Email
+                              </button>
+                              
+                              <div className={`my-1 border-t ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-100'}`}></div>
+                              
+                              <div className={`px-4 py-2.5 text-xs font-mono opacity-50 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Model Aktif
+                              </div>
+                              
+                              <div className={`my-1 border-t ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-100'}`}></div>
+                              
+                              <button onClick={() => setShowOptions(false)} className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left ${theme === 'dark' ? 'hover:bg-[#1c2128] text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
+                                <Flag size={16} className="opacity-70" /> Laporkan masalah
+                              </button>
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
               )}
-            </div>
+            </>
           ) : (
-            <div className={`whitespace-pre-wrap leading-7 ${theme === 'dark' ? 'text-[#e6edf3]' : 'text-gray-800'}`}>{chat.text}</div>
+            <div className={`whitespace-pre-wrap leading-7 ${
+              theme === 'dark' ? 'text-[#e6edf3]' : 'text-gray-800'
+            }`}>
+              {chat.text}
+            </div>
           )}
         </div>
       </div>
