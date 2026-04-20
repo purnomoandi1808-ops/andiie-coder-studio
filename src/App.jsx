@@ -1265,9 +1265,6 @@ export default function App() {
                   onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
                 ><GitCommit size={17} /></button>
-// FILE: src/App.jsx (LANJUTAN - gabungkan dengan bagian 1)
-// Mulai dari baris setelah <button onClick={generateGitCommit}...>
-
                 <button onClick={saveToLocal} title={dirHandle ? "Simpan ke Folder" : "Tautkan Folder"} className="p-2 rounded-lg transition-colors border" style={{ borderColor: dirHandle ? t.accent + '50' : 'transparent', background: dirHandle ? t.accentBg : 'transparent', color: dirHandle ? t.accent : t.textMuted }}
                   onMouseEnter={e => { if (!dirHandle) { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text; }}}
                   onMouseLeave={e => { if (!dirHandle) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}}
