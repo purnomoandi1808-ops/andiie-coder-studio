@@ -702,17 +702,14 @@ export default function App() {
   const [isGalleryOpen, setIsGalleryOpen] = useState(false);
   const [galleryFilter, setGalleryFilter] = useState('all');
 
+  // ⚡ STATE TERISOLASI
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const [activeProject, setActiveProject] = useState(null);
-  const [projectsList, setProjectsList] = useState(() => { try { const saved = localStorage.getItem("andiie_projects"); return saved ? JSON.parse(saved) : []; } catch { return []; } });
-  const [sessions, setSessions] = useState(() => { try { const saved = localStorage.getItem("andiie_chat_history"); return saved ? JSON.parse(saved) : []; } catch { return []; } });
+  const [projectsList, setProjectsList] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [pinnedChats, setPinnedChats] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
-
-  // Pinned chats
-  const [pinnedChats, setPinnedChats] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("andiie_pinned") || "[]"); } catch { return []; }
-  });
 
   const modelGroups = [
     { label: "🧠 Deep Thinking & Research", models: [ { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" }, { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" }, { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini (Math/Logic)" } ] },
@@ -748,25 +745,64 @@ export default function App() {
     }
   }, []);
   
-  useEffect(() => { if (!supabase) return; (async () => { const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false }); if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); } })(); }, []);
-  useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
-  useEffect(() => { localStorage.setItem("andiie_pinned", JSON.stringify(pinnedChats)); }, [pinnedChats]);
+  // ⚡ DATA ISOLATION: Load Data Hanya Untuk User yang Login
+  useEffect(() => { 
+    if (!currentUser) return;
+    
+    // 1. Load dari LocalStorage terisolasi
+    try {
+       setProjectsList(JSON.parse(localStorage.getItem(`andiie_projects_${currentUser}`) || "[]"));
+       setPinnedChats(JSON.parse(localStorage.getItem(`andiie_pinned_${currentUser}`) || "[]"));
+       const localChats = JSON.parse(localStorage.getItem(`andiie_chat_history_${currentUser}`) || "[]");
+       setSessions(localChats);
+    } catch(e) { console.error(e); }
 
+    // 2. Sync dari Supabase terisolasi berdasarkan kolom 'owner'
+    if (supabase) {
+      (async () => { 
+        const { data } = await supabase
+          .from('andiie_chats')
+          .select('*')
+          .eq('owner', currentUser) // ⚡ Hanya ambil milik user ini!
+          .order('updated_at', { ascending: false }); 
+        
+        if (data && data.length > 0) { 
+          setSessions(data); 
+          localStorage.setItem(`andiie_chat_history_${currentUser}`, JSON.stringify(data)); 
+        } 
+      })(); 
+    }
+  }, [currentUser]);
+
+  // ⚡ DATA ISOLATION: Simpan ke LocalStorage dengan nama User
+  useEffect(() => { if(currentUser) localStorage.setItem(`andiie_projects_${currentUser}`, JSON.stringify(projectsList)); }, [projectsList, currentUser]);
+  useEffect(() => { if(currentUser) localStorage.setItem(`andiie_pinned_${currentUser}`, JSON.stringify(pinnedChats)); }, [pinnedChats, currentUser]);
+
+  // ⚡ Auto Save Timer
   useEffect(() => {
-    if (isStreaming || !currentSessionId || messages.length === 0) return;
+    if (isStreaming || !currentSessionId || messages.length === 0 || !currentUser) return;
     const timer = setTimeout(() => {
       setSessions(prev => {
         const updated = prev.map(s => s.id === currentSessionId ? { ...s, messages } : s);
-        localStorage.setItem("andiie_chat_history", JSON.stringify(updated));
+        localStorage.setItem(`andiie_chat_history_${currentUser}`, JSON.stringify(updated));
         if (supabase) {
           const sesi = updated.find(s => s.id === currentSessionId);
-          if (sesi) supabase.from('andiie_chats').upsert({ id: currentSessionId, title: sesi.title, messages, updated_at: new Date() }).then(({ error }) => { if (error) console.error("Supabase error:", error.message); });
+          if (sesi) {
+            // ⚡ Simpan dengan Label Kepemilikan (owner)
+            supabase.from('andiie_chats').upsert({ 
+              id: currentSessionId, 
+              owner: currentUser, // ⚡ Label Pemilik
+              title: sesi.title, 
+              messages, 
+              updated_at: new Date() 
+            }).then(({ error }) => { if (error) console.error("Supabase error:", error.message); });
+          }
         }
         return updated;
       });
     }, 2000);
     return () => clearTimeout(timer);
-  }, [messages, currentSessionId, isStreaming]);
+  }, [messages, currentSessionId, isStreaming, currentUser]);
 
   useEffect(() => { if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" }); }, [messages, isStreaming]);
   useEffect(() => { if (!isMobile) setIsSidebarOpen(true); else setIsSidebarOpen(false); }, [isMobile]);
@@ -824,11 +860,26 @@ export default function App() {
     localStorage.removeItem("andiie_user");
     setIsLoggedIn(false); 
     setCurrentUser("");
+    
+    // Bersihkan layar agar tidak nyangkut ke user berikutnya
+    setSessions([]);
+    setProjectsList([]);
+    setPinnedChats([]);
+    setMessages([]);
+    setCurrentSessionId(null);
   };
 
   const buatChatBaru = () => { setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]); if (isMobile) setIsSidebarOpen(false); };
   const muatChatLama = (id) => { if (isStreaming) return; const sesi = sessions.find(s => s.id === id); if (sesi) { setCurrentSessionId(id); setMessages(sesi.messages || []); setActiveRoute(null); setAttachments([]); if (isMobile) setIsSidebarOpen(false); } };
-  const hapusChat = async (e, id) => { e.stopPropagation(); const updated = sessions.filter(s => s.id !== id); setSessions(updated); localStorage.setItem("andiie_chat_history", JSON.stringify(updated)); if (currentSessionId === id) buatChatBaru(); if (supabase) await supabase.from('andiie_chats').delete().eq('id', id); setPinnedChats(p => p.filter(pid => pid !== id)); };
+  const hapusChat = async (e, id) => { 
+    e.stopPropagation(); 
+    const updated = sessions.filter(s => s.id !== id); 
+    setSessions(updated); 
+    localStorage.setItem(`andiie_chat_history_${currentUser}`, JSON.stringify(updated)); 
+    if (currentSessionId === id) buatChatBaru(); 
+    if (supabase) await supabase.from('andiie_chats').delete().eq('id', id); 
+    setPinnedChats(p => p.filter(pid => pid !== id)); 
+  };
   const togglePin = (e, id) => { e.stopPropagation(); setPinnedChats(p => p.includes(id) ? p.filter(pid => pid !== id) : [...p, id]); };
   const handleFileChange = (e) => { if (e.target.files) { const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file })); setAttachments(prev => [...prev, ...filesArray]); } e.target.value = null; };
   const hapusAttachment = (idx) => setAttachments(prev => prev.filter((_, i) => i !== idx));
@@ -1405,7 +1456,6 @@ export default function App() {
                         { icon: FileText, text: "Ringkas dokumen ini", color: t.warning },
                         { icon: Music, text: "Buat lagu tentang kopi", color: t.success },
                       ].map((sug, i) => {
-                        // Jika wanda, sembunyikan opsi koding
                         if (currentUser === 'Wanda' && sug.icon === Code) return null;
                         return (
                           <button
