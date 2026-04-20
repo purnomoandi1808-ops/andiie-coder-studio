@@ -652,6 +652,7 @@ const MessageBubble = React.memo(({
 export default function App() {
   const isMobile = useIsMobile();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState(""); // ⚡ State Pengguna Aktif
   const [loginData, setLoginData] = useState({ username: "", password: "" });
   const [loginError, setLoginError] = useState("");
 
@@ -734,12 +735,19 @@ export default function App() {
   ], []);
   const allPrompts = useMemo(() => [...slashCommandsList, ...slashCommands], [slashCommandsList, slashCommands]);
 
-  // Character count
   const charCount = input.length;
   const MAX_CHARS = 10000;
 
   useEffect(() => { localStorage.setItem("andiie_theme", themeId); }, [themeId]);
-  useEffect(() => { if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true); }, []);
+  
+  // ⚡ Load Auth State
+  useEffect(() => { 
+    if (localStorage.getItem("andiie_auth") === "true") {
+      setIsLoggedIn(true); 
+      setCurrentUser(localStorage.getItem("andiie_user") || "andiie");
+    }
+  }, []);
+  
   useEffect(() => { if (!supabase) return; (async () => { const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false }); if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); } })(); }, []);
   useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
   useEffect(() => { localStorage.setItem("andiie_pinned", JSON.stringify(pinnedChats)); }, [pinnedChats]);
@@ -763,7 +771,6 @@ export default function App() {
   useEffect(() => { if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" }); }, [messages, isStreaming]);
   useEffect(() => { if (!isMobile) setIsSidebarOpen(true); else setIsSidebarOpen(false); }, [isMobile]);
 
-  // Scroll FAB visibility
   useEffect(() => {
     const el = chatContainerRef.current;
     if (!el) return;
@@ -775,7 +782,6 @@ export default function App() {
     return () => el.removeEventListener('scroll', handler);
   }, [messages.length]);
 
-  // Keyboard shortcut
   useEffect(() => {
     const handler = (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsSearchOpen(true); }
@@ -790,8 +796,36 @@ export default function App() {
   useEffect(() => { if (activeCanvasTab !== "terminal" && xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; } }, [activeCanvasTab]);
   useEffect(() => { if (!showModelDropdown) return; const handler = () => setShowModelDropdown(false); window.addEventListener('click', handler); return () => window.removeEventListener('click', handler); }, [showModelDropdown]);
 
-  const handleLogin = (e) => { e.preventDefault(); if (loginData.username === "andiie" && loginData.password === "Arsyad160216") { setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true"); setLoginError(""); } else setLoginError("Kredensial tidak valid."); };
-  const handleLogout = () => { localStorage.removeItem("andiie_auth"); setIsLoggedIn(false); };
+  // ⚡ UPDATE LOGIN RBAC
+  const handleLogin = (e) => { 
+    e.preventDefault(); 
+    const isAndiie = loginData.username === "andiie" && loginData.password === "Arsyad160216";
+    const isWanda = loginData.username === "Wanda" && loginData.password === "1234";
+
+    if (isAndiie || isWanda) { 
+      const loggedUser = isAndiie ? "andiie" : "Wanda";
+      setIsLoggedIn(true); 
+      setCurrentUser(loggedUser);
+      localStorage.setItem("andiie_auth", "true"); 
+      localStorage.setItem("andiie_user", loggedUser);
+      
+      if (isWanda) {
+        setSelectedModel("auto");
+        setIsCodingMode(false);
+      }
+      setLoginError(""); 
+    } else {
+      setLoginError("Kredensial tidak valid.");
+    }
+  };
+
+  const handleLogout = () => { 
+    localStorage.removeItem("andiie_auth"); 
+    localStorage.removeItem("andiie_user");
+    setIsLoggedIn(false); 
+    setCurrentUser("");
+  };
+
   const buatChatBaru = () => { setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]); if (isMobile) setIsSidebarOpen(false); };
   const muatChatLama = (id) => { if (isStreaming) return; const sesi = sessions.find(s => s.id === id); if (sesi) { setCurrentSessionId(id); setMessages(sesi.messages || []); setActiveRoute(null); setAttachments([]); if (isMobile) setIsSidebarOpen(false); } };
   const hapusChat = async (e, id) => { e.stopPropagation(); const updated = sessions.filter(s => s.id !== id); setSessions(updated); localStorage.setItem("andiie_chat_history", JSON.stringify(updated)); if (currentSessionId === id) buatChatBaru(); if (supabase) await supabase.from('andiie_chats').delete().eq('id', id); setPinnedChats(p => p.filter(pid => pid !== id)); };
@@ -877,7 +911,6 @@ export default function App() {
 
   const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
 
-  // Sorted sessions: pinned first
   const sortedSessions = useMemo(() => {
     const pinned = sessions.filter(s => pinnedChats.includes(s.id));
     const unpinned = sessions.filter(s => !pinnedChats.includes(s.id));
@@ -1215,12 +1248,18 @@ export default function App() {
 
             {/* Model Dropdown */}
             <div className="relative min-w-0">
-              <button onClick={(e) => { e.stopPropagation(); setShowModelDropdown(p => !p); }} className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border" style={{ background: t.bgSecondary, borderColor: t.border, color: t.textSecondary }}>
-                <span className="truncate max-w-[100px] md:max-w-[200px]">{currentModelLabel}</span><ChevronDown size={14} className="opacity-50 shrink-0" />
-              </button>
+              {currentUser === 'Wanda' ? (
+                <div className="flex items-center px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium border cursor-default" style={{ background: t.bgSecondary, borderColor: t.border, color: t.textSecondary }}>
+                  ✨ Auto Smart Manager
+                </div>
+              ) : (
+                <button onClick={(e) => { e.stopPropagation(); setShowModelDropdown(p => !p); }} className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border" style={{ background: t.bgSecondary, borderColor: t.border, color: t.textSecondary }}>
+                  <span className="truncate max-w-[100px] md:max-w-[200px]">{currentModelLabel}</span><ChevronDown size={14} className="opacity-50 shrink-0" />
+                </button>
+              )}
 
               <AnimatePresence>
-                {showModelDropdown && (
+                {showModelDropdown && currentUser !== 'Wanda' && (
                   <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} onClick={(e) => e.stopPropagation()} className="absolute top-full left-0 mt-2 w-72 rounded-2xl border shadow-2xl overflow-hidden z-50" style={{ background: t.bgSecondary, borderColor: t.border }}>
                     <div className="max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                       {modelGroups.map((group, gi) => (
@@ -1245,16 +1284,18 @@ export default function App() {
 
           <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
             {/* Mode Buttons */}
-            <button onClick={() => { const nm = !isCodingMode; setIsCodingMode(nm); setIsExamMode(false); setSelectedModel(nm ? "auto_coding" : "auto"); }} className="flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border" style={{ borderColor: isCodingMode ? t.accent + '80' : 'transparent', background: isCodingMode ? t.accentBg : 'transparent', color: isCodingMode ? t.accent : t.textMuted }} title="Mode Koding">
-              <Code size={14} /> <span className="hidden lg:inline">Koding</span>
-            </button>
+            {currentUser !== 'Wanda' && (
+              <button onClick={() => { const nm = !isCodingMode; setIsCodingMode(nm); setIsExamMode(false); setSelectedModel(nm ? "auto_coding" : "auto"); }} className="flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border" style={{ borderColor: isCodingMode ? t.accent + '80' : 'transparent', background: isCodingMode ? t.accentBg : 'transparent', color: isCodingMode ? t.accent : t.textMuted }} title="Mode Koding">
+                <Code size={14} /> <span className="hidden lg:inline">Koding</span>
+              </button>
+            )}
 
-            <button onClick={() => { const nm = !isExamMode; setIsExamMode(nm); setIsCodingMode(false); setSelectedModel(nm ? "auto" : "auto"); }} className="flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border" style={{ borderColor: isExamMode ? t.success + '80' : 'transparent', background: isExamMode ? 'rgba(34,197,94,0.12)' : 'transparent', color: isExamMode ? t.success : t.textMuted }} title="Mode Ujian">
+            <button onClick={() => { const nm = !isExamMode; setIsExamMode(nm); setIsCodingMode(false); setSelectedModel("auto"); }} className="flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border" style={{ borderColor: isExamMode ? t.success + '80' : 'transparent', background: isExamMode ? 'rgba(34,197,94,0.12)' : 'transparent', color: isExamMode ? t.success : t.textMuted }} title="Mode Ujian">
               <GraduationCap size={14} /> <span className="hidden lg:inline">Ujian</span>
             </button>
 
             {/* Desktop-only tools */}
-            {messages.length > 0 && !isMobile && (
+            {messages.length > 0 && !isMobile && currentUser !== 'Wanda' && (
               <>
                 <div className="w-px h-5 mx-1" style={{ background: t.border }} />
                 <button onClick={exportChatToZip} title="Export ZIP" className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }}
@@ -1272,7 +1313,7 @@ export default function App() {
               </>
             )}
 
-            {!isMobile && (
+            {!isMobile && currentUser !== 'Wanda' && (
               <>
                 <div className="w-px h-5 mx-1" style={{ background: t.border }} />
                 <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} title="Terminal" className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }}
@@ -1323,10 +1364,10 @@ export default function App() {
                       initial={{ y: 10, opacity: 0 }}
                       animate={{ y: 0, opacity: 1 }}
                       transition={{ delay: 0.1 }}
-                      className="text-2xl md:text-3xl font-bold"
+                      className="text-2xl md:text-3xl font-bold capitalize"
                       style={{ color: t.text }}
                     >
-                      Siap membantu Anda, Andi.
+                      Siap membantu Anda, {currentUser}.
                     </motion.h1>
                     <motion.p
                       initial={{ y: 10, opacity: 0 }}
@@ -1363,19 +1404,23 @@ export default function App() {
                         { icon: ImageIcon, text: "Buat gambar kucing lucu", color: '#ec4899' },
                         { icon: FileText, text: "Ringkas dokumen ini", color: t.warning },
                         { icon: Music, text: "Buat lagu tentang kopi", color: t.success },
-                      ].map((sug, i) => (
-                        <button
-                          key={i}
-                          onClick={() => { setInput(sug.text); textareaRef.current?.focus(); }}
-                          className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm text-left border transition-all"
-                          style={{ borderColor: t.border, color: t.textSecondary }}
-                          onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.borderColor = sug.color + '40'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = t.border; }}
-                        >
-                          <sug.icon size={16} style={{ color: sug.color }} />
-                          <span className="truncate">{sug.text}</span>
-                        </button>
-                      ))}
+                      ].map((sug, i) => {
+                        // Jika wanda, sembunyikan opsi koding
+                        if (currentUser === 'Wanda' && sug.icon === Code) return null;
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => { setInput(sug.text); textareaRef.current?.focus(); }}
+                            className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm text-left border transition-all"
+                            style={{ borderColor: t.border, color: t.textSecondary }}
+                            onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.borderColor = sug.color + '40'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = t.border; }}
+                          >
+                            <sug.icon size={16} style={{ color: sug.color }} />
+                            <span className="truncate">{sug.text}</span>
+                          </button>
+                        );
+                      })}
                     </motion.div>
                   </div>
                 </div>
@@ -1489,7 +1534,7 @@ export default function App() {
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
                       ><Paperclip size={18} /></button>
 
-                      {!dirHandle && !isMobile && (
+                      {!dirHandle && !isMobile && currentUser !== 'Wanda' && (
                         <button onClick={linkFolder} className="p-2 rounded-xl transition-colors" style={{ color: t.textMuted }} title="Tautkan Folder"
                           onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.success; }}
                           onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
