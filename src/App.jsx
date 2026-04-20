@@ -381,8 +381,9 @@ export default function App() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [activeRoute, setActiveRoute] = useState(null);
 
+  // UI States
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
-  const [selectedModel, setSelectedModel] = useState("google/gemma-4-31b-it");
+  const [selectedModel, setSelectedModel] = useState("auto"); // <--- INI YANG BENAR
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [attachments, setAttachments] = useState([]);
   
@@ -827,12 +828,22 @@ export default function App() {
           <div className="flex items-center gap-1 md:gap-2">
             
             {/* ⚡ TOMBOL MODE KODING */}
-            <button onClick={() => { setIsCodingMode(!isCodingMode); setIsExamMode(false); if (!isCodingMode) setSelectedModel("auto_coding"); else setSelectedModel("google/gemma-4-31b-it"); }} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg text-xs font-bold transition-all border ${isCodingMode ? (theme === 'dark' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Koding">
+            <button onClick={() => { 
+              const newMode = !isCodingMode;
+              setIsCodingMode(newMode); 
+              setIsExamMode(false); 
+              setSelectedModel(newMode ? "auto_coding" : "auto"); 
+            }} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg text-xs font-bold transition-all border ${isCodingMode ? (theme === 'dark' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Koding">
               <Code size={16} /> <span className="hidden md:inline">Mode Koding</span>
             </button>
 
             {/* ⚡ TOMBOL MODE UJIAN */}
-            <button onClick={() => { setIsExamMode(!isExamMode); setIsCodingMode(false); if (!isExamMode) setSelectedModel("auto"); }} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg text-xs font-bold transition-all border ${isExamMode ? (theme === 'dark' ? 'bg-green-500/20 border-green-500/50 text-green-400' : 'bg-green-100 border-green-300 text-green-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Ujian">
+            <button onClick={() => { 
+              const newMode = !isExamMode;
+              setIsExamMode(newMode); 
+              setIsCodingMode(false); 
+              setSelectedModel(newMode ? "auto" : "auto"); // Biarkan auto, backend akan mengurus prompt-nya
+            }} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg text-xs font-bold transition-all border ${isExamMode ? (theme === 'dark' ? 'bg-green-500/20 border-green-500/50 text-green-400' : 'bg-green-100 border-green-300 text-green-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Ujian">
               <GraduationCap size={16} /> <span className="hidden md:inline">Mode Ujian</span>
             </button>
 
