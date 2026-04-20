@@ -1,3 +1,4 @@
+// FILE: src/App.jsx
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
@@ -10,7 +11,8 @@ import {
   LayoutGrid, Settings, Save, Archive, GitCommit, FolderKanban,
   Layers, ChevronRight, ChevronDown, User, StopCircle,
   PanelRightOpen, PanelRightClose, Image as ImageIcon,
-  Video, Volume2, LogOut, Folder, GraduationCap, FolderSync, ThumbsUp, ThumbsDown, RotateCw, Share2, MoreVertical, FileText, Mail, Flag
+  Video, Volume2, LogOut, Folder, GraduationCap, FolderSync, ThumbsUp, ThumbsDown, RotateCw, Share2, MoreVertical, FileText, Mail, Flag,
+  ArrowDown, Palette, Clock, Keyboard, ChevronsLeft, ChevronsRight, Search, Pin
 } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import JSZip from 'jszip';
@@ -24,6 +26,162 @@ import 'xterm/css/xterm.css';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+// =====================================
+// THEME SYSTEM - 5 LUXURY THEMES
+// =====================================
+const THEMES = {
+  dark: {
+    id: 'dark',
+    name: 'Obsidian Dark',
+    icon: '🖤',
+    bg: '#0a0a0f',
+    bgSecondary: '#12121a',
+    bgTertiary: '#1a1a28',
+    bgInput: '#16161f',
+    border: '#2a2a3d',
+    borderFocus: '#6366f1',
+    text: '#e4e4ed',
+    textSecondary: '#8888a4',
+    textMuted: '#55556e',
+    accent: '#6366f1',
+    accentHover: '#818cf8',
+    accentBg: 'rgba(99,102,241,0.12)',
+    sidebarBg: '#08080d',
+    headerBg: 'rgba(10,10,15,0.85)',
+    bubbleUser: '#1e1e30',
+    bubbleAI: 'transparent',
+    scrollTrack: '#0a0a0f',
+    scrollThumb: '#2a2a3d',
+    danger: '#ef4444',
+    success: '#22c55e',
+    warning: '#f59e0b',
+    gradient: 'from-indigo-600 to-violet-600',
+    gradientText: 'from-indigo-400 to-violet-400',
+    codeStyle: vscDarkPlus,
+    isDark: true,
+  },
+  light: {
+    id: 'light',
+    name: 'Pearl Light',
+    icon: '🤍',
+    bg: '#f8f9fc',
+    bgSecondary: '#ffffff',
+    bgTertiary: '#f1f3f9',
+    bgInput: '#ffffff',
+    border: '#e2e5ef',
+    borderFocus: '#6366f1',
+    text: '#1a1a2e',
+    textSecondary: '#64648c',
+    textMuted: '#9898b4',
+    accent: '#6366f1',
+    accentHover: '#4f46e5',
+    accentBg: 'rgba(99,102,241,0.08)',
+    sidebarBg: '#f1f3f9',
+    headerBg: 'rgba(248,249,252,0.88)',
+    bubbleUser: '#f1f3f9',
+    bubbleAI: 'transparent',
+    scrollTrack: '#f8f9fc',
+    scrollThumb: '#d1d5db',
+    danger: '#ef4444',
+    success: '#16a34a',
+    warning: '#d97706',
+    gradient: 'from-indigo-500 to-violet-500',
+    gradientText: 'from-indigo-600 to-violet-600',
+    codeStyle: oneLight,
+    isDark: false,
+  },
+  midnight: {
+    id: 'midnight',
+    name: 'Midnight Blue',
+    icon: '🌊',
+    bg: '#0b1120',
+    bgSecondary: '#111b33',
+    bgTertiary: '#162240',
+    bgInput: '#111b33',
+    border: '#1e3055',
+    borderFocus: '#3b82f6',
+    text: '#dce6f7',
+    textSecondary: '#7a9bc5',
+    textMuted: '#4a6a94',
+    accent: '#3b82f6',
+    accentHover: '#60a5fa',
+    accentBg: 'rgba(59,130,246,0.12)',
+    sidebarBg: '#080e1b',
+    headerBg: 'rgba(11,17,32,0.88)',
+    bubbleUser: '#162240',
+    bubbleAI: 'transparent',
+    scrollTrack: '#0b1120',
+    scrollThumb: '#1e3055',
+    danger: '#f87171',
+    success: '#34d399',
+    warning: '#fbbf24',
+    gradient: 'from-blue-600 to-cyan-500',
+    gradientText: 'from-blue-400 to-cyan-300',
+    codeStyle: vscDarkPlus,
+    isDark: true,
+  },
+  forest: {
+    id: 'forest',
+    name: 'Emerald Forest',
+    icon: '🌲',
+    bg: '#0a120e',
+    bgSecondary: '#111f18',
+    bgTertiary: '#182b20',
+    bgInput: '#111f18',
+    border: '#1e3a29',
+    borderFocus: '#22c55e',
+    text: '#d4e8dc',
+    textSecondary: '#7aab8e',
+    textMuted: '#4a7a5e',
+    accent: '#22c55e',
+    accentHover: '#4ade80',
+    accentBg: 'rgba(34,197,94,0.12)',
+    sidebarBg: '#070e0a',
+    headerBg: 'rgba(10,18,14,0.88)',
+    bubbleUser: '#182b20',
+    bubbleAI: 'transparent',
+    scrollTrack: '#0a120e',
+    scrollThumb: '#1e3a29',
+    danger: '#f87171',
+    success: '#4ade80',
+    warning: '#fbbf24',
+    gradient: 'from-emerald-600 to-teal-500',
+    gradientText: 'from-emerald-400 to-teal-300',
+    codeStyle: vscDarkPlus,
+    isDark: true,
+  },
+  rose: {
+    id: 'rose',
+    name: 'Rosé Gold',
+    icon: '🌸',
+    bg: '#fdf2f4',
+    bgSecondary: '#ffffff',
+    bgTertiary: '#fce7eb',
+    bgInput: '#ffffff',
+    border: '#f5d0d8',
+    borderFocus: '#e11d48',
+    text: '#2a1015',
+    textSecondary: '#8a5060',
+    textMuted: '#c4899a',
+    accent: '#e11d48',
+    accentHover: '#be123c',
+    accentBg: 'rgba(225,29,72,0.08)',
+    sidebarBg: '#fce7eb',
+    headerBg: 'rgba(253,242,244,0.88)',
+    bubbleUser: '#fce7eb',
+    bubbleAI: 'transparent',
+    scrollTrack: '#fdf2f4',
+    scrollThumb: '#f5d0d8',
+    danger: '#e11d48',
+    success: '#16a34a',
+    warning: '#d97706',
+    gradient: 'from-rose-500 to-pink-500',
+    gradientText: 'from-rose-600 to-pink-600',
+    codeStyle: oneLight,
+    isDark: false,
+  },
+};
 
 // =====================================
 // UTILITY: Auto-resize textarea & Mobile
@@ -68,9 +226,25 @@ const ekstrakMediaDariRiwayat = (sessions) => {
 };
 
 // =====================================
+// FORMAT TIMESTAMP
+// =====================================
+const formatTimestamp = (ts) => {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'Baru saja';
+  if (diffMin < 60) return `${diffMin}m lalu`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}j lalu`;
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+};
+
+// =====================================
 // SMART CODE BLOCK
 // =====================================
-const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
+const SmartCodeBlock = ({ inline, className, children, t, setActiveCanvasTab, setIsPreviewOpen, setPreviewCode }) => {
   const [isCopied, setIsCopied] = useState(false);
   const codeString = String(children).replace(/\n$/, '');
   const match = /language-(\w+)/.exec(className || '');
@@ -92,56 +266,58 @@ const SmartCodeBlock = ({ inline, className, children, theme, setActiveCanvasTab
     let codeToRender = codeString;
     if (language === 'python' || language === 'py') {
       const safeCode = JSON.stringify(codeString).replace(/<\//g, '<\\/');
-      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${theme === 'dark' ? '#0d1117' : '#fff'};color:${theme === 'dark' ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Memuat Mesin Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Menjalankan…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Selesai";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
+      codeToRender = `<!DOCTYPE html><html><head><script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"><\/script><style>body{background:${t.isDark ? '#0d1117' : '#fff'};color:${t.isDark ? '#c9d1d9' : '#1f2937'};font-family:monospace;padding:20px;line-height:1.6}#output{white-space:pre-wrap}.ok{color:#3fb950}.err{color:#f85149}</style></head><body><div id="s" style="color:#d29922;font-weight:bold">⏳ Memuat Mesin Python…</div><hr style="border-color:#30363d;margin:16px 0"/><div id="output"></div><script>async function main(){try{let p=await loadPyodide();document.getElementById("s").textContent="⚙️ Menjalankan…";p.setStdout({batched:m=>{document.getElementById("output").textContent+=m+"\\n"}});await p.runPythonAsync(${safeCode});document.getElementById("s").textContent="✅ Selesai";document.getElementById("s").className="ok"}catch(e){document.getElementById("output").textContent+="\\n"+e;document.getElementById("s").textContent="❌ Error";document.getElementById("s").className="err"}}main()<\/script></body></html>`;
     }
     setPreviewCode(codeToRender); setIsPreviewOpen(true); setActiveCanvasTab("preview");
-  }, [codeString, language, theme, setPreviewCode, setIsPreviewOpen, setActiveCanvasTab]);
+  }, [codeString, language, t, setPreviewCode, setIsPreviewOpen, setActiveCanvasTab]);
 
   if (isBlock) {
     return (
-      <div className={`rounded-xl border my-4 overflow-hidden ${theme === 'dark' ? 'border-[#30363d] bg-[#0d1117]' : 'border-gray-200 bg-gray-50'}`}>
-        <div className={`flex items-center justify-between px-4 py-2 border-b text-xs ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-500'}`}>
+      <div className="rounded-xl border my-4 overflow-hidden" style={{ borderColor: t.border, background: t.isDark ? t.bg : t.bgTertiary }}>
+        <div className="flex items-center justify-between px-4 py-2 border-b text-xs" style={{ background: t.bgSecondary, borderColor: t.border, color: t.textMuted }}>
           <span className="font-mono font-semibold uppercase tracking-wider text-[10px]">{language}</span>
           <div className="flex items-center gap-1.5">
-            {isRenderable && <button onClick={handlePreview} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors"><Play size={11} fill="currentColor" /> Preview</button>}
-            <button onClick={handleCopy} className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors ${isCopied ? 'bg-green-500/15 text-green-400' : 'hover:bg-white/10 text-gray-400 hover:text-gray-200'}`}>{isCopied ? <Check size={11} /> : <Copy size={11} />} {isCopied ? "Tersalin" : "Salin"}</button>
+            {isRenderable && <button onClick={handlePreview} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors" style={{ background: t.accentBg, color: t.accent }}><Play size={11} fill="currentColor" /> Preview</button>}
+            <button onClick={handleCopy} className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors" style={{ color: isCopied ? t.success : t.textMuted }}>
+              {isCopied ? <Check size={11} /> : <Copy size={11} />} {isCopied ? "Tersalin" : "Salin"}
+            </button>
           </div>
         </div>
-        <SyntaxHighlighter language={language === 'text' || language === 'code' ? 'javascript' : language} style={theme === 'dark' ? vscDarkPlus : oneLight} customStyle={{ margin: 0, padding: '16px', fontSize: '13px', lineHeight: '1.6', background: 'transparent' }} wrapLines lineProps={(lineNumber) => { const line = codeString.split('\n')[lineNumber - 1] || ""; if (language === 'diff') { if (line.startsWith('+')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(46,160,67,0.15)' : 'rgba(46,160,67,0.1)', display: 'block' } }; if (line.startsWith('-')) return { style: { backgroundColor: theme === 'dark' ? 'rgba(248,81,73,0.15)' : 'rgba(248,81,73,0.1)', display: 'block' } }; } return {}; }}>
+        <SyntaxHighlighter language={language === 'text' || language === 'code' ? 'javascript' : language} style={t.codeStyle} customStyle={{ margin: 0, padding: '16px', fontSize: '13px', lineHeight: '1.6', background: 'transparent' }} wrapLines lineProps={(lineNumber) => { const line = codeString.split('\n')[lineNumber - 1] || ""; if (language === 'diff') { if (line.startsWith('+')) return { style: { backgroundColor: 'rgba(46,160,67,0.15)', display: 'block' } }; if (line.startsWith('-')) return { style: { backgroundColor: 'rgba(248,81,73,0.15)', display: 'block' } }; } return {}; }}>
           {codeString}
         </SyntaxHighlighter>
       </div>
     );
   }
-  return <code className={`px-1.5 py-0.5 rounded text-[13px] font-mono ${theme === 'dark' ? 'bg-[#1e1f20] text-[#79c0ff]' : 'bg-gray-100 text-pink-600'}`}>{children}</code>;
+  return <code className="px-1.5 py-0.5 rounded text-[13px] font-mono" style={{ background: t.bgTertiary, color: t.accent }}>{children}</code>;
 };
 
 // =====================================
 // CUSTOM AUDIO PLAYER
 // =====================================
-const CustomAudioPlayer = ({ src, theme }) => {
+const CustomAudioPlayer = ({ src, t }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState("0:00");
   const [duration, setDuration] = useState("0:00");
 
-  const formatTime = (t) => { if (isNaN(t)) return "0:00"; return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`; };
+  const formatTime = (time) => { if (isNaN(time)) return "0:00"; return `${Math.floor(time / 60)}:${String(Math.floor(time % 60)).padStart(2, '0')}`; };
   const togglePlay = () => { if (!audioRef.current) return; if (isPlaying) audioRef.current.pause(); else audioRef.current.play().catch(() => {}); setIsPlaying(!isPlaying); };
   const skip = (amt) => { if (audioRef.current) audioRef.current.currentTime += amt; };
 
   return (
-    <div className={`w-full max-w-sm flex flex-col gap-2.5 p-3.5 rounded-2xl border my-3 transition-colors ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200 shadow-sm'}`}>
+    <div className="w-full max-w-sm flex flex-col gap-2.5 p-3.5 rounded-2xl border my-3 transition-colors" style={{ background: t.bgSecondary, borderColor: t.border }}>
       <audio ref={audioRef} src={src} onTimeUpdate={() => { const a = audioRef.current; if (a && a.duration > 0) { setProgress((a.currentTime / a.duration) * 100); setCurrentTime(formatTime(a.currentTime)); } }} onLoadedMetadata={() => { if (audioRef.current) setDuration(formatTime(audioRef.current.duration)); }} onEnded={() => setIsPlaying(false)} className="hidden" />
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
-          <button onClick={() => skip(-10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'}`}><Rewind size={14} /></button>
-          <button onClick={togglePlay} className="p-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-500 active:scale-95 transition-all shadow-md">{isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}</button>
-          <button onClick={() => skip(10)} className={`p-1.5 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-white hover:bg-white/5' : 'text-gray-400 hover:text-gray-800 hover:bg-gray-100'}`}><FastForward size={14} /></button>
+          <button onClick={() => skip(-10)} className="p-1.5 rounded-full transition-colors" style={{ color: t.textMuted }}><Rewind size={14} /></button>
+          <button onClick={togglePlay} className={`p-2.5 text-white rounded-full active:scale-95 transition-all shadow-md bg-gradient-to-r ${t.gradient}`}>{isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}</button>
+          <button onClick={() => skip(10)} className="p-1.5 rounded-full transition-colors" style={{ color: t.textMuted }}><FastForward size={14} /></button>
         </div>
         <div className="flex-1 flex flex-col gap-1">
-          <input type="range" min="0" max="100" value={progress || 0} onChange={(e) => { if (audioRef.current && audioRef.current.duration) { audioRef.current.currentTime = (e.target.value / 100) * audioRef.current.duration; setProgress(e.target.value); } }} className="w-full h-1 rounded-full appearance-none cursor-pointer accent-blue-500" style={{ background: `linear-gradient(to right, #3b82f6 ${progress}%, ${theme === 'dark' ? '#30363d' : '#e5e7eb'} ${progress}%)` }} />
-          <div className="flex justify-between"><span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{currentTime}</span><span className={`text-[10px] font-mono ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{duration}</span></div>
+          <input type="range" min="0" max="100" value={progress || 0} onChange={(e) => { if (audioRef.current && audioRef.current.duration) { audioRef.current.currentTime = (e.target.value / 100) * audioRef.current.duration; setProgress(e.target.value); } }} className="w-full h-1 rounded-full appearance-none cursor-pointer" style={{ background: `linear-gradient(to right, ${t.accent} ${progress}%, ${t.border} ${progress}%)`, accentColor: t.accent }} />
+          <div className="flex justify-between"><span className="text-[10px] font-mono" style={{ color: t.textMuted }}>{currentTime}</span><span className="text-[10px] font-mono" style={{ color: t.textMuted }}>{duration}</span></div>
         </div>
       </div>
     </div>
@@ -151,12 +327,12 @@ const CustomAudioPlayer = ({ src, theme }) => {
 // =====================================
 // MODAL WRAPPER
 // =====================================
-const Modal = ({ isOpen, onClose, children, theme, maxWidth = "max-w-2xl" }) => (
+const Modal = ({ isOpen, onClose, children, t, maxWidth = "max-w-2xl" }) => (
   <AnimatePresence>
     {isOpen && (
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-4" onClick={onClose}>
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: "spring", bounce: 0.15, duration: 0.4 }} onClick={(e) => e.stopPropagation()} className={`relative w-full ${maxWidth} max-h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: "spring", bounce: 0.15, duration: 0.4 }} onClick={(e) => e.stopPropagation()} className={`relative w-full ${maxWidth} max-h-[85vh] rounded-2xl flex flex-col overflow-hidden shadow-2xl border`} style={{ background: t.bg, borderColor: t.border }}>
           {children}
         </motion.div>
       </motion.div>
@@ -165,16 +341,122 @@ const Modal = ({ isOpen, onClose, children, theme, maxWidth = "max-w-2xl" }) => 
 );
 
 // =====================================
-// MESSAGE BUBBLE COMPONENT (UPGRADED)
+// THEME PICKER MODAL
+// =====================================
+const ThemePicker = ({ isOpen, onClose, currentTheme, onSelect, t }) => (
+  <Modal isOpen={isOpen} onClose={onClose} t={t} maxWidth="max-w-md">
+    <div className="p-5 border-b flex justify-between items-center" style={{ borderColor: t.border }}>
+      <div className="flex items-center gap-3">
+        <Palette size={20} style={{ color: t.accent }} />
+        <h2 className="text-lg font-bold" style={{ color: t.text }}>Pilih Tema</h2>
+      </div>
+      <button onClick={onClose} className="p-2 rounded-xl transition-colors" style={{ color: t.textMuted }}><X size={18} /></button>
+    </div>
+    <div className="p-5 grid grid-cols-1 gap-3">
+      {Object.values(THEMES).map(theme => (
+        <button
+          key={theme.id}
+          onClick={() => { onSelect(theme.id); onClose(); }}
+          className="flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left"
+          style={{
+            borderColor: currentTheme === theme.id ? t.accent : t.border,
+            background: currentTheme === theme.id ? t.accentBg : 'transparent',
+          }}
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl border" style={{ background: theme.bg, borderColor: theme.border }}>
+            {theme.icon}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-semibold text-sm" style={{ color: t.text }}>{theme.name}</div>
+            <div className="text-xs mt-0.5" style={{ color: t.textMuted }}>{theme.isDark ? 'Tema Gelap' : 'Tema Terang'}</div>
+          </div>
+          {currentTheme === theme.id && (
+            <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ background: t.accent }}>
+              <Check size={14} className="text-white" />
+            </div>
+          )}
+          <div className="flex gap-1">
+            {[theme.bg, theme.bgSecondary, theme.accent, theme.border].map((c, i) => (
+              <div key={i} className="w-4 h-4 rounded-full border" style={{ background: c, borderColor: theme.border }} />
+            ))}
+          </div>
+        </button>
+      ))}
+    </div>
+  </Modal>
+);
+
+// =====================================
+// SEARCH MODAL
+// =====================================
+const SearchModal = ({ isOpen, onClose, sessions, onSelect, t }) => {
+  const [query, setQuery] = useState('');
+  const results = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    return sessions.filter(s =>
+      s.title?.toLowerCase().includes(q) ||
+      (s.messages || []).some(m => m.text?.toLowerCase().includes(q))
+    ).slice(0, 15);
+  }, [query, sessions]);
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} t={t} maxWidth="max-w-lg">
+      <div className="p-4 border-b" style={{ borderColor: t.border }}>
+        <div className="flex items-center gap-3 px-3 py-2 rounded-xl border" style={{ borderColor: t.border, background: t.bgTertiary }}>
+          <Search size={18} style={{ color: t.textMuted }} />
+          <input
+            autoFocus
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Cari percakapan..."
+            className="flex-1 bg-transparent text-sm outline-none"
+            style={{ color: t.text }}
+          />
+          {query && <button onClick={() => setQuery('')}><X size={14} style={{ color: t.textMuted }} /></button>}
+        </div>
+      </div>
+      <div className="max-h-80 overflow-y-auto p-2" style={{ scrollbarWidth: 'none' }}>
+        {query && results.length === 0 && (
+          <div className="py-12 text-center text-sm" style={{ color: t.textMuted }}>Tidak ditemukan</div>
+        )}
+        {results.map(s => (
+          <button
+            key={s.id}
+            onClick={() => { onSelect(s.id); onClose(); setQuery(''); }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-left"
+            style={{ color: t.text }}
+            onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+          >
+            <MessageSquare size={16} style={{ color: t.textMuted }} />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-medium truncate">{s.title}</div>
+              <div className="text-xs truncate mt-0.5" style={{ color: t.textMuted }}>
+                {(s.messages || []).length} pesan
+              </div>
+            </div>
+          </button>
+        ))}
+        {!query && (
+          <div className="py-12 text-center text-sm" style={{ color: t.textMuted }}>
+            Ketik untuk mencari percakapan...
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+};
+
+// =====================================
+// MESSAGE BUBBLE COMPONENT
 // =====================================
 const MessageBubble = React.memo(({
-  chat, idx, isLast, isStreaming, theme,
+  chat, idx, isLast, isStreaming, t,
   setActiveCanvasTab, setIsPreviewOpen, setPreviewCode
 }) => {
   const isUser = chat.role === 'user';
   const isAI = chat.role === 'ai';
-
-  // State untuk menu dropdown dan notifikasi copy
   const [showOptions, setShowOptions] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
@@ -205,51 +487,45 @@ const MessageBubble = React.memo(({
   };
 
   return (
-    <div className={`group py-5 md:py-6 px-4 md:px-0 transition-colors`}>
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, delay: isLast ? 0 : 0 }}
+      className="group py-4 md:py-5 px-3 md:px-0 transition-colors"
+    >
       <div className="max-w-3xl mx-auto flex gap-3 md:gap-4">
         {/* Avatar */}
         <div className="shrink-0 pt-0.5">
           {isAI ? (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              theme === 'dark'
-                ? 'bg-gradient-to-br from-blue-600 to-violet-600'
-                : 'bg-gradient-to-br from-blue-500 to-violet-500'
-            }`}>
+            <div className={`w-7 h-7 rounded-lg flex items-center justify-center bg-gradient-to-br ${t.gradient} shadow-sm`}>
               {isStreaming && isLast
                 ? <Loader2 className="animate-spin text-white" size={14} />
                 : <Sparkles className="text-white" size={14} />
               }
             </div>
           ) : (
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-              theme === 'dark'
-                ? 'bg-[#1e1f20] border border-[#30363d]'
-                : 'bg-gray-100 border border-gray-200'
-            }`}>
-              <User size={14} className={theme === 'dark' ? 'text-gray-400' : 'text-gray-500'} />
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center border" style={{ background: t.bgTertiary, borderColor: t.border }}>
+              <User size={14} style={{ color: t.textSecondary }} />
             </div>
           )}
         </div>
 
         {/* Content */}
         <div className="flex-1 min-w-0 overflow-visible relative">
-          <div className={`text-xs font-semibold mb-1.5 ${
-            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
-          }`}>
-            {isAI ? 'AI Studio Pro' : 'Anda'}
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="text-xs font-semibold" style={{ color: t.textSecondary }}>
+              {isAI ? 'AI Studio Pro' : 'Anda'}
+            </span>
+            {chat.timestamp && (
+              <span className="text-[10px]" style={{ color: t.textMuted }}>
+                {formatTimestamp(chat.timestamp)}
+              </span>
+            )}
           </div>
 
           {isAI ? (
             <>
-              <div className={`prose prose-sm max-w-none break-words leading-relaxed mb-3 ${
-                theme === 'dark' ? 'prose-invert' : 'prose-gray'
-              }`}
-                style={{
-                  '--tw-prose-body': theme === 'dark' ? '#c9d1d9' : '#374151',
-                  '--tw-prose-headings': theme === 'dark' ? '#f0f6fc' : '#111827',
-                  '--tw-prose-links': '#58a6ff',
-                }}
-              >
+              <div className="prose prose-sm max-w-none break-words leading-relaxed mb-3" style={{ '--tw-prose-body': t.text, '--tw-prose-headings': t.text, '--tw-prose-links': t.accent, color: t.text }}>
                 <ReactMarkdown
                   urlTransform={(value) => value}
                   components={{
@@ -257,7 +533,7 @@ const MessageBubble = React.memo(({
                       return (
                         <SmartCodeBlock
                           {...props}
-                          theme={theme}
+                          t={t}
                           setActiveCanvasTab={setActiveCanvasTab}
                           setIsPreviewOpen={setIsPreviewOpen}
                           setPreviewCode={setPreviewCode}
@@ -266,10 +542,10 @@ const MessageBubble = React.memo(({
                     },
                     a(props) {
                       if (props.children && props.children[0] === 'AUDIO_PLAYER') {
-                        return <CustomAudioPlayer src={props.href} theme={theme} />;
+                        return <CustomAudioPlayer src={props.href} t={t} />;
                       }
                       return (
-                        <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:text-blue-300 underline decoration-blue-400/30 underline-offset-2 hover:decoration-blue-400/60 transition-colors">
+                        <a {...props} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 transition-colors" style={{ color: t.accent }}>
                           {props.children}
                         </a>
                       );
@@ -283,66 +559,71 @@ const MessageBubble = React.memo(({
                 </ReactMarkdown>
 
                 {isStreaming && isLast && !chat.text && (
-                  <div className="flex gap-1 py-2">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="flex gap-1.5 py-2">
+                    {[0, 150, 300].map(delay => (
+                      <span key={delay} className="w-2 h-2 rounded-full animate-bounce" style={{ background: t.accent, animationDelay: `${delay}ms` }} />
+                    ))}
                   </div>
                 )}
               </div>
 
-              {/* ⚡ ACTION BAR (LIKE, COPY, MORE MENU) */}
+              {/* ACTION BAR */}
               {!isStreaming && chat.text && (
-                <div className="flex items-center gap-1 mt-2 relative">
-                  <button className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Bagus">
-                    <ThumbsUp size={16} />
-                  </button>
-                  <button className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Kurang Bagus">
-                    <ThumbsDown size={16} />
-                  </button>
-                  <button className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Muat Ulang Jawaban">
-                    <RotateCw size={16} />
-                  </button>
-                  
-                  <div className="w-px h-4 bg-gray-300 dark:bg-[#30363d] mx-1"></div>
-                  
-                  <button onClick={handleCopyText} className={`p-2 rounded-full transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`} title="Salin">
-                    {isCopied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                <div className="flex items-center gap-0.5 mt-2 relative opacity-0 group-hover:opacity-100 transition-opacity">
+                  {[
+                    { icon: ThumbsUp, title: 'Bagus' },
+                    { icon: ThumbsDown, title: 'Kurang' },
+                    { icon: RotateCw, title: 'Muat Ulang' },
+                  ].map((btn, i) => (
+                    <button key={i} className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }} title={btn.title}
+                      onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                    >
+                      <btn.icon size={15} />
+                    </button>
+                  ))}
+
+                  <div className="w-px h-4 mx-1" style={{ background: t.border }} />
+
+                  <button onClick={handleCopyText} className="p-2 rounded-lg transition-colors" style={{ color: isCopied ? t.success : t.textMuted }} title="Salin"
+                    onMouseEnter={e => { if (!isCopied) { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text; }}}
+                    onMouseLeave={e => { if (!isCopied) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}}
+                  >
+                    {isCopied ? <Check size={15} /> : <Copy size={15} />}
                   </button>
 
                   <div className="relative">
-                    <button onClick={() => setShowOptions(!showOptions)} className={`p-2 rounded-full transition-colors ${showOptions ? (theme === 'dark' ? 'bg-[#30363d] text-white' : 'bg-blue-100 text-blue-600') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#30363d] hover:text-white' : 'text-gray-500 hover:bg-blue-50 hover:text-blue-600')}`} title="Lainnya">
-                      <MoreVertical size={16} />
+                    <button onClick={() => setShowOptions(!showOptions)} className="p-2 rounded-lg transition-colors" style={{ color: showOptions ? t.accent : t.textMuted, background: showOptions ? t.accentBg : 'transparent' }} title="Lainnya">
+                      <MoreVertical size={15} />
                     </button>
-
-                    {/* ⚡ DROPDOWN MENU */}
                     <AnimatePresence>
                       {showOptions && (
                         <>
-                          <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)}></div>
-                          <motion.div 
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }} 
-                            animate={{ opacity: 1, y: 0, scale: 1 }} 
-                            exit={{ opacity: 0, y: 10, scale: 0.95 }} 
-                            className={`absolute bottom-full left-0 mb-2 w-56 rounded-2xl shadow-xl border z-20 overflow-hidden ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-100'}`}
+                          <div className="fixed inset-0 z-10" onClick={() => setShowOptions(false)} />
+                          <motion.div
+                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                            className="absolute bottom-full left-0 mb-2 w-56 rounded-xl shadow-2xl border z-20 overflow-hidden"
+                            style={{ background: t.bgSecondary, borderColor: t.border }}
                           >
                             <div className="py-1">
-                              <button onClick={handleExportTxt} className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left ${theme === 'dark' ? 'hover:bg-[#1c2128] text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
-                                <FileText size={16} className="opacity-70" /> Ekspor ke Dokumen (.txt)
-                              </button>
-                              <button onClick={handleDraftEmail} className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left ${theme === 'dark' ? 'hover:bg-[#1c2128] text-gray-300' : 'hover:bg-gray-50 text-gray-700'}`}>
-                                <Mail size={16} className="opacity-70" /> Jadikan draf di Email
-                              </button>
-                              
-                              <div className={`my-1 border-t ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-100'}`}></div>
-                              
-                              <div className={`px-4 py-2.5 text-xs font-mono opacity-50 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Model Aktif
-                              </div>
-                              
-                              <div className={`my-1 border-t ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-100'}`}></div>
-                              
-                              <button onClick={() => setShowOptions(false)} className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left ${theme === 'dark' ? 'hover:bg-[#1c2128] text-red-400' : 'hover:bg-red-50 text-red-600'}`}>
+                              {[
+                                { icon: FileText, label: 'Ekspor ke Dokumen (.txt)', action: handleExportTxt },
+                                { icon: Mail, label: 'Jadikan draf di Email', action: handleDraftEmail },
+                              ].map((item, i) => (
+                                <button key={i} onClick={item.action} className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left" style={{ color: t.textSecondary }}
+                                  onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                >
+                                  <item.icon size={16} className="opacity-70" /> {item.label}
+                                </button>
+                              ))}
+                              <div className="my-1 border-t" style={{ borderColor: t.border }} />
+                              <button onClick={() => setShowOptions(false)} className="w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors text-left" style={{ color: t.danger }}
+                                onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                              >
                                 <Flag size={16} className="opacity-70" /> Laporkan masalah
                               </button>
                             </div>
@@ -355,15 +636,13 @@ const MessageBubble = React.memo(({
               )}
             </>
           ) : (
-            <div className={`whitespace-pre-wrap leading-7 ${
-              theme === 'dark' ? 'text-[#e6edf3]' : 'text-gray-800'
-            }`}>
+            <div className="whitespace-pre-wrap leading-7" style={{ color: t.text }}>
               {chat.text}
             </div>
           )}
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 });
 
@@ -383,10 +662,10 @@ export default function App() {
 
   // UI States
   const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobile);
-  const [selectedModel, setSelectedModel] = useState("auto"); // <--- INI YANG BENAR
+  const [selectedModel, setSelectedModel] = useState("auto");
   const [selectedPersona, setSelectedPersona] = useState("default");
   const [attachments, setAttachments] = useState([]);
-  
+
   const [isCodingMode, setIsCodingMode] = useState(false);
   const [isExamMode, setIsExamMode] = useState(false);
   const [dirHandle, setDirHandle] = useState(null);
@@ -399,7 +678,12 @@ export default function App() {
   const [previewCode, setPreviewCode] = useState("");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [activeCanvasTab, setActiveCanvasTab] = useState("preview");
-  const [theme, setTheme] = useState(() => localStorage.getItem("andiie_theme") || "dark");
+  const [themeId, setThemeId] = useState(() => localStorage.getItem("andiie_theme") || "dark");
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [showScrollBottom, setShowScrollBottom] = useState(false);
+
+  const t = THEMES[themeId] || THEMES.dark;
 
   const terminalRef = useRef(null);
   const xtermInstance = useRef(null);
@@ -424,6 +708,11 @@ export default function App() {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
 
+  // Pinned chats
+  const [pinnedChats, setPinnedChats] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("andiie_pinned") || "[]"); } catch { return []; }
+  });
+
   const modelGroups = [
     { label: "🧠 Deep Thinking & Research", models: [ { value: "SEARCH_MODE", label: "🌐 Deep Web Research (Internet)" }, { value: "deepseek/deepseek-r1", label: "💭 DeepSeek R1 (Reasoning)" }, { value: "openai/o3-mini", label: "🧠 OpenAI o3-mini (Math/Logic)" } ] },
     { label: "📝 Text & General", models: [ { value: "auto", label: "✨ Auto Smart Manager" }, { value: "google/gemma-4-31b-it", label: "🔵 Google: Gemma 4 31B (Free)" } ] },
@@ -445,10 +734,16 @@ export default function App() {
   ], []);
   const allPrompts = useMemo(() => [...slashCommandsList, ...slashCommands], [slashCommandsList, slashCommands]);
 
-  useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); localStorage.setItem("andiie_theme", theme); }, [theme]);
+  // Character count
+  const charCount = input.length;
+  const MAX_CHARS = 10000;
+
+  useEffect(() => { localStorage.setItem("andiie_theme", themeId); }, [themeId]);
   useEffect(() => { if (localStorage.getItem("andiie_auth") === "true") setIsLoggedIn(true); }, []);
   useEffect(() => { if (!supabase) return; (async () => { const { data } = await supabase.from('andiie_chats').select('*').order('updated_at', { ascending: false }); if (data && data.length > 0) { setSessions(data); localStorage.setItem("andiie_chat_history", JSON.stringify(data)); } })(); }, []);
   useEffect(() => { localStorage.setItem("andiie_projects", JSON.stringify(projectsList)); }, [projectsList]);
+  useEffect(() => { localStorage.setItem("andiie_pinned", JSON.stringify(pinnedChats)); }, [pinnedChats]);
+
   useEffect(() => {
     if (isStreaming || !currentSessionId || messages.length === 0) return;
     const timer = setTimeout(() => {
@@ -468,20 +763,42 @@ export default function App() {
   useEffect(() => { if (chatEndRef.current) chatEndRef.current.scrollIntoView({ behavior: isStreaming ? "auto" : "smooth" }); }, [messages, isStreaming]);
   useEffect(() => { if (!isMobile) setIsSidebarOpen(true); else setIsSidebarOpen(false); }, [isMobile]);
 
+  // Scroll FAB visibility
+  useEffect(() => {
+    const el = chatContainerRef.current;
+    if (!el) return;
+    const handler = () => {
+      const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+      setShowScrollBottom(!atBottom && messages.length > 3);
+    };
+    el.addEventListener('scroll', handler);
+    return () => el.removeEventListener('scroll', handler);
+  }, [messages.length]);
+
+  // Keyboard shortcut
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setIsSearchOpen(true); }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'b') { e.preventDefault(); setIsSidebarOpen(p => !p); }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   const fetchPrompts = useCallback(async () => { if (!supabase) return; const { data, error } = await supabase.from('andiie_prompts').select('*').order('created_at', { ascending: true }); if (!error && data) setSlashCommands(data); }, []);
   useEffect(() => { fetchPrompts(); }, [fetchPrompts]);
   useEffect(() => { if (activeCanvasTab !== "terminal" && xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; } }, [activeCanvasTab]);
   useEffect(() => { if (!showModelDropdown) return; const handler = () => setShowModelDropdown(false); window.addEventListener('click', handler); return () => window.removeEventListener('click', handler); }, [showModelDropdown]);
 
-  const toggleTheme = () => setTheme(p => p === "dark" ? "light" : "dark");
   const handleLogin = (e) => { e.preventDefault(); if (loginData.username === "andiie" && loginData.password === "Arsyad160216") { setIsLoggedIn(true); localStorage.setItem("andiie_auth", "true"); setLoginError(""); } else setLoginError("Kredensial tidak valid."); };
   const handleLogout = () => { localStorage.removeItem("andiie_auth"); setIsLoggedIn(false); };
   const buatChatBaru = () => { setCurrentSessionId(null); setMessages([]); setActiveRoute(null); setIsPreviewOpen(false); setAttachments([]); if (isMobile) setIsSidebarOpen(false); };
   const muatChatLama = (id) => { if (isStreaming) return; const sesi = sessions.find(s => s.id === id); if (sesi) { setCurrentSessionId(id); setMessages(sesi.messages || []); setActiveRoute(null); setAttachments([]); if (isMobile) setIsSidebarOpen(false); } };
-  const hapusChat = async (e, id) => { e.stopPropagation(); const updated = sessions.filter(s => s.id !== id); setSessions(updated); localStorage.setItem("andiie_chat_history", JSON.stringify(updated)); if (currentSessionId === id) buatChatBaru(); if (supabase) await supabase.from('andiie_chats').delete().eq('id', id); };
+  const hapusChat = async (e, id) => { e.stopPropagation(); const updated = sessions.filter(s => s.id !== id); setSessions(updated); localStorage.setItem("andiie_chat_history", JSON.stringify(updated)); if (currentSessionId === id) buatChatBaru(); if (supabase) await supabase.from('andiie_chats').delete().eq('id', id); setPinnedChats(p => p.filter(pid => pid !== id)); };
+  const togglePin = (e, id) => { e.stopPropagation(); setPinnedChats(p => p.includes(id) ? p.filter(pid => pid !== id) : [...p, id]); };
   const handleFileChange = (e) => { if (e.target.files) { const filesArray = Array.from(e.target.files).map(file => ({ name: file.name, type: file.type, rawFile: file })); setAttachments(prev => [...prev, ...filesArray]); } e.target.value = null; };
   const hapusAttachment = (idx) => setAttachments(prev => prev.filter((_, i) => i !== idx));
-  const handleInputChange = (e) => { const val = e.target.value; setInput(val); if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); } else setShowSlashCommands(false); };
+  const handleInputChange = (e) => { const val = e.target.value; if (val.length <= MAX_CHARS) setInput(val); if (val.startsWith("/")) { setShowSlashCommands(true); setCommandFilter(val.substring(1).toLowerCase()); } else setShowSlashCommands(false); };
   const applySlashCommand = (promptText) => { setInput(promptText); setShowSlashCommands(false); textareaRef.current?.focus(); };
   const savePrompt = async () => { if (!newPrompt.command || !newPrompt.prompt) return; if (supabase) { const cmd = newPrompt.command.startsWith('/') ? newPrompt.command : '/' + newPrompt.command; const { error } = await supabase.from('andiie_prompts').upsert({ ...newPrompt, command: cmd }); if (!error) { fetchPrompts(); setNewPrompt({ command: "", description: "", prompt: "" }); } } };
   const deletePrompt = async (id) => { if (supabase) { await supabase.from('andiie_prompts').delete().eq('id', id); fetchPrompts(); } };
@@ -520,11 +837,11 @@ export default function App() {
   const bacaFile = async (file) => {
     if (file.name.endsWith('.zip') || file.type.includes('zip')) {
       try {
-        const zip = new JSZip(); const loadedZip = await zip.loadAsync(file); let extractedText = ""; const MAX_CHARS = 150000; let isLimitReached = false;
+        const zip = new JSZip(); const loadedZip = await zip.loadAsync(file); let extractedText = ""; const MAX_CHARS_ZIP = 150000; let isLimitReached = false;
         const badFolders = ['node_modules/', '.git/', 'venv/', 'dist/', 'build/', '.next/', 'out/', '__pycache__/']; const binaryExt = /\.(png|jpg|jpeg|gif|mp4|exe|pdf|ico|svg|lock|map|ttf|woff|woff2|eot|log)$/i;
         for (const relativePath of Object.keys(loadedZip.files)) {
           if (isLimitReached) break; const entry = loadedZip.files[relativePath]; if (entry.dir || badFolders.some(f => relativePath.includes(f)) || binaryExt.test(relativePath)) continue;
-          const content = await entry.async('string'); extractedText += `\n\n--- [FILE: ${relativePath}] ---\n${content}\n`; if (extractedText.length > MAX_CHARS) { extractedText += `\n\n[ZIP terpotong otomatis.]`; isLimitReached = true; }
+          const content = await entry.async('string'); extractedText += `\n\n--- [FILE: ${relativePath}] ---\n${content}\n`; if (extractedText.length > MAX_CHARS_ZIP) { extractedText += `\n\n[ZIP terpotong otomatis.]`; isLimitReached = true; }
         }
         return { type: 'text', name: file.name + " (Extracted)", content: extractedText };
       } catch (error) { return { type: 'text', name: file.name, content: `[Gagal ZIP: ${error.message}]` }; }
@@ -541,10 +858,10 @@ export default function App() {
 
   const initTerminal = useCallback(() => {
     if (!terminalRef.current) return; if (xtermInstance.current) { xtermInstance.current.dispose(); xtermInstance.current = null; }
-    const term = new Terminal({ cursorBlink: true, theme: { background: '#0d1117', foreground: '#c9d1d9', cursor: '#58a6ff' }, fontFamily: '"Fira Code", monospace', fontSize: 13, lineHeight: 1.4 });
+    const term = new Terminal({ cursorBlink: true, theme: { background: t.bg, foreground: t.text, cursor: t.accent }, fontFamily: '"Fira Code", monospace', fontSize: 13, lineHeight: 1.4 });
     const fitAddon = new FitAddon(); term.loadAddon(fitAddon); term.open(terminalRef.current); setTimeout(() => fitAddon.fit(), 50); xtermInstance.current = term; fitAddonRef.current = fitAddon;
     const resizeHandler = () => { if (fitAddonRef.current) fitAddonRef.current.fit(); }; window.addEventListener('resize', resizeHandler); return () => window.removeEventListener('resize', resizeHandler);
-  }, []);
+  }, [t]);
 
   const connectSSH = async (e) => {
     e.preventDefault(); setSshStatus("connecting"); initTerminal();
@@ -558,8 +875,17 @@ export default function App() {
   };
   const disconnectSSH = () => { if (wsInstance.current) wsInstance.current.close(); setSshStatus("disconnected"); };
 
+  const scrollToBottom = () => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); };
+
+  // Sorted sessions: pinned first
+  const sortedSessions = useMemo(() => {
+    const pinned = sessions.filter(s => pinnedChats.includes(s.id));
+    const unpinned = sessions.filter(s => !pinnedChats.includes(s.id));
+    return { pinned, unpinned };
+  }, [sessions, pinnedChats]);
+
   // ==============================================
-  // ⚡ PENGELOLA PESAN (API OPENAI RESMI + REGEX CADANGAN)
+  // KIRIM PESAN
   // ==============================================
   const kirimPesan = async () => {
     const trimmed = input.trim();
@@ -580,27 +906,23 @@ export default function App() {
     }
 
     const teksTampilan = attachments.length > 0 ? `📎 ${attachments.map(a => a.name).join(', ')}\n\n${instruksiUser}` : instruksiUser;
-    setMessages(prev => [...prev, { role: "user", text: teksTampilan }, { role: "ai", text: "" }]);
+    const timestamp = Date.now();
+    setMessages(prev => [...prev, { role: "user", text: teksTampilan, timestamp }, { role: "ai", text: "", timestamp: Date.now() }]);
 
-    // Mengambil key API resmi OpenAI (bukan OpenRouter!)
     const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || "";
     let finalModel = selectedModel;
     let instruksiKeBackend = instruksiUser;
     const lowerInput = instruksiUser.toLowerCase();
 
-    // ⚡ STEP 1: DETEKSI NIAT (SMART MANAGER)
     let detectedIntent = "GENERAL";
 
-    // 1A. Prioritas Tombol UI
     if (isCodingMode) {
       detectedIntent = "CODE";
     } else if (isExamMode) {
       detectedIntent = "EXAM";
     } else if (attachments.some(a => a.type === 'image') && /(apa ini|kegunaan|jelaskan|fungsi)/i.test(lowerInput)) {
       detectedIntent = "VISION";
-    } 
-    // 1B. Deteksi via API OpenAI Asli
-    else {
+    } else {
       let apiSukses = false;
       try {
         if (OPENAI_API_KEY) {
@@ -613,7 +935,7 @@ export default function App() {
             })
           });
           if (intentRes.ok) {
-             const intentData = await intentRes.json(); 
+             const intentData = await intentRes.json();
              const apiIntent = intentData.choices?.[0]?.message?.content?.trim().toUpperCase();
              if (["IMAGE", "AUDIO", "RESEARCH", "TRANSLATE"].includes(apiIntent)) {
                  detectedIntent = apiIntent;
@@ -623,12 +945,11 @@ export default function App() {
         }
       } catch (e) { console.warn("API Manager timeout, berpindah ke sistem mandiri (Regex)"); }
 
-      // 1C. Regex Mandiri jika API gagal / key tidak dipasang
       if (!apiSukses && detectedIntent === "GENERAL") {
          if (/(buat|bikin|generate|lukis|cipta|tolong gambarkan).*(gambar|foto|logo|ilustrasi|karakter|lukisan)/i.test(lowerInput) || lowerInput === "buat gambar" || lowerInput === "bikin gambar") {
            detectedIntent = "IMAGE";
          } else if (/(buat|bikin|generate|cipta|nyanyi).*(lagu|musik|nada|audio|mp3|nyanyian)/i.test(lowerInput)) {
-           detectedIntent = "AUDIO"; 
+           detectedIntent = "AUDIO";
          } else if (/(riset|cari tahu|telusuri|jurnal|search)/i.test(lowerInput)) {
            detectedIntent = "RESEARCH";
          } else if (/(artikan|terjemah|translate)/i.test(lowerInput)) {
@@ -637,7 +958,6 @@ export default function App() {
       }
     }
 
-    // ⚡ STEP 2: TERAPKAN MODEL DAN DIRECTIVE
     if (detectedIntent === "IMAGE") {
       finalModel = "openai/dall-e-3"; instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Hasilkan prompt gambar berbahasa Inggris detail untuk DALL-E 3.]`;
     } else if (detectedIntent === "AUDIO") {
@@ -649,7 +969,6 @@ export default function App() {
     } else if (detectedIntent === "VISION") {
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Analisis spesifikasi, kegunaan gambar ini secara presisi layaknya Google Lens AI.]`;
     } else if (detectedIntent === "CODE") {
-      // ⚡ PRIORITAS LOKAL JIKA AUTO CODING
       if (finalModel === "auto_coding" || finalModel === "auto") finalModel = "lokal";
       instruksiKeBackend += `\n\n[SYSTEM DIRECTIVE: Mode Koding AKTIF. Bertindaklah sebagai Senior AI Architect. JANGAN memberikan kode mentah. WAJIB: 1) Jelaskan arsitektur. 2) Panduan instalasi. 3) Pastikan kode produksi.]`;
     } else if (detectedIntent === "EXAM") {
@@ -661,31 +980,29 @@ export default function App() {
 
     if (activeProject) instruksiKeBackend += `\n\n[PROJECT CONTEXT: Proyek aktif: "${activeProject.name}". Aturan khusus: ${activeProject.context}. Selalu ikuti aturan ini.]`;
 
-    // ⚡ STEP 3: FETCH KE CLOUD RUN BACKEND ANDA
     try {
       const BACKEND_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-      
+
       let respon = await fetch(`${BACKEND_URL}/api/chat/stream`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: finalModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses })
       });
-      
+
       let bufferText = "";
       let isLocalDead = false;
-      const reader = respon.body.getReader(); 
+      const reader = respon.body.getReader();
       const decoder = new TextDecoder("utf-8");
-      
+
       while (true) {
-        const { done, value } = await reader.read(); 
+        const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        
-        // ⚡ TANGKAP ERROR LOKAL SECARA MANDIRI
+
         if (finalModel === "lokal" && (chunk.includes("Error sistem lokal") || chunk.includes("Failed to fetch") || chunk.includes("Connection refused"))) {
             isLocalDead = true;
-            break; // Stop proses ini
+            break;
         }
-        
+
         if (chunk.includes("RUTE_AKTIF:")) {
           const ruteMatch = chunk.match(/RUTE_AKTIF:(.*?)\n\n/); if (ruteMatch) setActiveRoute(ruteMatch[1]); bufferText += chunk.replace(/RUTE_AKTIF:.*\n\n/, "");
         } else {
@@ -694,21 +1011,20 @@ export default function App() {
         setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: bufferText }; return n; });
       }
 
-      // ⚡ FALLBACK KE CLOUD (QWEN) JIKA LOKAL MATI
       if (isLocalDead && (selectedModel === "auto_coding" || detectedIntent === "CODE")) {
          setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: "🔄 *[Mesin Lokal Offline. Mengalihkan ke Cloud AI (Qwen Coder)...]*\n\n" }; return n; });
-         
+
          finalModel = "qwen/qwen3-coder-next";
          const respon2 = await fetch(`${BACKEND_URL}/api/chat/stream`, {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ instruksi: instruksiKeBackend, history: historyKirim, paksa_model: finalModel, kunci_rahasia: "KODE_RAHASIA_ANDIIE_2026", persona: selectedPersona, attachments: fileYangDiproses })
          });
-         
+
          let bufferCloud = "🔄 *[Mesin Lokal Offline. Mengalihkan ke Cloud AI (Qwen Coder)...]*\n\n";
          const reader2 = respon2.body.getReader();
-         
+
          while (true) {
-             const { done, value } = await reader2.read(); 
+             const { done, value } = await reader2.read();
              if (done) break;
              bufferCloud += decoder.decode(value, { stream: true });
              setMessages(prev => { const n = [...prev]; n[n.length - 1] = { ...n[n.length - 1], text: bufferCloud }; return n; });
@@ -720,99 +1036,201 @@ export default function App() {
     } finally { setIsStreaming(false); setAttachments([]); }
   };
 
+  // =====================================
+  // LOGIN SCREEN
+  // =====================================
   if (!isLoggedIn) {
     return (
-      <div className={`h-dvh flex items-center justify-center p-4 ${theme === 'dark' ? 'bg-[#0d1117]' : 'bg-gray-50'}`}>
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className={`p-8 rounded-2xl w-full max-w-sm shadow-xl border ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
-          <div className="flex justify-center mb-6"><div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg"><Sparkles className="text-white" size={24} /></div></div>
-          <h2 className={`text-xl font-bold text-center mb-1 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>AI Studio Pro</h2>
-          <p className={`text-center text-sm mb-6 ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Masuk untuk melanjutkan</p>
+      <div className="h-dvh flex items-center justify-center p-4" style={{ background: t.bg }}>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-8 rounded-3xl w-full max-w-sm shadow-2xl border" style={{ background: t.bgSecondary, borderColor: t.border }}>
+          <div className="flex justify-center mb-6">
+            <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${t.gradient} flex items-center justify-center shadow-lg`}>
+              <Sparkles className="text-white" size={28} />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold text-center mb-1" style={{ color: t.text }}>AI Studio Pro</h2>
+          <p className="text-center text-sm mb-6" style={{ color: t.textMuted }}>Masuk untuk melanjutkan</p>
           <form onSubmit={handleLogin} className="space-y-3">
-            <input type="text" placeholder="Nama Pengguna" className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 focus:border-blue-500'}`} onChange={(e) => setLoginData({ ...loginData, username: e.target.value })} />
-            <input type="password" placeholder="Sandi" className={`w-full rounded-xl px-4 py-3 text-sm outline-none border transition-colors ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-blue-500' : 'bg-gray-50 border-gray-200 focus:border-blue-500'}`} onChange={(e) => setLoginData({ ...loginData, password: e.target.value })} />
-            {loginError && <p className="text-red-500 text-xs text-center">{loginError}</p>}
-            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-all active:scale-[0.98]">Masuk</button>
+            <input type="text" placeholder="Nama Pengguna" className="w-full rounded-xl px-4 py-3.5 text-sm outline-none border transition-colors" style={{ background: t.bgTertiary, borderColor: t.border, color: t.text }} onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} onChange={(e) => setLoginData({ ...loginData, username: e.target.value })} />
+            <input type="password" placeholder="Sandi" className="w-full rounded-xl px-4 py-3.5 text-sm outline-none border transition-colors" style={{ background: t.bgTertiary, borderColor: t.border, color: t.text }} onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} onChange={(e) => setLoginData({ ...loginData, password: e.target.value })} />
+            {loginError && <p className="text-xs text-center" style={{ color: t.danger }}>{loginError}</p>}
+            <button className={`w-full bg-gradient-to-r ${t.gradient} text-white font-semibold py-3.5 rounded-xl transition-all active:scale-[0.98] shadow-lg`}>Masuk</button>
           </form>
         </motion.div>
       </div>
     );
   }
 
+  // =====================================
+  // MAIN UI
+  // =====================================
   return (
-    <div className={`flex h-dvh overflow-hidden transition-colors ${theme === 'dark' ? 'bg-[#0d1117] text-[#e6edf3]' : 'bg-white text-gray-900'}`}>
+    <div className="flex h-dvh overflow-hidden transition-colors" style={{ background: t.bg, color: t.text }}>
 
       {/* ========== SIDEBAR ========== */}
       <AnimatePresence>
         {isSidebarOpen && (
           <>
-            {isMobile && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 z-40" />}
-            <motion.aside initial={isMobile ? { x: "-100%" } : { opacity: 1 }} animate={isMobile ? { x: 0 } : { opacity: 1 }} exit={isMobile ? { x: "-100%" } : { opacity: 1 }} transition={{ type: "spring", bounce: 0, duration: 0.3 }} className={`${isMobile ? 'fixed inset-y-0 left-0 z-50' : 'relative'} w-[280px] flex flex-col shrink-0 border-r ${theme === 'dark' ? 'bg-[#010409] border-[#30363d]' : 'bg-gray-50 border-gray-200'}`}>
-              <div className="p-3 flex items-center gap-2">
-                <button onClick={buatChatBaru} className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all active:scale-[0.97] ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-white hover:bg-[#1c2128]' : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-100 shadow-sm'}`}><Plus size={16} /> Chat Baru</button>
-                {isMobile && <button onClick={() => setIsSidebarOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'hover:bg-[#161b22] text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}><X size={18} /></button>}
+            {isMobile && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40" />}
+            <motion.aside
+              initial={isMobile ? { x: "-100%" } : { width: 0, opacity: 0 }}
+              animate={isMobile ? { x: 0 } : { width: 280, opacity: 1 }}
+              exit={isMobile ? { x: "-100%" } : { width: 0, opacity: 0 }}
+              transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+              className={`${isMobile ? 'fixed inset-y-0 left-0 z-50 w-[280px]' : 'relative'} flex flex-col shrink-0 border-r overflow-hidden`}
+              style={{ background: t.sidebarBg, borderColor: t.border }}
+            >
+              {/* Sidebar Header */}
+              <div className="p-3 flex items-center gap-2 shrink-0">
+                <button onClick={buatChatBaru} className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all active:scale-[0.97]" style={{ background: t.bgSecondary, borderColor: t.border, color: t.text }}
+                  onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                  onMouseLeave={e => e.currentTarget.style.background = t.bgSecondary}
+                >
+                  <Plus size={16} /> Chat Baru
+                </button>
+                {isMobile ? (
+                  <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-xl" style={{ color: t.textMuted }}><X size={18} /></button>
+                ) : (
+                  <button onClick={() => setIsSidebarOpen(false)} className="p-2 rounded-xl transition-colors" style={{ color: t.textMuted }} title="Tutup Sidebar (⌘B)"
+                    onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <ChevronsLeft size={18} />
+                  </button>
+                )}
               </div>
 
+              {/* Search Button */}
+              <div className="px-3 pb-2 shrink-0">
+                <button onClick={() => setIsSearchOpen(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm border transition-colors" style={{ borderColor: t.border, color: t.textMuted }}
+                  onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Search size={14} /> <span className="flex-1 text-left">Cari...</span>
+                  <kbd className="text-[10px] px-1.5 py-0.5 rounded border font-mono" style={{ borderColor: t.border, color: t.textMuted }}>⌘K</kbd>
+                </button>
+              </div>
+
+              {/* Sidebar Content */}
               <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-1" style={{ scrollbarWidth: 'none' }}>
-                <div className="space-y-1 mb-4">
-                  <button onClick={() => setIsProjectsOpen(true)} className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${activeProject ? (theme === 'dark' ? 'bg-orange-500/10 text-orange-400' : 'bg-orange-50 text-orange-600') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100')}`}>
-                    <span className="flex items-center gap-2.5"><Folder size={16} />{activeProject ? activeProject.name : "Proyek"}</span><ChevronRight size={14} className="opacity-40" />
+                {/* Quick Access */}
+                <div className="space-y-0.5 mb-3">
+                  <button onClick={() => setIsProjectsOpen(true)} className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors" style={{ color: activeProject ? t.warning : t.textSecondary }}
+                    onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <span className="flex items-center gap-2.5"><Folder size={15} />{activeProject ? activeProject.name : "Proyek"}</span><ChevronRight size={14} className="opacity-40" />
                   </button>
-                  <button onClick={() => setIsGalleryOpen(true)} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100'}`}>
-                    <ImageIcon size={16} />Galeri Media
-                    {generatedMedia.length > 0 && <span className={`ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-md ${theme === 'dark' ? 'bg-[#161b22] text-gray-500' : 'bg-gray-200 text-gray-500'}`}>{generatedMedia.length}</span>}
+                  <button onClick={() => setIsGalleryOpen(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors" style={{ color: t.textSecondary }}
+                    onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <ImageIcon size={15} />Galeri Media
+                    {generatedMedia.length > 0 && <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: t.bgTertiary, color: t.textMuted }}>{generatedMedia.length}</span>}
                   </button>
-                  <button onClick={() => setIsManagePromptOpen(true)} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-100'}`}>
-                    <Settings size={16} />Kelola Prompt
+                  <button onClick={() => setIsManagePromptOpen(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors" style={{ color: t.textSecondary }}
+                    onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <Settings size={15} />Kelola Prompt
                   </button>
                 </div>
 
-                <div className={`text-[10px] font-semibold uppercase tracking-wider px-3 py-2 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Riwayat Percakapan</div>
-                {sessions.length === 0 && <div className={`text-center text-xs py-8 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>Belum ada percakapan</div>}
-                {sessions.map(sesi => (
-                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className={`group flex items-center gap-2.5 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${currentSessionId === sesi.id ? (theme === 'dark' ? 'bg-[#161b22] text-white' : 'bg-blue-50 text-blue-800') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-gray-200' : 'text-gray-600 hover:bg-gray-100')}`}>
-                    <MessageSquare size={14} className="shrink-0 opacity-50" /><span className="flex-1 truncate text-sm">{sesi.title}</span>
-                    <button onClick={(e) => hapusChat(e, sesi.id)} className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-400 transition-all rounded"><Trash2 size={13} /></button>
+                {/* Pinned Chats */}
+                {sortedSessions.pinned.length > 0 && (
+                  <>
+                    <div className="text-[10px] font-semibold uppercase tracking-wider px-3 py-2 flex items-center gap-1.5" style={{ color: t.textMuted }}>
+                      <Pin size={10} /> Disematkan
+                    </div>
+                    {sortedSessions.pinned.map(sesi => (
+                      <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className="group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-colors" style={{ background: currentSessionId === sesi.id ? t.accentBg : 'transparent', color: currentSessionId === sesi.id ? t.accent : t.textSecondary }}
+                        onMouseEnter={e => { if (currentSessionId !== sesi.id) e.currentTarget.style.background = t.bgTertiary; }}
+                        onMouseLeave={e => { if (currentSessionId !== sesi.id) e.currentTarget.style.background = 'transparent'; }}
+                      >
+                        <Pin size={12} className="shrink-0 opacity-50" style={{ color: t.warning }} />
+                        <span className="flex-1 truncate text-sm">{sesi.title}</span>
+                        <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all">
+                          <button onClick={(e) => togglePin(e, sesi.id)} className="p-1 rounded" style={{ color: t.warning }}><Pin size={12} /></button>
+                          <button onClick={(e) => hapusChat(e, sesi.id)} className="p-1 hover:text-red-400 rounded"><Trash2 size={12} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {/* All Chats */}
+                <div className="text-[10px] font-semibold uppercase tracking-wider px-3 py-2" style={{ color: t.textMuted }}>Riwayat</div>
+                {sortedSessions.unpinned.length === 0 && sortedSessions.pinned.length === 0 && (
+                  <div className="text-center text-xs py-8" style={{ color: t.textMuted }}>Belum ada percakapan</div>
+                )}
+                {sortedSessions.unpinned.map(sesi => (
+                  <div key={sesi.id} onClick={() => muatChatLama(sesi.id)} className="group flex items-center gap-2 px-3 py-2.5 rounded-xl cursor-pointer transition-colors" style={{ background: currentSessionId === sesi.id ? t.accentBg : 'transparent', color: currentSessionId === sesi.id ? t.accent : t.textSecondary }}
+                    onMouseEnter={e => { if (currentSessionId !== sesi.id) e.currentTarget.style.background = t.bgTertiary; }}
+                    onMouseLeave={e => { if (currentSessionId !== sesi.id) e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    <MessageSquare size={13} className="shrink-0 opacity-50" />
+                    <span className="flex-1 truncate text-sm">{sesi.title}</span>
+                    <div className="opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all">
+                      <button onClick={(e) => togglePin(e, sesi.id)} className="p-1 rounded" style={{ color: t.textMuted }}><Pin size={12} /></button>
+                      <button onClick={(e) => hapusChat(e, sesi.id)} className="p-1 hover:text-red-400 rounded"><Trash2 size={12} /></button>
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className={`p-3 border-t ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
-                <button onClick={handleLogout} className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${theme === 'dark' ? 'text-gray-500 hover:text-red-400 hover:bg-red-500/5' : 'text-gray-400 hover:text-red-500 hover:bg-red-50'}`}><LogOut size={14} /> Keluar</button>
+
+              {/* Sidebar Footer */}
+              <div className="p-3 border-t shrink-0 space-y-1" style={{ borderColor: t.border }}>
+                <button onClick={() => setIsThemePickerOpen(true)} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: t.textSecondary }}
+                  onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <Palette size={14} /> Tema: {t.name}
+                </button>
+                <button onClick={handleLogout} className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors" style={{ color: t.textMuted }}
+                  onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.danger; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                >
+                  <LogOut size={14} /> Keluar
+                </button>
               </div>
             </motion.aside>
           </>
         )}
       </AnimatePresence>
 
+      {/* ========== MAIN CONTENT ========== */}
       <div className="flex-1 flex flex-col min-w-0 relative">
 
         {/* ===== HEADER ===== */}
-        <header className={`sticky top-0 z-30 flex items-center justify-between h-14 px-3 md:px-4 border-b shrink-0 ${theme === 'dark' ? 'bg-[#0d1117]/80 backdrop-blur-xl border-[#30363d]' : 'bg-white/80 backdrop-blur-xl border-gray-200'}`}>
-          <div className="flex items-center gap-2">
-            {!isSidebarOpen && <button onClick={() => setIsSidebarOpen(true)} className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'hover:bg-[#161b22] text-gray-400' : 'hover:bg-gray-100 text-gray-600'}`}><Menu size={20} /></button>}
-            
-            <div className="relative">
-              <button onClick={(e) => { e.stopPropagation(); setShowModelDropdown(p => !p); }} className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${theme === 'dark' ? 'bg-[#161b22] hover:bg-[#1c2128] border-[#30363d] text-gray-300' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700'}`}>
-                <span className="truncate max-w-[120px] md:max-w-[200px]">{currentModelLabel}</span><ChevronDown size={14} className="opacity-50" />
+        <header className="sticky top-0 z-30 flex items-center justify-between h-12 md:h-14 px-2 md:px-4 border-b shrink-0 backdrop-blur-xl" style={{ background: t.headerBg, borderColor: t.border }}>
+          <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
+            {!isSidebarOpen && (
+              <button onClick={() => setIsSidebarOpen(true)} className="p-2 rounded-lg transition-colors shrink-0" style={{ color: t.textSecondary }} title="Buka Sidebar (⌘B)"
+                onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                {isMobile ? <Menu size={20} /> : <ChevronsRight size={20} />}
+              </button>
+            )}
+
+            {/* Model Dropdown */}
+            <div className="relative min-w-0">
+              <button onClick={(e) => { e.stopPropagation(); setShowModelDropdown(p => !p); }} className="flex items-center gap-1.5 px-2 md:px-3 py-1.5 md:py-2 rounded-lg text-xs md:text-sm font-medium transition-colors border" style={{ background: t.bgSecondary, borderColor: t.border, color: t.textSecondary }}>
+                <span className="truncate max-w-[100px] md:max-w-[200px]">{currentModelLabel}</span><ChevronDown size={14} className="opacity-50 shrink-0" />
               </button>
 
               <AnimatePresence>
                 {showModelDropdown && (
-                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} onClick={(e) => e.stopPropagation()} className={`absolute top-full left-0 mt-2 w-72 rounded-2xl border shadow-xl overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -5 }} onClick={(e) => e.stopPropagation()} className="absolute top-full left-0 mt-2 w-72 rounded-2xl border shadow-2xl overflow-hidden z-50" style={{ background: t.bgSecondary, borderColor: t.border }}>
                     <div className="max-h-80 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-                      <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} className="hidden">
-                        <optgroup label="🧠 Deep Thinking & Research"><option value="SEARCH_MODE">🌐 Deep Web Research (Internet)</option><option value="deepseek/deepseek-r1">💭 DeepSeek R1 (Reasoning)</option><option value="openai/o3-mini">🧠 OpenAI o3-mini (Math/Logic)</option></optgroup>
-                        <optgroup label="📝 Text & General"><option value="auto">✨ Auto Smart Manager</option><option value="google/gemma-4-31b-it">🔵 Google: Gemma 4 31B (Free)</option></optgroup>
-                        <optgroup label="💻 Coding & Logic"><option value="auto_coding">⚡ Auto Coding (Lokal/Cloud)</option><option value="anthropic/claude-opus-4.6">🧠 Claude Opus 4.6</option><option value="anthropic/claude-sonnet-4.6">⚡ Claude Sonnet 4.6</option><option value="openai/gpt-5.3-codex">🚀 GPT-5.3 Codex</option><option value="qwen/qwen3-coder-next">☁️ Qwen3 Coder Next</option><option value="lokal">💻 Qwen 30B (Lokal Ollama)</option></optgroup>
-                        <optgroup label="🎨 Gambar (Images)"><option value="sourceful/riverflow-v2-pro">🌊 Riverflow V2 Pro</option><option value="google/gemini-3.1-flash-image-preview">🖼️ Gemini 3.1 Flash</option><option value="openai/dall-e-3">🎨 DALL-E 3</option></optgroup>
-                        <optgroup label="🎬 Video Generation"><option value="bytedance/seedance-2.0">💃 ByteDance: Seedance 2.0</option><option value="alibaba/wan-2.7">🎥 Alibaba: Wan 2.7</option><option value="openai/sora-2-pro">🌌 OpenAI: Sora 2 Pro</option><option value="google/veo-3.1">📽️ Google: Veo 3.1</option></optgroup>
-                        <optgroup label="🎵 Lagu & Audio"><option value="google/lyria-3-clip-preview">🎼 Google: Lyria 3</option><option value="suno-api-custom">🎸 Suno API</option></optgroup>
-                      </select>
-
                       {modelGroups.map((group, gi) => (
                         <div key={gi}>
-                          <div className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider sticky top-0 ${theme === 'dark' ? 'bg-[#0d1117] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>{group.label}</div>
+                          <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-wider sticky top-0" style={{ background: t.bg, color: t.textMuted }}>{group.label}</div>
                           {group.models.map(model => (
-                            <button key={model.value} onClick={() => { setSelectedModel(model.value); setShowModelDropdown(false); setIsCodingMode(model.value === "auto_coding" || model.value.includes("coder") || model.value.includes("claude")); setIsExamMode(false); }} className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedModel === model.value ? (theme === 'dark' ? 'bg-blue-500/10 text-blue-400 font-semibold' : 'bg-blue-50 text-blue-600 font-semibold') : (theme === 'dark' ? 'text-gray-300 hover:bg-[#1c2128]' : 'text-gray-700 hover:bg-gray-50')}`}>
+                            <button key={model.value} onClick={() => { setSelectedModel(model.value); setShowModelDropdown(false); setIsCodingMode(model.value === "auto_coding" || model.value.includes("coder") || model.value.includes("claude")); setIsExamMode(false); }} className="w-full text-left px-4 py-2.5 text-sm transition-colors" style={{ color: selectedModel === model.value ? t.accent : t.textSecondary, background: selectedModel === model.value ? t.accentBg : 'transparent', fontWeight: selectedModel === model.value ? 600 : 400 }}
+                              onMouseEnter={e => { if (selectedModel !== model.value) e.currentTarget.style.background = t.bgTertiary; }}
+                              onMouseLeave={e => { if (selectedModel !== model.value) e.currentTarget.style.background = 'transparent'; }}
+                            >
                               {model.label}
                             </button>
                           ))}
@@ -825,50 +1243,62 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-1 md:gap-2">
-            
-            {/* ⚡ TOMBOL MODE KODING */}
-            <button onClick={() => { 
-              const newMode = !isCodingMode;
-              setIsCodingMode(newMode); 
-              setIsExamMode(false); 
-              setSelectedModel(newMode ? "auto_coding" : "auto"); 
-            }} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg text-xs font-bold transition-all border ${isCodingMode ? (theme === 'dark' ? 'bg-blue-500/20 border-blue-500/50 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Koding">
-              <Code size={16} /> <span className="hidden md:inline">Mode Koding</span>
+          <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
+            {/* Mode Buttons */}
+            <button onClick={() => { const nm = !isCodingMode; setIsCodingMode(nm); setIsExamMode(false); setSelectedModel(nm ? "auto_coding" : "auto"); }} className="flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border" style={{ borderColor: isCodingMode ? t.accent + '80' : 'transparent', background: isCodingMode ? t.accentBg : 'transparent', color: isCodingMode ? t.accent : t.textMuted }} title="Mode Koding">
+              <Code size={14} /> <span className="hidden lg:inline">Koding</span>
             </button>
 
-            {/* ⚡ TOMBOL MODE UJIAN */}
-            <button onClick={() => { 
-              const newMode = !isExamMode;
-              setIsExamMode(newMode); 
-              setIsCodingMode(false); 
-              setSelectedModel(newMode ? "auto" : "auto"); // Biarkan auto, backend akan mengurus prompt-nya
-            }} className={`flex items-center gap-1.5 px-2.5 md:px-3 py-1.5 md:py-2 rounded-lg text-xs font-bold transition-all border ${isExamMode ? (theme === 'dark' ? 'bg-green-500/20 border-green-500/50 text-green-400' : 'bg-green-100 border-green-300 text-green-700') : (theme === 'dark' ? 'bg-transparent border-transparent text-gray-500 hover:bg-[#161b22]' : 'bg-transparent border-transparent text-gray-500 hover:bg-gray-100')}`} title="Mode Ujian">
-              <GraduationCap size={16} /> <span className="hidden md:inline">Mode Ujian</span>
+            <button onClick={() => { const nm = !isExamMode; setIsExamMode(nm); setIsCodingMode(false); setSelectedModel(nm ? "auto" : "auto"); }} className="flex items-center gap-1 px-2 md:px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all border" style={{ borderColor: isExamMode ? t.success + '80' : 'transparent', background: isExamMode ? 'rgba(34,197,94,0.12)' : 'transparent', color: isExamMode ? t.success : t.textMuted }} title="Mode Ujian">
+              <GraduationCap size={14} /> <span className="hidden lg:inline">Ujian</span>
             </button>
 
-            {messages.length > 0 && (
+            {/* Desktop-only tools */}
+            {messages.length > 0 && !isMobile && (
               <>
-                <button onClick={exportChatToZip} title="Export ke ZIP" className={`hidden md:block p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><Archive size={18} /></button>
-                <button onClick={generateGitCommit} title="Buat Git Commit" className={`hidden md:block p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-white' : 'text-gray-500 hover:bg-gray-100 hover:text-gray-900'}`}><GitCommit size={18} /></button>
-                {/* ⚡ TOMBOL SIMPAN KE LOKAL */}
-                <button onClick={saveToLocal} title={dirHandle ? "Simpan Kode ke Folder" : "Tautkan Folder VS Code"} className={`p-2 rounded-lg transition-colors border hidden lg:block ${dirHandle ? (theme === 'dark' ? 'bg-blue-500/20 border-blue-500 text-blue-400' : 'bg-blue-100 border-blue-300 text-blue-700') : (theme === 'dark' ? 'border-transparent text-gray-400 hover:bg-[#161b22]' : 'border-transparent text-gray-500 hover:bg-gray-100')}`}><FolderSync size={18} /></button>
+                <div className="w-px h-5 mx-1" style={{ background: t.border }} />
+                <button onClick={exportChatToZip} title="Export ZIP" className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }}
+                  onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                ><Archive size={17} /></button>
+                <button onClick={generateGitCommit} title="Git Commit" className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }}
+                  onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                ><GitCommit size={17} /></button>
+// FILE: src/App.jsx (LANJUTAN - gabungkan dengan bagian 1)
+// Mulai dari baris setelah <button onClick={generateGitCommit}...>
+
+                <button onClick={saveToLocal} title={dirHandle ? "Simpan ke Folder" : "Tautkan Folder"} className="p-2 rounded-lg transition-colors border" style={{ borderColor: dirHandle ? t.accent + '50' : 'transparent', background: dirHandle ? t.accentBg : 'transparent', color: dirHandle ? t.accent : t.textMuted }}
+                  onMouseEnter={e => { if (!dirHandle) { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.text; }}}
+                  onMouseLeave={e => { if (!dirHandle) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}}
+                ><FolderSync size={17} /></button>
               </>
             )}
-            
-            <div className="w-px h-6 bg-gray-300 dark:bg-[#30363d] mx-1 hidden md:block"></div>
 
-            {/* ⚡ TOMBOL TERMINAL DISEMBUNYIKAN DARI MOBILE */}
-            <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} title="Terminal" className={`hidden md:block p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-green-400' : 'text-gray-500 hover:bg-gray-100 hover:text-green-600'}`}><TerminalSquare size={18} /></button>
+            {!isMobile && (
+              <>
+                <div className="w-px h-5 mx-1" style={{ background: t.border }} />
+                <button onClick={() => { setIsPreviewOpen(true); setActiveCanvasTab("terminal"); }} title="Terminal" className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }}
+                  onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.success; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                ><TerminalSquare size={17} /></button>
 
-            {isPreviewOpen ? (
-              <button onClick={() => setIsPreviewOpen(false)} title="Tutup Panel" className={`hidden md:block p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-blue-400 bg-[#161b22]' : 'text-blue-600 bg-gray-100'}`}><PanelRightClose size={18} /></button>
-            ) : (
-              previewCode && <button onClick={() => setIsPreviewOpen(true)} title="Buka Panel" className={`hidden md:block p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-500 hover:bg-gray-100'}`}><PanelRightOpen size={18} /></button>
+                {isPreviewOpen ? (
+                  <button onClick={() => setIsPreviewOpen(false)} title="Tutup Panel" className="p-2 rounded-lg" style={{ color: t.accent, background: t.accentBg }}><PanelRightClose size={17} /></button>
+                ) : (
+                  previewCode && <button onClick={() => setIsPreviewOpen(true)} title="Buka Panel" className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }}
+                    onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  ><PanelRightOpen size={17} /></button>
+                )}
+              </>
             )}
 
-            <button onClick={toggleTheme} className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22] hover:text-yellow-400' : 'text-gray-500 hover:bg-gray-100'}`}>
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            <button onClick={() => setIsThemePickerOpen(true)} className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }} title="Ganti Tema"
+              onMouseEnter={e => { e.currentTarget.style.background = t.accentBg; e.currentTarget.style.color = t.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+            >
+              <Palette size={17} />
             </button>
           </div>
         </header>
@@ -877,52 +1307,136 @@ export default function App() {
         <div className="flex-1 flex min-h-0">
 
           {/* ===== CHAT AREA ===== */}
-          <div className={`flex-1 flex flex-col min-w-0 ${isPreviewOpen && !isMobile ? 'border-r ' + (theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200') : ''}`}>
+          <div className={`flex-1 flex flex-col min-w-0 ${isPreviewOpen && !isMobile ? 'border-r' : ''}`} style={{ borderColor: t.border }}>
 
-            <div ref={chatContainerRef} className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: theme === 'dark' ? '#30363d #0d1117' : '#d1d5db #ffffff' }}>
+            {/* Chat Messages */}
+            <div ref={chatContainerRef} className="flex-1 overflow-y-auto relative" style={{ scrollbarWidth: 'thin', scrollbarColor: `${t.scrollThumb} ${t.scrollTrack}` }}>
               {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center px-6">
+                <div className="h-full flex flex-col items-center justify-center px-4 md:px-6">
                   <div className="max-w-lg w-full text-center space-y-4">
-                    <div className="w-14 h-14 mx-auto rounded-3xl bg-gradient-to-br from-blue-600 to-violet-600 flex items-center justify-center shadow-lg mb-4">
-                      <Sparkles className="text-white" size={28} />
-                    </div>
-                    <h1 className={`text-2xl md:text-3xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Siap membantu Anda, Andi.</h1>
-                    <p className={`text-sm ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>
+                    <motion.div
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", bounce: 0.3, duration: 0.6 }}
+                      className={`w-16 h-16 mx-auto rounded-3xl bg-gradient-to-br ${t.gradient} flex items-center justify-center shadow-xl mb-5`}
+                    >
+                      <Sparkles className="text-white" size={32} />
+                    </motion.div>
+                    <motion.h1
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.1 }}
+                      className="text-2xl md:text-3xl font-bold"
+                      style={{ color: t.text }}
+                    >
+                      Siap membantu Anda, Andi.
+                    </motion.h1>
+                    <motion.p
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                      className="text-sm leading-relaxed"
+                      style={{ color: t.textMuted }}
+                    >
                       {isExamMode ? "Mulai belajar untuk JLPT N2 atau Sertifikasi Kebersihan? Unggah modul PDF Anda." : "Ketik instruksi, unggah file, atau gunakan / untuk perintah cepat."}
-                    </p>
-                    
-                    <div className="flex flex-wrap justify-center gap-2 mt-4">
-                      {activeProject && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-orange-50 text-orange-600 border-orange-200'}`}><Folder size={12} /> {activeProject.name}</div>}
-                      {isCodingMode && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-blue-50 text-blue-600 border-blue-200'}`}><Code size={12} /> Claude Logic ON</div>}
-                      {isExamMode && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}><GraduationCap size={12} /> Ujian ON</div>}
-                      {dirHandle && <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border ${theme === 'dark' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}><FolderSync size={12} /> {dirHandle.name} Terhubung</div>}
-                    </div>
+                    </motion.p>
+
+                    {/* Status Badges */}
+                    <motion.div
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.3 }}
+                      className="flex flex-wrap justify-center gap-2 mt-4"
+                    >
+                      {activeProject && <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border" style={{ background: 'rgba(245,158,11,0.1)', color: t.warning, borderColor: 'rgba(245,158,11,0.2)' }}><Folder size={12} /> {activeProject.name}</div>}
+                      {isCodingMode && <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border" style={{ background: t.accentBg, color: t.accent, borderColor: t.accent + '30' }}><Code size={12} /> Mode Koding</div>}
+                      {isExamMode && <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border" style={{ background: 'rgba(34,197,94,0.1)', color: t.success, borderColor: 'rgba(34,197,94,0.2)' }}><GraduationCap size={12} /> Mode Ujian</div>}
+                      {dirHandle && <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border" style={{ background: 'rgba(34,197,94,0.1)', color: t.success, borderColor: 'rgba(34,197,94,0.2)' }}><FolderSync size={12} /> {dirHandle.name}</div>}
+                    </motion.div>
+
+                    {/* Quick Suggestions */}
+                    <motion.div
+                      initial={{ y: 10, opacity: 0 }}
+                      animate={{ y: 0, opacity: 1 }}
+                      transition={{ delay: 0.4 }}
+                      className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-6 max-w-md mx-auto"
+                    >
+                      {[
+                        { icon: Code, text: "Buatkan landing page", color: t.accent },
+                        { icon: ImageIcon, text: "Buat gambar kucing lucu", color: '#ec4899' },
+                        { icon: FileText, text: "Ringkas dokumen ini", color: t.warning },
+                        { icon: Music, text: "Buat lagu tentang kopi", color: t.success },
+                      ].map((sug, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setInput(sug.text); textareaRef.current?.focus(); }}
+                          className="flex items-center gap-2.5 px-4 py-3 rounded-xl text-sm text-left border transition-all"
+                          style={{ borderColor: t.border, color: t.textSecondary }}
+                          onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.borderColor = sug.color + '40'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = t.border; }}
+                        >
+                          <sug.icon size={16} style={{ color: sug.color }} />
+                          <span className="truncate">{sug.text}</span>
+                        </button>
+                      ))}
+                    </motion.div>
                   </div>
                 </div>
               ) : (
-                <div className={`divide-y ${theme === 'dark' ? 'divide-[#30363d]/50' : 'divide-gray-100'}`}>
+                <div>
                   {messages.map((chat, idx) => (
-                    <MessageBubble key={idx} chat={chat} idx={idx} isLast={idx === messages.length - 1} isStreaming={isStreaming} theme={theme} setActiveCanvasTab={setActiveCanvasTab} setIsPreviewOpen={setIsPreviewOpen} setPreviewCode={setPreviewCode} />
+                    <MessageBubble
+                      key={idx}
+                      chat={chat}
+                      idx={idx}
+                      isLast={idx === messages.length - 1}
+                      isStreaming={isStreaming}
+                      t={t}
+                      setActiveCanvasTab={setActiveCanvasTab}
+                      setIsPreviewOpen={setIsPreviewOpen}
+                      setPreviewCode={setPreviewCode}
+                    />
                   ))}
-                  <div ref={chatEndRef} className="h-1" />
+                  <div ref={chatEndRef} className="h-4" />
                 </div>
               )}
+
+              {/* Scroll to Bottom FAB */}
+              <AnimatePresence>
+                {showScrollBottom && (
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.8, y: 10 }}
+                    onClick={scrollToBottom}
+                    className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 p-2.5 rounded-full shadow-xl border transition-all active:scale-90"
+                    style={{ background: t.bgSecondary, borderColor: t.border, color: t.textSecondary }}
+                  >
+                    <ArrowDown size={18} />
+                  </motion.button>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* ===== INPUT BAR ===== */}
-            <div className={`shrink-0 px-3 md:px-4 pb-4 pt-2 ${theme === 'dark' ? 'bg-[#0d1117]' : 'bg-white'}`}>
+            <div className="shrink-0 px-2 md:px-4 pb-[env(safe-area-inset-bottom,8px)] pt-2" style={{ paddingBottom: `max(env(safe-area-inset-bottom, 8px), 8px)`, background: t.bg }}>
               <div className="max-w-3xl mx-auto relative">
 
                 {/* Slash Commands */}
                 <AnimatePresence>
                   {showSlashCommands && (
-                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className={`absolute bottom-full mb-2 left-0 w-full md:w-80 rounded-2xl border shadow-2xl overflow-hidden z-50 ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
-                      <div className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider border-b flex items-center gap-1.5 ${theme === 'dark' ? 'text-gray-500 border-[#30363d] bg-[#0d1117]' : 'text-gray-400 border-gray-100 bg-gray-50'}`}><Zap size={14} className="text-yellow-500" /> Perintah Cepat</div>
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="absolute bottom-full mb-2 left-0 w-full md:w-80 rounded-2xl border shadow-2xl overflow-hidden z-50" style={{ background: t.bgSecondary, borderColor: t.border }}>
+                      <div className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider border-b flex items-center gap-1.5" style={{ color: t.textMuted, borderColor: t.border, background: t.bg }}>
+                        <Zap size={14} style={{ color: t.warning }} /> Perintah Cepat
+                      </div>
                       <div className="max-h-56 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
                         {allPrompts.filter(c => c.command.toLowerCase().includes(commandFilter)).map((cmd, i) => (
-                          <button key={i} onClick={() => applySlashCommand(cmd.prompt)} className={`w-full text-left px-4 py-3 transition-colors border-b last:border-0 ${theme === 'dark' ? 'hover:bg-[#1c2128] border-[#30363d]/50' : 'hover:bg-gray-50 border-gray-100'}`}>
-                            <span className="font-semibold text-sm text-blue-500">{cmd.command}</span>
-                            <span className={`block text-xs mt-1 truncate ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{cmd.description}</span>
+                          <button key={i} onClick={() => applySlashCommand(cmd.prompt)} className="w-full text-left px-4 py-3 transition-colors border-b last:border-0" style={{ borderColor: t.border + '50' }}
+                            onMouseEnter={e => e.currentTarget.style.background = t.bgTertiary}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                          >
+                            <span className="font-semibold text-sm" style={{ color: t.accent }}>{cmd.command}</span>
+                            <span className="block text-xs mt-1 truncate" style={{ color: t.textMuted }}>{cmd.description}</span>
                           </button>
                         ))}
                       </div>
@@ -934,40 +1448,90 @@ export default function App() {
                 {attachments.length > 0 && (
                   <div className="mb-2 flex flex-wrap gap-2">
                     {attachments.map((file, idx) => (
-                      <div key={idx} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border shadow-sm ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] text-gray-300' : 'bg-white border-gray-200 text-gray-700'}`}>
+                      <motion.div
+                        key={idx}
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border shadow-sm"
+                        style={{ background: t.bgSecondary, borderColor: t.border, color: t.textSecondary }}
+                      >
                         <Paperclip size={12} className="opacity-50" />
-                        <span className="truncate max-w-[120px]">{file.name}</span>
-                        <button onClick={() => hapusAttachment(idx)} className="hover:text-red-500 ml-1"><X size={12} /></button>
-                      </div>
+                        <span className="truncate max-w-[100px] md:max-w-[120px]">{file.name}</span>
+                        <button onClick={() => hapusAttachment(idx)} className="ml-1 transition-colors" style={{ color: t.textMuted }}
+                          onMouseEnter={e => e.currentTarget.style.color = t.danger}
+                          onMouseLeave={e => e.currentTarget.style.color = t.textMuted}
+                        ><X size={12} /></button>
+                      </motion.div>
                     ))}
                   </div>
                 )}
 
                 {/* Input Container */}
-                <div className={`rounded-2xl border shadow-sm transition-colors ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d] focus-within:border-blue-500/50' : 'bg-white border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100'}`}>
-                  <textarea ref={textareaRef} className={`w-full bg-transparent text-[15px] outline-none resize-none px-4 pt-4 pb-2 leading-relaxed ${theme === 'dark' ? 'text-[#e6edf3] placeholder-gray-500' : 'text-gray-900 placeholder-gray-400'}`} placeholder={`Ketik pesan Anda di sini...`} rows="1" style={{ maxHeight: '200px' }} value={input} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }} disabled={isStreaming} />
+                <div className="rounded-2xl border shadow-sm transition-all" style={{ background: t.bgInput, borderColor: t.border }}
+                  onFocus={() => {}}
+                >
+                  <textarea
+                    ref={textareaRef}
+                    className="w-full bg-transparent text-[15px] outline-none resize-none px-3 md:px-4 pt-3 md:pt-4 pb-1 md:pb-2 leading-relaxed"
+                    style={{ color: t.text, maxHeight: '200px', caretColor: t.accent }}
+                    placeholder="Ketik pesan Anda di sini..."
+                    rows="1"
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); kirimPesan(); } }}
+                    disabled={isStreaming}
+                    onFocus={e => e.target.closest('.rounded-2xl').style.borderColor = t.borderFocus}
+                    onBlur={e => e.target.closest('.rounded-2xl').style.borderColor = t.border}
+                  />
 
-                  <div className="flex items-center justify-between px-3 pb-3 pt-1">
-                    <div className="flex items-center gap-1">
+                  <div className="flex items-center justify-between px-2 md:px-3 pb-2 md:pb-3 pt-0 md:pt-1">
+                    <div className="flex items-center gap-0.5 md:gap-1">
                       <input type="file" multiple ref={fileInputRef} className="hidden" onChange={handleFileChange} />
-                      <button onClick={() => fileInputRef.current?.click()} className={`p-2 rounded-xl transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-[#30363d]' : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'}`} title="Lampirkan File"><Paperclip size={18} /></button>
-                      
-                      {!dirHandle && (
-                        <button onClick={linkFolder} className={`p-2 rounded-xl transition-colors hidden md:block ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-[#30363d]' : 'text-gray-500 hover:text-green-600 hover:bg-green-50'}`} title="Tautkan Folder VS Code Lokal"><FolderSync size={18} /></button>
+                      <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-xl transition-colors" style={{ color: t.textMuted }} title="Lampirkan File"
+                        onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.accent; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                      ><Paperclip size={18} /></button>
+
+                      {!dirHandle && !isMobile && (
+                        <button onClick={linkFolder} className="p-2 rounded-xl transition-colors" style={{ color: t.textMuted }} title="Tautkan Folder"
+                          onMouseEnter={e => { e.currentTarget.style.background = t.bgTertiary; e.currentTarget.style.color = t.success; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; }}
+                        ><FolderSync size={18} /></button>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3">
-                      {activeRoute && <span className={`text-[10px] font-bold uppercase tracking-widest hidden md:block ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>{activeRoute}</span>}
-                      <button onClick={kirimPesan} disabled={isStreaming || (!input.trim() && attachments.length === 0)} className={`p-2.5 rounded-xl transition-all active:scale-95 flex items-center gap-2 ${isStreaming || (!input.trim() && attachments.length === 0) ? (theme === 'dark' ? 'bg-[#30363d] text-gray-500' : 'bg-gray-100 text-gray-400') : 'bg-blue-600 text-white hover:bg-blue-500 shadow-md'}`}>
+                    <div className="flex items-center gap-2 md:gap-3">
+                      {/* Character Counter */}
+                      {charCount > 0 && (
+                        <span className="text-[10px] font-mono tabular-nums hidden md:block" style={{ color: charCount > MAX_CHARS * 0.9 ? t.danger : t.textMuted }}>
+                          {charCount.toLocaleString()}/{MAX_CHARS.toLocaleString()}
+                        </span>
+                      )}
+
+                      {/* Active Route */}
+                      {activeRoute && <span className="text-[10px] font-bold uppercase tracking-widest hidden md:block" style={{ color: t.textMuted }}>{activeRoute}</span>}
+
+                      {/* Keyboard Hint (Desktop) */}
+                      {!isMobile && !isStreaming && input.trim() && (
+                        <span className="text-[10px] hidden md:flex items-center gap-1" style={{ color: t.textMuted }}>
+                          <kbd className="px-1.5 py-0.5 rounded border font-mono text-[9px]" style={{ borderColor: t.border }}>Enter</kbd> kirim
+                        </span>
+                      )}
+
+                      <button
+                        onClick={kirimPesan}
+                        disabled={isStreaming || (!input.trim() && attachments.length === 0)}
+                        className={`p-2 md:p-2.5 rounded-xl transition-all active:scale-95 flex items-center gap-2 ${isStreaming || (!input.trim() && attachments.length === 0) ? '' : `bg-gradient-to-r ${t.gradient} shadow-lg`}`}
+                        style={isStreaming || (!input.trim() && attachments.length === 0) ? { background: t.bgTertiary, color: t.textMuted } : { color: 'white' }}
+                      >
                         {isStreaming ? <StopCircle size={18} /> : <Send size={18} className="ml-0.5" />}
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <p className={`text-center text-[10px] mt-3 ${theme === 'dark' ? 'text-gray-600' : 'text-gray-400'}`}>
-                  AI dapat berhalusinasi. Mohon periksa kembali informasi penting yang dihasilkan.
+                <p className="text-center text-[10px] mt-2 md:mt-3" style={{ color: t.textMuted }}>
+                  AI dapat berhalusinasi. Mohon periksa kembali informasi penting.
                 </p>
               </div>
             </div>
@@ -976,21 +1540,52 @@ export default function App() {
           {/* ===== CANVAS / PREVIEW PANEL ===== */}
           <AnimatePresence>
             {isPreviewOpen && (
-              <motion.div initial={{ width: 0, opacity: 0 }} animate={{ width: isMobile ? '100%' : '50%', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ type: "spring", bounce: 0, duration: 0.35 }} className={`flex flex-col overflow-hidden shrink-0 ${isMobile ? 'absolute inset-0 z-40' : ''} ${theme === 'dark' ? 'bg-[#0d1117] border-l border-[#30363d]' : 'bg-white border-l border-gray-200'}`}>
-                <div className={`flex items-center justify-between h-12 px-3 border-b shrink-0 ${theme === 'dark' ? 'border-[#30363d] bg-[#010409]' : 'border-gray-200 bg-gray-50'}`}>
+              <motion.div
+                initial={{ width: 0, opacity: 0 }}
+                animate={{ width: isMobile ? '100%' : '50%', opacity: 1 }}
+                exit={{ width: 0, opacity: 0 }}
+                transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+                className={`flex flex-col overflow-hidden shrink-0 ${isMobile ? 'absolute inset-0 z-40' : ''} border-l`}
+                style={{ background: t.bg, borderColor: t.border }}
+              >
+                {/* Canvas Header */}
+                <div className="flex items-center justify-between h-12 px-3 border-b shrink-0" style={{ borderColor: t.border, background: t.sidebarBg }}>
                   <div className="flex items-center gap-1">
                     {["preview", "code", "terminal"].map(tab => (
-                      <button key={tab} onClick={() => setActiveCanvasTab(tab)} className={`px-4 py-2 text-xs font-bold capitalize transition-all rounded-lg flex items-center gap-1.5 ${activeCanvasTab === tab ? (theme === 'dark' ? 'bg-[#161b22] text-white border border-[#30363d]' : 'bg-white text-blue-600 shadow-sm border border-gray-200') : (theme === 'dark' ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700')}`}>
-                        {tab === 'preview' && <Play size={14} />} {tab === 'code' && <Code size={14} />} {tab === 'terminal' && <TerminalSquare size={14} />} {tab}
+                      <button
+                        key={tab}
+                        onClick={() => setActiveCanvasTab(tab)}
+                        className="px-3 md:px-4 py-2 text-xs font-bold capitalize transition-all rounded-lg flex items-center gap-1.5"
+                        style={{
+                          color: activeCanvasTab === tab ? t.text : t.textMuted,
+                          background: activeCanvasTab === tab ? t.bgTertiary : 'transparent',
+                          borderWidth: activeCanvasTab === tab ? 1 : 0,
+                          borderColor: activeCanvasTab === tab ? t.border : 'transparent',
+                        }}
+                      >
+                        {tab === 'preview' && <Play size={13} />}
+                        {tab === 'code' && <Code size={13} />}
+                        {tab === 'terminal' && <TerminalSquare size={13} />}
+                        <span className="hidden md:inline">{tab}</span>
                       </button>
                     ))}
                   </div>
-                  <button onClick={() => setIsPreviewOpen(false)} className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-gray-400 hover:text-white hover:bg-[#161b22]' : 'text-gray-500 hover:text-red-500 hover:bg-red-50'}`}><X size={18} /></button>
+                  <button onClick={() => setIsPreviewOpen(false)} className="p-2 rounded-lg transition-colors" style={{ color: t.textMuted }}
+                    onMouseEnter={e => { e.currentTarget.style.color = t.danger; e.currentTarget.style.background = t.bgTertiary; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; e.currentTarget.style.background = 'transparent'; }}
+                  ><X size={18} /></button>
                 </div>
 
+                {/* Canvas Body */}
                 <div className="flex-1 relative overflow-hidden">
                   {activeCanvasTab === "code" && (
-                    <textarea value={previewCode} onChange={(e) => setPreviewCode(e.target.value)} className={`absolute inset-0 w-full h-full bg-transparent font-mono text-[13px] p-6 outline-none resize-none leading-relaxed ${theme === 'dark' ? 'text-[#c9d1d9]' : 'text-gray-800'}`} spellCheck="false" />
+                    <textarea
+                      value={previewCode}
+                      onChange={(e) => setPreviewCode(e.target.value)}
+                      className="absolute inset-0 w-full h-full bg-transparent font-mono text-[13px] p-4 md:p-6 outline-none resize-none leading-relaxed"
+                      style={{ color: t.textSecondary, caretColor: t.accent }}
+                      spellCheck="false"
+                    />
                   )}
 
                   {activeCanvasTab === "preview" && (
@@ -1000,27 +1595,50 @@ export default function App() {
                   )}
 
                   {activeCanvasTab === "terminal" && (
-                    <div className="absolute inset-0 flex flex-col bg-[#0d1117]">
+                    <div className="absolute inset-0 flex flex-col" style={{ background: t.bg }}>
                       {sshStatus === "disconnected" ? (
                         <div className="flex-1 flex items-center justify-center p-4">
-                          <form onSubmit={connectSSH} className={`w-full max-w-xs space-y-4 p-6 rounded-2xl border shadow-xl ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+                          <form onSubmit={connectSSH} className="w-full max-w-xs space-y-4 p-6 rounded-2xl border shadow-xl" style={{ background: t.bgSecondary, borderColor: t.border }}>
                             <div className="text-center mb-6">
-                              <div className="w-12 h-12 mx-auto rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center mb-3"><Server size={24} className="text-green-500" /></div>
-                              <h3 className={`font-bold text-base ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>SSH Terminal Remote</h3>
+                              <div className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center mb-3 border" style={{ background: 'rgba(34,197,94,0.1)', borderColor: 'rgba(34,197,94,0.2)' }}>
+                                <Server size={24} style={{ color: t.success }} />
+                              </div>
+                              <h3 className="font-bold text-base" style={{ color: t.text }}>SSH Terminal Remote</h3>
                             </div>
-                            <input required type="text" placeholder="IP Host (misal: 192.168.1.5)" className={`w-full text-sm p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-green-500'}`} value={sshCreds.host} onChange={e => setSshCreds({...sshCreds, host: e.target.value})} />
-                            <input required type="text" placeholder="Username" className={`w-full text-sm p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-green-500'}`} value={sshCreds.username} onChange={e => setSshCreds({...sshCreds, username: e.target.value})} />
-                            <input required type="password" placeholder="Password" className={`w-full text-sm p-3 rounded-xl border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white focus:border-green-500' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-green-500'}`} value={sshCreds.password} onChange={e => setSshCreds({...sshCreds, password: e.target.value})} />
-                            <button type="submit" className={`w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-95 ${sshStatus === "connecting" ? 'bg-yellow-600 text-white' : 'bg-green-600 hover:bg-green-500 text-white shadow-lg'}`}>
+                            {['host', 'username', 'password'].map((field) => (
+                              <input
+                                key={field}
+                                required
+                                type={field === 'password' ? 'password' : 'text'}
+                                placeholder={field === 'host' ? 'IP Host (misal: 192.168.1.5)' : field === 'username' ? 'Username' : 'Password'}
+                                className="w-full text-sm p-3 rounded-xl border outline-none transition-colors"
+                                style={{ background: t.bg, borderColor: t.border, color: t.text }}
+                                onFocus={e => e.target.style.borderColor = t.success}
+                                onBlur={e => e.target.style.borderColor = t.border}
+                                value={sshCreds[field]}
+                                onChange={e => setSshCreds({...sshCreds, [field]: e.target.value})}
+                              />
+                            ))}
+                            <button
+                              type="submit"
+                              className="w-full py-3 rounded-xl text-sm font-bold transition-all active:scale-95 text-white shadow-lg"
+                              style={{ background: sshStatus === "connecting" ? t.warning : t.success }}
+                            >
                               {sshStatus === "connecting" ? "Menghubungi..." : "Hubungkan"}
                             </button>
                           </form>
                         </div>
                       ) : (
                         <div className="flex flex-col h-full">
-                          <div className={`text-xs px-4 py-2.5 border-b flex justify-between items-center ${theme === 'dark' ? 'bg-[#010409] border-[#30363d] text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
-                            <span className="font-mono flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" /> {sshCreds.username}@{sshCreds.host}</span>
-                            <button onClick={disconnectSSH} className="text-red-400 hover:text-red-300 font-bold px-2 py-1 rounded hover:bg-red-500/10 transition-colors">Putuskan</button>
+                          <div className="text-xs px-4 py-2.5 border-b flex justify-between items-center" style={{ background: t.sidebarBg, borderColor: t.border, color: t.textSecondary }}>
+                            <span className="font-mono flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: t.success }} />
+                              {sshCreds.username}@{sshCreds.host}
+                            </span>
+                            <button onClick={disconnectSSH} className="font-bold px-2 py-1 rounded transition-colors" style={{ color: t.danger }}
+                              onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                            >Putuskan</button>
                           </div>
                           <div ref={terminalRef} className="flex-1 p-2 overflow-hidden" />
                         </div>
@@ -1034,59 +1652,73 @@ export default function App() {
         </div>
       </div>
 
-      {/* ========== MODALS ========== */}
-      <Modal isOpen={isProjectsOpen} onClose={() => setIsProjectsOpen(false)} theme={theme} maxWidth="max-w-2xl">
-        <div className={`p-5 border-b flex justify-between items-center ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
-          <div className="flex items-center gap-3"><Layers size={20} className="text-orange-500" /><h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Manajemen Proyek</h2></div>
-          <button onClick={() => setIsProjectsOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'}`}><X size={18} /></button>
+      {/* ========== ALL MODALS ========== */}
+
+      {/* Theme Picker */}
+      <ThemePicker isOpen={isThemePickerOpen} onClose={() => setIsThemePickerOpen(false)} currentTheme={themeId} onSelect={setThemeId} t={t} />
+
+      {/* Search Modal */}
+      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} sessions={sessions} onSelect={muatChatLama} t={t} />
+
+      {/* Projects Modal */}
+      <Modal isOpen={isProjectsOpen} onClose={() => setIsProjectsOpen(false)} t={t} maxWidth="max-w-2xl">
+        <div className="p-5 border-b flex justify-between items-center shrink-0" style={{ borderColor: t.border }}>
+          <div className="flex items-center gap-3"><Layers size={20} style={{ color: t.warning }} /><h2 className="text-xl font-bold" style={{ color: t.text }}>Manajemen Proyek</h2></div>
+          <button onClick={() => setIsProjectsOpen(false)} className="p-2 rounded-xl" style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
           <div className="space-y-3">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Buat Proyek Baru</h3>
-            <input id="projName" placeholder="Nama Proyek (misal: Robot AI Kartos)" className={`w-full p-3.5 rounded-xl text-sm border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'}`} />
-            <textarea id="projCtx" placeholder="Instruksi khusus proyek (misal: Selalu gunakan Python 3.10...)" rows="3" className={`w-full p-3.5 rounded-xl text-sm border outline-none resize-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white' : 'bg-gray-50 border-gray-200'}`} />
-            <button onClick={() => { const n = document.getElementById('projName')?.value; const c = document.getElementById('projCtx')?.value; if (n) { setProjectsList([...projectsList, { id: Date.now(), name: n, context: c || '' }]); document.getElementById('projName').value = ''; document.getElementById('projCtx').value = ''; } }} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-3 rounded-xl text-sm font-bold shadow-md transition-colors">Buat Proyek</button>
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: t.textMuted }}>Buat Proyek Baru</h3>
+            <input id="projName" placeholder="Nama Proyek (misal: Robot AI Kartos)" className="w-full p-3.5 rounded-xl text-sm border outline-none transition-colors" style={{ background: t.bgTertiary, borderColor: t.border, color: t.text }} onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} />
+            <textarea id="projCtx" placeholder="Instruksi khusus proyek..." rows="3" className="w-full p-3.5 rounded-xl text-sm border outline-none resize-none transition-colors" style={{ background: t.bgTertiary, borderColor: t.border, color: t.text }} onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} />
+            <button onClick={() => { const n = document.getElementById('projName')?.value; const c = document.getElementById('projCtx')?.value; if (n) { setProjectsList([...projectsList, { id: Date.now(), name: n, context: c || '' }]); document.getElementById('projName').value = ''; document.getElementById('projCtx').value = ''; } }} className={`w-full text-white py-3 rounded-xl text-sm font-bold shadow-lg transition-colors bg-gradient-to-r ${t.gradient}`}>Buat Proyek</button>
           </div>
           <div className="space-y-3">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Pilih Proyek Aktif</h3>
-            <div onClick={() => setActiveProject(null)} className={`p-4 rounded-xl border cursor-pointer transition-all ${!activeProject ? 'ring-2 ring-blue-500 border-transparent bg-blue-500/10' : (theme === 'dark' ? 'border-[#30363d] hover:bg-[#161b22]' : 'border-gray-200 hover:bg-gray-50')}`}>
-              <div className={`font-bold text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-700'}`}>Tanpa Proyek (Chat Umum)</div>
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: t.textMuted }}>Pilih Proyek Aktif</h3>
+            <div onClick={() => setActiveProject(null)} className="p-4 rounded-xl border-2 cursor-pointer transition-all" style={{ borderColor: !activeProject ? t.accent : t.border, background: !activeProject ? t.accentBg : 'transparent' }}>
+              <div className="font-bold text-sm" style={{ color: t.textSecondary }}>Tanpa Proyek (Chat Umum)</div>
             </div>
             {projectsList.map(proj => (
-              <div key={proj.id} onClick={() => setActiveProject(proj)} className={`group p-4 rounded-xl border cursor-pointer transition-all relative ${activeProject?.id === proj.id ? 'ring-2 ring-orange-500 border-transparent bg-orange-500/10' : (theme === 'dark' ? 'border-[#30363d] hover:bg-[#161b22]' : 'border-gray-200 hover:bg-gray-50')}`}>
-                <div className="font-bold text-base text-orange-500 mb-1">{proj.name}</div>
-                {proj.context && <div className={`text-sm line-clamp-2 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}`}>{proj.context}</div>}
-                <button onClick={(e) => { e.stopPropagation(); setProjectsList(projectsList.filter(p => p.id !== proj.id)); if (activeProject?.id === proj.id) setActiveProject(null); }} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/20 text-red-500 rounded-lg transition-all"><Trash2 size={16} /></button>
+              <div key={proj.id} onClick={() => setActiveProject(proj)} className="group p-4 rounded-xl border-2 cursor-pointer transition-all relative" style={{ borderColor: activeProject?.id === proj.id ? t.warning : t.border, background: activeProject?.id === proj.id ? 'rgba(245,158,11,0.08)' : 'transparent' }}>
+                <div className="font-bold text-base mb-1" style={{ color: t.warning }}>{proj.name}</div>
+                {proj.context && <div className="text-sm line-clamp-2" style={{ color: t.textMuted }}>{proj.context}</div>}
+                <button onClick={(e) => { e.stopPropagation(); setProjectsList(projectsList.filter(p => p.id !== proj.id)); if (activeProject?.id === proj.id) setActiveProject(null); }} className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-2 rounded-lg transition-all" style={{ color: t.danger }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                ><Trash2 size={16} /></button>
               </div>
             ))}
           </div>
         </div>
       </Modal>
 
-      <Modal isOpen={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} theme={theme} maxWidth="max-w-5xl">
-        <div className={`p-5 border-b flex justify-between items-center shrink-0 ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
-          <div className="flex items-center gap-3"><ImageIcon size={20} className="text-purple-500" /><h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Galeri Media</h2></div>
-          <button onClick={() => setIsGalleryOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'}`}><X size={18} /></button>
+      {/* Gallery Modal */}
+      <Modal isOpen={isGalleryOpen} onClose={() => setIsGalleryOpen(false)} t={t} maxWidth="max-w-5xl">
+        <div className="p-5 border-b flex justify-between items-center shrink-0" style={{ borderColor: t.border }}>
+          <div className="flex items-center gap-3"><ImageIcon size={20} className="text-purple-500" /><h2 className="text-xl font-bold" style={{ color: t.text }}>Galeri Media</h2></div>
+          <button onClick={() => setIsGalleryOpen(false)} className="p-2 rounded-xl" style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
-        <div className={`flex gap-2 p-4 border-b overflow-x-auto shrink-0 ${theme === 'dark' ? 'border-[#30363d] bg-[#010409]' : 'border-gray-100 bg-gray-50'}`} style={{ scrollbarWidth: 'none' }}>
-          {[{ val: 'all', icon: LayoutGrid, label: 'Semua Media' }, { val: 'image', icon: ImageIcon, label: 'Gambar' }, { val: 'video', icon: Video, label: 'Video' }, { val: 'audio', icon: Volume2, label: 'Audio' }].map(f => (
-            <button key={f.val} onClick={() => setGalleryFilter(f.val)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${galleryFilter === f.val ? (theme === 'dark' ? 'bg-purple-500 text-white' : 'bg-purple-600 text-white shadow-md') : (theme === 'dark' ? 'text-gray-400 hover:bg-[#161b22]' : 'text-gray-600 hover:bg-gray-200')}`}><f.icon size={16} /> {f.label}</button>
+        <div className="flex gap-2 p-3 md:p-4 border-b overflow-x-auto shrink-0" style={{ borderColor: t.border, background: t.sidebarBg, scrollbarWidth: 'none' }}>
+          {[{ val: 'all', icon: LayoutGrid, label: 'Semua' }, { val: 'image', icon: ImageIcon, label: 'Gambar' }, { val: 'video', icon: Video, label: 'Video' }, { val: 'audio', icon: Volume2, label: 'Audio' }].map(f => (
+            <button key={f.val} onClick={() => setGalleryFilter(f.val)} className="flex items-center gap-2 px-3 md:px-4 py-2 rounded-xl text-xs md:text-sm font-bold whitespace-nowrap transition-all" style={{ background: galleryFilter === f.val ? t.accent : 'transparent', color: galleryFilter === f.val ? 'white' : t.textMuted }}>
+              <f.icon size={15} /> {f.label}
+            </button>
           ))}
         </div>
-        <div className={`flex-1 overflow-y-auto p-6 ${theme === 'dark' ? 'bg-[#0d1117]' : 'bg-gray-50'}`} style={{ scrollbarWidth: 'none' }}>
+        <div className="flex-1 overflow-y-auto p-4 md:p-6" style={{ background: t.bg, scrollbarWidth: 'none' }}>
           {filteredMedia.length === 0 ? (
-            <div className="h-64 flex flex-col items-center justify-center text-gray-500 space-y-4"><LayoutGrid size={48} className="opacity-20" /><p className="text-base font-medium">Belum ada media yang di-generate</p></div>
+            <div className="h-64 flex flex-col items-center justify-center space-y-4" style={{ color: t.textMuted }}><LayoutGrid size={48} className="opacity-20" /><p className="text-base font-medium">Belum ada media</p></div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4">
               {filteredMedia.map((media, i) => (
-                <div key={i} className={`group relative rounded-2xl overflow-hidden border shadow-sm hover:shadow-md transition-all ${media.type === 'audio' ? 'p-4 flex flex-col' : 'aspect-square'} ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-white border-gray-200'}`}>
+                <div key={i} className={`group relative rounded-2xl overflow-hidden border shadow-sm hover:shadow-lg transition-all ${media.type === 'audio' ? 'p-3 md:p-4 flex flex-col' : 'aspect-square'}`} style={{ background: t.bgSecondary, borderColor: t.border }}>
                   {media.type === 'image' && <img src={media.url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />}
                   {media.type === 'video' && <video src={media.url} className="absolute inset-0 w-full h-full object-cover bg-black" controls muted />}
-                  {media.type === 'audio' && <><div className="flex-1 flex items-center justify-center"><Music size={40} className="text-purple-500/30" /></div><CustomAudioPlayer src={media.url} theme={theme} /></>}
+                  {media.type === 'audio' && <><div className="flex-1 flex items-center justify-center"><Music size={36} className="opacity-20" style={{ color: t.accent }} /></div><CustomAudioPlayer src={media.url} t={t} /></>}
                   {media.type !== 'audio' && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4 z-10">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-3 md:p-4 z-10">
                       <span className="text-xs text-white font-medium truncate pr-3">{media.title}</span>
-                      <button onClick={() => unduhGambar(media.url)} className="p-2 bg-white/20 hover:bg-blue-500 rounded-xl text-white backdrop-blur-md transition-colors shrink-0 shadow-lg" title="Unduh"><Download size={16} /></button>
+                      <button onClick={() => unduhGambar(media.url)} className="p-2 bg-white/20 hover:bg-blue-500 rounded-xl text-white backdrop-blur-md transition-colors shrink-0 shadow-lg" title="Unduh"><Download size={15} /></button>
                     </div>
                   )}
                 </div>
@@ -1096,29 +1728,35 @@ export default function App() {
         </div>
       </Modal>
 
-      <Modal isOpen={isManagePromptOpen} onClose={() => setIsManagePromptOpen(false)} theme={theme} maxWidth="max-w-lg">
-        <div className={`p-5 border-b flex justify-between items-center ${theme === 'dark' ? 'border-[#30363d]' : 'border-gray-200'}`}>
-          <div className="flex items-center gap-3"><Settings size={20} className="text-blue-500" /><h2 className={`text-xl font-bold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>Kelola Prompt</h2></div>
-          <button onClick={() => setIsManagePromptOpen(false)} className={`p-2 rounded-xl ${theme === 'dark' ? 'text-gray-500 hover:bg-[#161b22]' : 'text-gray-400 hover:bg-gray-100'}`}><X size={18} /></button>
+      {/* Manage Prompt Modal */}
+      <Modal isOpen={isManagePromptOpen} onClose={() => setIsManagePromptOpen(false)} t={t} maxWidth="max-w-lg">
+        <div className="p-5 border-b flex justify-between items-center shrink-0" style={{ borderColor: t.border }}>
+          <div className="flex items-center gap-3"><Settings size={20} style={{ color: t.accent }} /><h2 className="text-xl font-bold" style={{ color: t.text }}>Kelola Prompt</h2></div>
+          <button onClick={() => setIsManagePromptOpen(false)} className="p-2 rounded-xl" style={{ color: t.textMuted }}><X size={18} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex-1 overflow-y-auto p-5 md:p-6 space-y-6" style={{ scrollbarWidth: 'none' }}>
           <div className="space-y-3">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Tambah Prompt Baru</h3>
-            <input placeholder="/perintah (misal: /review)" className={`w-full p-3.5 rounded-xl text-sm border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'}`} value={newPrompt.command} onChange={e => setNewPrompt({ ...newPrompt, command: e.target.value })} />
-            <input placeholder="Deskripsi singkat" className={`w-full p-3.5 rounded-xl text-sm border outline-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'}`} value={newPrompt.description} onChange={e => setNewPrompt({ ...newPrompt, description: e.target.value })} />
-            <textarea placeholder="Isi instruksi AI yang lengkap di sini..." rows="4" className={`w-full p-3.5 rounded-xl text-sm border outline-none resize-none ${theme === 'dark' ? 'bg-[#0d1117] border-[#30363d] text-white placeholder-gray-600' : 'bg-gray-50 border-gray-200 placeholder-gray-400'}`} value={newPrompt.prompt} onChange={e => setNewPrompt({ ...newPrompt, prompt: e.target.value })} />
-            <button onClick={savePrompt} disabled={!newPrompt.command || !newPrompt.prompt} className={`w-full py-3 rounded-xl text-sm font-bold transition-all shadow-md ${!newPrompt.command || !newPrompt.prompt ? (theme === 'dark' ? 'bg-[#30363d] text-gray-600 shadow-none' : 'bg-gray-200 text-gray-400 shadow-none') : 'bg-blue-600 hover:bg-blue-500 text-white active:scale-95'}`}><Save size={16} className="inline mr-2 -mt-0.5" /> Simpan ke Supabase</button>
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: t.textMuted }}>Tambah Prompt Baru</h3>
+            <input placeholder="/perintah (misal: /review)" className="w-full p-3.5 rounded-xl text-sm border outline-none transition-colors" style={{ background: t.bgTertiary, borderColor: t.border, color: t.text }} onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} value={newPrompt.command} onChange={e => setNewPrompt({ ...newPrompt, command: e.target.value })} />
+            <input placeholder="Deskripsi singkat" className="w-full p-3.5 rounded-xl text-sm border outline-none transition-colors" style={{ background: t.bgTertiary, borderColor: t.border, color: t.text }} onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} value={newPrompt.description} onChange={e => setNewPrompt({ ...newPrompt, description: e.target.value })} />
+            <textarea placeholder="Isi instruksi AI yang lengkap..." rows="4" className="w-full p-3.5 rounded-xl text-sm border outline-none resize-none transition-colors" style={{ background: t.bgTertiary, borderColor: t.border, color: t.text }} onFocus={e => e.target.style.borderColor = t.accent} onBlur={e => e.target.style.borderColor = t.border} value={newPrompt.prompt} onChange={e => setNewPrompt({ ...newPrompt, prompt: e.target.value })} />
+            <button onClick={savePrompt} disabled={!newPrompt.command || !newPrompt.prompt} className={`w-full py-3 rounded-xl text-sm font-bold transition-all shadow-lg text-white bg-gradient-to-r ${t.gradient}`} style={!newPrompt.command || !newPrompt.prompt ? { opacity: 0.4, cursor: 'not-allowed' } : {}}>
+              <Save size={16} className="inline mr-2 -mt-0.5" /> Simpan ke Supabase
+            </button>
           </div>
           <div className="space-y-3">
-            <h3 className={`text-xs font-bold uppercase tracking-wider ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}`}>Prompt Tersimpan ({slashCommands.length})</h3>
-            {slashCommands.length === 0 && <div className={`text-center text-sm py-8 border-dashed border-2 rounded-xl ${theme === 'dark' ? 'border-[#30363d] text-gray-600' : 'border-gray-200 text-gray-400'}`}>Belum ada prompt tersimpan</div>}
+            <h3 className="text-xs font-bold uppercase tracking-wider" style={{ color: t.textMuted }}>Prompt Tersimpan ({slashCommands.length})</h3>
+            {slashCommands.length === 0 && <div className="text-center text-sm py-8 border-dashed border-2 rounded-xl" style={{ borderColor: t.border, color: t.textMuted }}>Belum ada prompt tersimpan</div>}
             {slashCommands.map(cmd => (
-              <div key={cmd.id} className={`flex justify-between items-center p-4 rounded-xl border group ${theme === 'dark' ? 'bg-[#161b22] border-[#30363d]' : 'bg-gray-50 border-gray-200'}`}>
+              <div key={cmd.id} className="flex justify-between items-center p-4 rounded-xl border group" style={{ background: t.bgTertiary, borderColor: t.border }}>
                 <div className="min-w-0 flex-1">
-                  <div className="font-bold text-sm text-blue-500 mb-1">{cmd.command}</div>
-                  <div className={`text-xs truncate ${theme === 'dark' ? 'text-gray-500' : 'text-gray-500'}`}>{cmd.description || cmd.prompt?.substring(0, 60)}</div>
+                  <div className="font-bold text-sm mb-1" style={{ color: t.accent }}>{cmd.command}</div>
+                  <div className="text-xs truncate" style={{ color: t.textMuted }}>{cmd.description || cmd.prompt?.substring(0, 60)}</div>
                 </div>
-                <button onClick={() => deletePrompt(cmd.id)} className="opacity-0 group-hover:opacity-100 p-2 hover:bg-red-500/10 text-red-500 rounded-lg transition-all shrink-0 ml-3"><Trash2 size={16} /></button>
+                <button onClick={() => deletePrompt(cmd.id)} className="opacity-0 group-hover:opacity-100 p-2 rounded-lg transition-all shrink-0 ml-3" style={{ color: t.danger }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                ><Trash2 size={16} /></button>
               </div>
             ))}
           </div>
